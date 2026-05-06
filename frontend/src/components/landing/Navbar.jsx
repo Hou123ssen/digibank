@@ -1,60 +1,110 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Shield, Menu, X } from 'lucide-react';
+import { Shield, Menu, X, Sun, Moon } from 'lucide-react';
+import logo from '../../images/logo digi.png';
+import { useTheme } from './ThemeContext.jsx';
 
 const NAV_LINKS = ['Overview', 'Features', 'Security', 'Daret', 'Support'];
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { dark, toggle } = useTheme();
 
   return (
     <motion.nav
       initial={{ y: -80, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="fixed top-0 left-0 right-0 z-50 bg-[#001F1C]/75 backdrop-blur-xl border-b border-[#00C2A8]/10"
+      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b"
+      style={{
+        background: dark ? 'rgba(0,31,28,0.75)' : 'rgba(240,255,254,0.85)',
+        borderColor: dark ? 'rgba(0,194,168,0.1)' : 'rgba(0,150,130,0.15)',
+      }}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-gradient-to-br from-[#00C2A8] to-[#007A6E] rounded-xl flex items-center justify-center shadow-lg shadow-[#00C2A8]/30">
-            <Shield size={17} className="text-[#001F1C]" strokeWidth={2.5} />
-          </div>
-          <span className="text-white font-bold text-xl tracking-tight">DigiBank</span>
+          <img src={logo} alt="DigiBank logo" className="w-9 h-9 rounded-xl object-cover" />
+          <span className="font-bold text-xl tracking-tight" style={{ color: dark ? '#fff' : '#003d35' }}>DigiBank</span>
         </div>
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => (
-            <a
+            <motion.a
               key={link}
               href={`#${link.toLowerCase()}`}
-              className="text-[#EAF7F5]/60 hover:text-[#00C2A8] transition-colors duration-200 text-sm font-medium"
+              className="text-sm font-medium"
+              style={{ color: dark ? 'rgba(234,247,245,0.6)' : 'rgba(0,61,53,0.6)' }}
+              whileHover={{ y: -3, color: '#00C2A8' }}
+              transition={{ type: 'spring', stiffness: 400, damping: 18 }}
             >
               {link}
-            </a>
+            </motion.a>
           ))}
         </div>
 
-        {/* Desktop Action Buttons */}
+        {/* Desktop Actions */}
         <div className="hidden md:flex items-center gap-3">
-          <Link to="/login" className="text-[#EAF7F5]/70 hover:text-white text-sm font-medium transition-colors px-2">
-            Login
+          {/* Theme toggle */}
+          <motion.button
+            onClick={toggle}
+            whileHover={{ scale: 1.12, boxShadow: '0 0 18px rgba(0,194,168,0.35)' }}
+            whileTap={{ scale: 0.93 }}
+            className="w-9 h-9 rounded-full flex items-center justify-center border"
+            style={{
+              background: dark ? 'rgba(0,194,168,0.08)' : 'rgba(0,150,130,0.08)',
+              borderColor: dark ? 'rgba(0,194,168,0.2)' : 'rgba(0,150,130,0.2)',
+              color: '#00C2A8',
+            }}
+          >
+            {dark ? <Sun size={15} /> : <Moon size={15} />}
+          </motion.button>
+          <Link to="/login">
+            <motion.button
+              whileHover={{ scale: 1.05, color: '#00C2A8' }}
+              whileTap={{ scale: 0.97 }}
+              className="text-sm font-medium px-2"
+              style={{ color: dark ? 'rgba(234,247,245,0.7)' : 'rgba(0,61,53,0.7)' }}
+            >
+              Login
+            </motion.button>
           </Link>
-          <Link to="/register" className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-full border border-[#00C2A8]/25 hover:border-[#00C2A8]/60 hover:shadow-[0_0_20px_rgba(0,194,168,0.2)] transition-all duration-300">
-            Get Started
+          <Link to="/register">
+            <motion.button
+              whileHover={{ scale: 1.05, boxShadow: '0 0 22px rgba(0,194,168,0.3)', borderColor: 'rgba(0,194,168,0.7)' }}
+              whileTap={{ scale: 0.97 }}
+              className="text-sm font-semibold px-5 py-2.5 rounded-full border"
+              style={{
+                background: dark ? '#000' : 'transparent',
+                color: dark ? '#fff' : '#007a6a',
+                borderColor: dark ? 'rgba(0,194,168,0.25)' : 'rgba(0,150,130,0.45)',
+              }}
+            >
+              Get Started
+            </motion.button>
           </Link>
         </div>
 
         {/* Mobile Hamburger */}
-        <button
-          className="md:hidden text-white p-1"
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-label="Toggle menu"
-        >
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div className="md:hidden flex items-center gap-2">
+          <button
+            onClick={toggle}
+            className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ color: '#00C2A8' }}
+          >
+            {dark ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+          <button
+            className="p-1"
+            style={{ color: dark ? '#fff' : '#003d35' }}
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Toggle menu"
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
@@ -65,24 +115,35 @@ const Navbar = () => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="md:hidden bg-[#001F1C]/95 border-t border-[#00C2A8]/10 px-6 py-4 flex flex-col gap-4"
+            className="md:hidden border-t px-6 py-4 flex flex-col gap-4"
+            style={{
+              background: dark ? 'rgba(0,31,28,0.95)' : 'rgba(240,255,254,0.97)',
+              borderColor: dark ? 'rgba(0,194,168,0.1)' : 'rgba(0,150,130,0.15)',
+            }}
           >
             {NAV_LINKS.map((link) => (
               <a
                 key={link}
                 href={`#${link.toLowerCase()}`}
                 onClick={() => setMenuOpen(false)}
-                className="text-[#EAF7F5]/70 hover:text-[#00C2A8] transition-colors text-sm font-medium py-1"
+                className="text-sm font-medium py-1 transition-colors"
+                style={{ color: dark ? 'rgba(234,247,245,0.7)' : 'rgba(0,61,53,0.7)' }}
               >
                 {link}
               </a>
             ))}
             <div className="flex gap-3 pt-2">
-              <Link to="/login" className="text-white text-sm font-medium border border-white/20 px-4 py-2 rounded-full flex-1 text-center">
-                Login
+              <Link to="/login" className="flex-1">
+                <button className="w-full text-sm font-medium border px-4 py-2 rounded-full"
+                  style={{ color: dark ? '#fff' : '#003d35', borderColor: dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,61,53,0.2)' }}>
+                  Login
+                </button>
               </Link>
-              <Link to="/register" className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-full border border-[#00C2A8]/30 flex-1 text-center">
-                Get Started
+              <Link to="/register" className="flex-1">
+                <button className="w-full text-sm font-semibold px-4 py-2 rounded-full border"
+                  style={{ background: dark ? '#000' : '#fff', color: dark ? '#fff' : '#003d35', borderColor: 'rgba(0,194,168,0.3)' }}>
+                  Get Started
+                </button>
               </Link>
             </div>
           </motion.div>
