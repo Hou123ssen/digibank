@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, LogIn } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const TRUST_BADGES = [
   '🔒  256-bit encryption',
@@ -8,6 +9,7 @@ const TRUST_BADGES = [
 ];
 
 const CTASection = () => {
+  const navigate = useNavigate();
   return (
     <section
       className="relative py-32 overflow-hidden"
@@ -52,6 +54,7 @@ const CTASection = () => {
             <motion.button
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/register')}
               className="flex items-center gap-2.5 font-semibold px-8 py-4 rounded-full text-[#001F1C] text-lg transition-all duration-300"
               style={{ background: '#00C2A8' }}
               onMouseEnter={(e) => {
@@ -70,6 +73,7 @@ const CTASection = () => {
             <motion.button
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/login')}
               className="flex items-center gap-2.5 text-white border border-white/20 px-8 py-4 rounded-full text-lg hover:border-[#00C2A8]/50 hover:text-[#00C2A8] transition-all duration-300"
             >
               <LogIn size={20} />

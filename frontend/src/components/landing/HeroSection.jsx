@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Play } from 'lucide-react';
 import HeroMockup from './HeroMockup.jsx';
 
+import { useNavigate } from 'react-router-dom';
+
 const STATS = [
   { value: '50K+', label: 'Active Users' },
   { value: '99.9%', label: 'Uptime' },
@@ -9,6 +11,7 @@ const STATS = [
 ];
 
 const HeroSection = () => {
+  const navigate = useNavigate();
   return (
     <section
       id="overview"
@@ -102,6 +105,7 @@ const HeroSection = () => {
               className="flex flex-wrap gap-4"
             >
               <button
+                onClick={() => navigate('/register')}
                 className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-full text-[#001F1C] transition-all duration-300"
                 style={{
                   background: '#00C2A8',
