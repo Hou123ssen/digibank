@@ -1,47 +1,17 @@
-
-/* this import tailwindcss */
 @import "tailwindcss";
-/* ================================== */
 
-* {
-  box-sizing: border-box;
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  min-width: 320px;
+  background-color: #001F1C;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
   min-height: 100vh;
-  font-family: Arial, Helvetica, sans-serif;
-  color: #18202f;
-  background: #f5f7fb;
-}
-
-.app-shell {
-  width: min(960px, calc(100% - 32px));
-  margin: 0 auto;
-  padding: 48px 0;
-}
-
-.app-shell h1 {
-  margin: 0 0 24px;
-  font-size: 36px;
-  font-weight: 700;
-}
-
-.status-panel {
-  max-width: 520px;
-  padding: 24px;
-  border: 1px solid #d8dee9;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.status-panel h2 {
-  margin: 0 0 8px;
-  font-size: 22px;
-}
-
-.status-panel p {
-  margin: 0;
-  color: #4b5563;
 }

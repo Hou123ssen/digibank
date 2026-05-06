@@ -1,7 +1,7 @@
-import HomePage from './pages/HomePage.jsx';
+import LandingPage from './pages/LandingPage.jsx';
 
 function App() {
-  return <HomePage />;
+  return <LandingPage />;
 }
 
 export default App;
