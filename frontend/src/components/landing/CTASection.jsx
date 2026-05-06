@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, LogIn } from 'lucide-react';
+import AnimatedBackground from './AnimatedBackground.jsx';
+import { useTheme } from './ThemeContext.jsx';
 
 const TRUST_BADGES = [
   '🔒  256-bit encryption',
@@ -8,21 +10,19 @@ const TRUST_BADGES = [
 ];
 
 const CTASection = () => {
+  const { dark } = useTheme();
   return (
     <section
-      className="relative py-32 overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #000000 0%, #001F1C 100%)' }}
+      className="relative py-20 sm:py-28 lg:py-32 overflow-hidden"
+      style={{ background: dark ? 'linear-gradient(180deg,#000000 0%,#001F1C 100%)' : 'linear-gradient(180deg,#e0f9f5 0%,#f0fffe 100%)' }}
     >
-      {/* Central glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[300px] bg-[#00C2A8]/7 rounded-full blur-[110px] pointer-events-none" />
-      <div className="absolute top-0 left-0 right-0 h-px pointer-events-none"
-        style={{ background: 'linear-gradient(90deg, transparent, rgba(0,194,168,0.18), transparent)' }} />
+      <AnimatedBackground variant="cta" />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: true, amount: 0 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
           className="space-y-8"
         >
@@ -33,44 +33,39 @@ const CTASection = () => {
           </div>
 
           {/* Headline */}
-          <h2 className="text-4xl lg:text-6xl font-bold text-white leading-tight">
+          <h2 className="text-3xl sm:text-4xl lg:text-6xl font-bold leading-tight" style={{ color: dark ? '#fff' : '#002920' }}>
             Ready to experience{' '}
             <span
               className="text-transparent bg-clip-text"
-              style={{ backgroundImage: 'linear-gradient(135deg, #00C2A8 0%, #EAF7F5 100%)' }}
+              style={{ backgroundImage: dark ? 'linear-gradient(135deg, #00C2A8 0%, #EAF7F5 100%)' : 'linear-gradient(135deg, #00A090 0%, #006655 100%)' }}
             >
               smarter banking?
             </span>
           </h2>
 
-          <p className="text-[#EAF7F5]/55 text-xl max-w-xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-xl max-w-xl mx-auto leading-relaxed" style={{ color: dark ? 'rgba(234,247,245,0.55)' : 'rgba(0,41,32,0.6)' }}>
             Join thousands of Moroccans who've already made the switch to digital-first banking.
           </p>
 
           {/* Buttons */}
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <motion.button
-              whileHover={{ scale: 1.04 }}
+              whileHover={{ scale: 1.06, boxShadow: '0 8px 40px rgba(0,194,168,0.55)' }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2.5 font-semibold px-8 py-4 rounded-full text-[#001F1C] text-lg transition-all duration-300"
-              style={{ background: '#00C2A8' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#00D4B8';
-                e.currentTarget.style.boxShadow = '0 0 40px rgba(0,194,168,0.45)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#00C2A8';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
+              className="flex items-center gap-2.5 font-semibold px-8 py-4 rounded-full text-[#001F1C] text-lg"
+              style={{ background: 'linear-gradient(135deg,#00C2A8,#00a896)' }}
             >
               Create Account
-              <ArrowRight size={20} strokeWidth={2.5} />
+              <motion.span whileHover={{ x: 5 }} transition={{ type: 'spring', stiffness: 400 }}>
+                <ArrowRight size={20} strokeWidth={2.5} />
+              </motion.span>
             </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.04 }}
+              whileHover={{ scale: 1.06, borderColor: '#00C2A8', color: '#00C2A8', boxShadow: dark ? '0 0 25px rgba(0,194,168,0.15)' : '0 0 25px rgba(0,194,168,0.25)' }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2.5 text-white border border-white/20 px-8 py-4 rounded-full text-lg hover:border-[#00C2A8]/50 hover:text-[#00C2A8] transition-all duration-300"
+              className="flex items-center gap-2.5 text-lg px-8 py-4 rounded-full border"
+              style={{ color: dark ? '#fff' : '#007a6a', borderColor: dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,150,130,0.4)' }}
             >
               <LogIn size={20} />
               Login
@@ -80,7 +75,7 @@ const CTASection = () => {
           {/* Trust indicators */}
           <div className="flex flex-wrap items-center justify-center gap-8 pt-4">
             {TRUST_BADGES.map((badge) => (
-              <span key={badge} className="text-[#EAF7F5]/35 text-sm">
+              <span key={badge} className="text-sm" style={{ color: dark ? 'rgba(234,247,245,0.35)' : 'rgba(0,41,32,0.4)' }}>
                 {badge}
               </span>
             ))}

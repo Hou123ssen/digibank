@@ -5,10 +5,12 @@ import SecuritySection from '../components/landing/SecuritySection.jsx';
 import TicketingSection from '../components/landing/TicketingSection.jsx';
 import CTASection from '../components/landing/CTASection.jsx';
 import Footer from '../components/landing/Footer.jsx';
+import { ThemeProvider, useTheme } from '../components/landing/ThemeContext.jsx';
 
-const LandingPage = () => {
+const Inner = () => {
+  const { dark } = useTheme();
   return (
-    <div className="bg-[#001F1C] overflow-x-hidden">
+    <div className="overflow-x-hidden" style={{ background: dark ? '#001F1C' : '#f0fffe' }}>
       <Navbar />
       <HeroSection />
       <FeaturesSection />
@@ -19,5 +21,11 @@ const LandingPage = () => {
     </div>
   );
 };
+
+const LandingPage = () => (
+  <ThemeProvider>
+    <Inner />
+  </ThemeProvider>
+);
 
 export default LandingPage;
