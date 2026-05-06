@@ -55,7 +55,8 @@ const RegisterPage = ({ addToast }) => {
 
     try {
       await registerUser(payload);
-      addToast('Account created successfully! Welcome to DigiBank.');
+      addToast('Account created successfully. Please login.');
+      navigate('/login');
     } catch (err) {
       console.error('Registration error:', err);
       const backendError = err.response?.data;
