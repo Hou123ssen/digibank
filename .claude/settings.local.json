@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Imy\\\\digibank\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(node -e \"const lr = require\\('./frontend/node_modules/lucide-react'\\); const keys = Object.keys\\(lr\\); console.log\\('Version:', require\\('./frontend/node_modules/lucide-react/package.json'\\).version\\); console.log\\('Social-ish icons:', keys.filter\\(k => /github|linkedin|twitter|x$/i.test\\(k\\)\\).join\\(', '\\)\\)\")"
+    ]
+  }
+}
