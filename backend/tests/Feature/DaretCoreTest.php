@@ -40,6 +40,56 @@ class DaretCoreTest extends TestCase
         ]);
     }
 
+    public function test_user_can_read_daret_lists_and_details(): void
+    {
+        $creator = $this->eligibleUser('creator@example.com');
+        $member = $this->eligibleUser('member@example.com');
+        $outsider = $this->eligibleUser('outsider@example.com');
+
+        $daret = Daret::create([
+            'creator_id' => $creator->id,
+            'name' => 'Family Daret',
+            'contribution_amount' => 100,
+            'total_members' => 3,
+            'status' => Daret::STATUS_OPEN,
+        ]);
+        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $creator->id, 'joined_at' => now()]);
+        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $member->id, 'joined_at' => now()]);
+
+        Daret::create([
+            'creator_id' => $outsider->id,
+            'name' => 'Other Daret',
+            'contribution_amount' => 250,
+            'total_members' => 4,
+            'status' => Daret::STATUS_OPEN,
+        ]);
+
+        Sanctum::actingAs($member);
+
+        $this->getJson('/api/darets')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(2, 'data.darets');
+
+        $this->getJson('/api/darets/my')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(1, 'data.darets')
+            ->assertJsonPath('data.darets.0.id', $daret->id)
+            ->assertJsonPath('data.darets.0.members_count', 2)
+            ->assertJsonPath('data.darets.0.creator.name', $creator->name)
+            ->assertJsonPath('data.darets.0.is_member', true);
+
+        $this->getJson("/api/darets/{$daret->id}")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.daret.id', $daret->id)
+            ->assertJsonPath('data.daret.creator.name', $creator->name)
+            ->assertJsonCount(2, 'data.daret.members')
+            ->assertJsonPath('data.daret.cycles', [])
+            ->assertJsonPath('data.daret.payments', []);
+    }
+
     public function test_user_must_be_kyc_approved_and_trusted_to_join(): void
     {
         $creator = $this->eligibleUser('creator@example.com');

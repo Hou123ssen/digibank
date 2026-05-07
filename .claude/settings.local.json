@@ -5,7 +5,9 @@
       "Bash(Select-Object Name, Mode)",
       "Bash(npm install *)",
       "Bash(npm run *)",
-      "Bash(node -e \"const lr = require\\('./frontend/node_modules/lucide-react'\\); const keys = Object.keys\\(lr\\); console.log\\('Version:', require\\('./frontend/node_modules/lucide-react/package.json'\\).version\\); console.log\\('Social-ish icons:', keys.filter\\(k => /github|linkedin|twitter|x$/i.test\\(k\\)\\).join\\(', '\\)\\)\")"
+      "Bash(node -e \"const lr = require\\('./frontend/node_modules/lucide-react'\\); const keys = Object.keys\\(lr\\); console.log\\('Version:', require\\('./frontend/node_modules/lucide-react/package.json'\\).version\\); console.log\\('Social-ish icons:', keys.filter\\(k => /github|linkedin|twitter|x$/i.test\\(k\\)\\).join\\(', '\\)\\)\")",
+      "Bash(Select-Object Name, FullName)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\Imy\\\\digibank\\\\frontend\\\\src\" -Recurse -Force | Select-Object FullName | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"c:\\\\Users\\\\Imy\\\\digibank\\\\frontend\\\\\"\\), \"\" } | Sort-Object)"
     ]
   }
 }

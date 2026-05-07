@@ -17,21 +17,43 @@ const LoginPage = ({ addToast }) => {
   const { login } = useAuth();
   const { dark, toggle } = useTheme();
 
-  const { register, handleSubmit, watch, setError: setFormFieldError, formState: { errors } } = useForm();
+  const { register, handleSubmit, watch, setError: setFormFieldError, clearErrors, formState: { errors } } = useForm();
   const emailVal = watch('email', '');
   const passVal  = watch('password', '');
   const hasInput = emailVal?.length > 0 || passVal?.length > 0;
 
   const onSubmit = async (data) => {
-    setIsLoading(true); setError(null);
+    setIsLoading(true);
+    setError(null);
+    clearErrors();
+
     try {
-      await login(data.email, data.password);
+      await login({
+        email: data.email,
+        password: data.password,
+      });
       addToast('Welcome back to DigiBank!');
     } catch (err) {
-      const be = err.response?.data;
-      if (be?.errors) Object.keys(be.errors).forEach(k => setFormFieldError(k, { message: be.errors[k][0] }));
-      else setError(be?.message || 'Invalid credentials. Please check your email and password.');
-    } finally { setIsLoading(false); }
+      console.error('Login error:', err);
+      console.log(err.response?.data);
+      const backendError = err.response?.data;
+
+      const fieldErrors = backendError?.errors;
+      const hasFieldErrors = fieldErrors && typeof fieldErrors === 'object' && Object.keys(fieldErrors).length > 0;
+
+      if (hasFieldErrors) {
+        Object.entries(fieldErrors).forEach(([key, messages]) => {
+          const message = Array.isArray(messages) ? messages[0] : messages;
+          if (message) {
+            setFormFieldError(key, { type: 'server', message });
+          }
+        });
+      } else {
+        setError(backendError?.message || 'Invalid credentials. Please check your email and password.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // right panel colors

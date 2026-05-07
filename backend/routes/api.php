@@ -43,6 +43,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/kyc/submit', [KycController::class, 'submit']);
     Route::get('/kyc/me', [KycController::class, 'me']);
 
+    Route::get('/darets', [DaretController::class, 'index']);
+    Route::get('/darets/my', [DaretController::class, 'my']);
+    Route::get('/darets/{daret}', [DaretController::class, 'show']);
     Route::post('/darets', [DaretController::class, 'store']);
     Route::post('/darets/{daret}/join', [DaretController::class, 'join']);
     Route::post('/darets/{daret}/start', [DaretController::class, 'start']);
