@@ -6,6 +6,7 @@ import AuthLayout from '../../components/layout/AuthLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
+import { cn } from '../../utils/cn';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -229,6 +230,3 @@ const RegisterPage = ({ addToast }) => {
 };
 
 export default RegisterPage;
-
-// Helper to use cn in this file if needed (imported from utils)
-import { cn } from '../../utils/cn';

@@ -1,13 +1,14 @@
 import api from '../lib/api';
 
 const unwrapData = (response) => response.data?.data ?? response.data;
-const unwrapDarets = (response) => {
-  const data = unwrapData(response);
-  return Array.isArray(data) ? data : data?.darets || [];
-};
 const unwrapDaret = (response) => {
   const data = unwrapData(response);
   return data?.daret || data;
+};
+const unwrapDarets = (response) => {
+  const data = unwrapData(response);
+  const darets = Array.isArray(data) ? data : data?.darets || [];
+  return Array.isArray(darets) ? darets : [];
 };
 
 const daretService = {
@@ -22,18 +23,6 @@ const daretService = {
   getDaretById: async (id) => {
     const response = await api.get(`/darets/${id}`);
     return unwrapDaret(response);
-  },
-  getDaretMembers: async (id) => {
-    const daret = await daretService.getDaretById(id);
-    return daret?.members || [];
-  },
-  getDaretCycles: async (id) => {
-    const daret = await daretService.getDaretById(id);
-    return daret?.cycles || [];
-  },
-  getDaretPayments: async (id) => {
-    const daret = await daretService.getDaretById(id);
-    return daret?.payments || [];
   },
   createDaret: async (data) => {
     const response = await api.post('/darets', data);

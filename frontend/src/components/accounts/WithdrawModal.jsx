@@ -34,7 +34,6 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
     try {
       await accountService.withdraw({
         amount: Number(amount),
-        description: 'Retrait de fonds'
       });
       setIsSuccess(true);
       onSuccess?.();

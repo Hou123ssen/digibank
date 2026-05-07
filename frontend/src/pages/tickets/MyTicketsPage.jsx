@@ -115,7 +115,7 @@ const MyTicketsPage = () => {
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(t =>
-        t.subject?.toLowerCase().includes(q) ||
+        (t.title || t.subject)?.toLowerCase().includes(q) ||
         t.reference?.toLowerCase().includes(q),
       );
     }
@@ -228,7 +228,7 @@ const MyTicketsPage = () => {
                       <td className="px-4 py-3.5 max-w-[220px]">
                         <div className="flex items-center gap-2">
                           <p className="text-sm text-white font-medium truncate group-hover:text-emerald-400 transition-colors">
-                            {ticket.subject}
+                            {ticket.title || ticket.subject}
                           </p>
                           {ticket.ai_confidence && (
                             <span className="shrink-0 flex items-center gap-1 text-[9px] text-teal-400 bg-teal-500/10 border border-teal-500/15 rounded-full px-1.5 py-0.5">

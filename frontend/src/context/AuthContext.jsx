@@ -76,11 +76,8 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (formData) => {
     const data = await authService.register(formData);
-    const user = data?.user;
-    const token = data?.token;
-    const account = data?.account;
-
-    handleAuthSuccess(user, token, account);
+    // Do not auto-login after registration; redirect to login page
+    navigate('/login');
     return data;
   };
 

@@ -67,23 +67,25 @@ const NotificationsPage = ({ addToast }) => {
     }
   };
 
+  const isRead = (n) => n.is_read || !!n.read_at;
+
   const markAsRead = async (id) => {
     try {
       await notificationService.markAsRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true, read_at: n.read_at || new Date().toISOString() } : n));
     } catch (err) {
       console.error('Error marking as read:', err);
     }
   };
 
   const markAllAsRead = async () => {
-    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+    const unreadIds = notifications.filter(n => !isRead(n)).map(n => n.id);
     if (unreadIds.length === 0) return;
 
     try {
       // No bulk endpoint, so we iterate
       await Promise.all(unreadIds.map(id => notificationService.markAsRead(id)));
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true, read_at: n.read_at || new Date().toISOString() })));
       addToast?.('Toutes les notifications ont été marquées comme lues', 'success');
     } catch (err) {
       console.error('Error marking all as read:', err);
@@ -123,7 +125,7 @@ const NotificationsPage = ({ addToast }) => {
       if (!matchesSearch) return false;
 
       if (activeTab === 'all') return true;
-      if (activeTab === 'unread') return !n.is_read;
+      if (activeTab === 'unread') return !isRead(n);
       
       const text = (n.title + n.message).toLowerCase();
       return text.includes(activeTab);
@@ -168,7 +170,7 @@ const NotificationsPage = ({ addToast }) => {
   };
 
   const handleNotificationClick = (n) => {
-    if (!n.is_read) markAsRead(n.id);
+    if (!isRead(n)) markAsRead(n.id);
     const route = getRelatedRoute(n);
     if (route) navigate(route);
   };
@@ -185,7 +187,7 @@ const NotificationsPage = ({ addToast }) => {
             size="sm" 
             leftIcon={CheckCheck}
             onClick={markAllAsRead}
-            disabled={notifications.every(n => n.is_read)}
+            disabled={notifications.every(n => isRead(n))}
           >
             Tout marquer comme lu
           </Button>
@@ -252,8 +254,8 @@ const NotificationsPage = ({ addToast }) => {
                         animate={{ opacity: 1, y: 0 }}
                         className={cn(
                           'group relative flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer',
-                          n.is_read 
-                            ? 'bg-white/[0.01] border-white/5 hover:bg-white/[0.03] hover:border-white/10' 
+                          isRead(n)
+                            ? 'bg-white/[0.01] border-white/5 hover:bg-white/[0.03] hover:border-white/10'
                             : 'bg-emerald-500/[0.03] border-emerald-500/20 hover:bg-emerald-500/[0.05] hover:border-emerald-500/30'
                         )}
                         onClick={() => handleNotificationClick(n)}
@@ -266,10 +268,10 @@ const NotificationsPage = ({ addToast }) => {
                         {/* Middle Content */}
                         <div className="flex-1 min-w-0 pr-4">
                           <div className="flex items-center gap-2 mb-0.5">
-                            <h4 className={cn('text-sm truncate transition-colors', n.is_read ? 'text-slate-200' : 'text-white font-bold')}>
+                            <h4 className={cn('text-sm truncate transition-colors', isRead(n) ? 'text-slate-200' : 'text-white font-bold')}>
                               {n.title}
                             </h4>
-                            {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />}
+                            {!isRead(n) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />}
                           </div>
                           <p className="text-xs text-slate-500 line-clamp-1 group-hover:text-slate-400 transition-colors">{n.message}</p>
                           <div className="flex items-center gap-2 mt-2">
@@ -302,8 +304,8 @@ const NotificationsPage = ({ addToast }) => {
                                 className="absolute right-12 top-4 z-50 w-48 bg-bg-card border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                {!n.is_read && (
-                                  <button 
+                                {!isRead(n) && (
+                                  <button
                                     onClick={() => { markAsRead(n.id); setMenuOpenId(null); }}
                                     className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
                                   >

@@ -215,7 +215,7 @@ const EmployeeDashboardPage = () => {
                         </td>
                         <td className="px-4 py-3.5 max-w-[180px]">
                           <p className="text-sm text-white truncate group-hover:text-emerald-400 transition-colors">
-                            {t.subject}
+                            {t.title || t.subject}
                           </p>
                         </td>
                         <td className="px-4 py-3.5">

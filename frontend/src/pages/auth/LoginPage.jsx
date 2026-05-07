@@ -36,7 +36,6 @@ const LoginPage = ({ addToast }) => {
       addToast('Welcome back to DigiBank!');
     } catch (err) {
       console.error('Login error:', err);
-      console.log(err.response?.data);
       const backendError = err.response?.data;
 
       const fieldErrors = backendError?.errors;

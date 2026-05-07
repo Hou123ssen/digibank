@@ -1,6 +1,6 @@
-@import "tailwindcss";
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&family=JetBrains+Mono:wght@400;500&family=Cairo:wght@400;600;700&display=swap');
+
+@import "tailwindcss";
 
 @theme {
   --color-primary: #047857;

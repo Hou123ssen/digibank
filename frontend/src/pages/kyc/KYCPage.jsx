@@ -24,6 +24,8 @@ import Table from '../../components/ui/Table';
 import Badge from '../../components/ui/Badge';
 import kycService from '../../services/kycService';
 
+const toDateInputValue = (value) => value ? String(value).slice(0, 10) : '';
+
 const KYCPage = ({ addToast }) => {
   const [kycData, setKycData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +68,7 @@ const KYCPage = ({ addToast }) => {
         setForm({
           national_id_number: kyc.national_id_number || '',
           full_name: kyc.full_name || '',
-          birth_date: kyc.birth_date || ''
+          birth_date: toDateInputValue(kyc.birth_date)
         });
       } else {
         setStatus('not_submitted');

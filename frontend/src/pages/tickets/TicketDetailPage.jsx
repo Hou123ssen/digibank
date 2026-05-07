@@ -364,7 +364,7 @@ const TicketDetailPage = () => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const data = await ticketService.getTicketById(id);
+      const data = await ticketService.getTicketById(id, { employee: isEmployee });
       setTicket(data);
       setMessages(Array.isArray(data?.messages) ? data.messages : []);
     } catch {
@@ -373,7 +373,7 @@ const TicketDetailPage = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [id]);
+  }, [id, isEmployee, addToast]);
 
   useEffect(() => {
     load();
@@ -413,7 +413,11 @@ const TicketDetailPage = () => {
       } else {
         payload = { message: content, is_internal: internalMode };
       }
-      await ticketService.sendMessage(id, payload);
+      if (isEmployee) {
+        await ticketService.replyTicket(id, payload);
+      } else {
+        await ticketService.sendMessage(id, payload);
+      }
       load(true);
     } catch {
       addToast?.('Erreur lors de l\'envoi', 'error');
@@ -431,7 +435,6 @@ const TicketDetailPage = () => {
       const actions = {
         resolve:  () => ticketService.updateTicketStatus?.(id, 'resolved'),
         close:    () => ticketService.updateTicketStatus?.(id, 'closed'),
-        reopen:   () => ticketService.updateTicketStatus?.(id, 'open'),
         assign:   () => ticketService.assignTicket?.(id),
       };
       await actions[statusAction]?.();
@@ -548,12 +551,6 @@ const TicketDetailPage = () => {
                 <button onClick={() => setStatusAction('close')}
                   className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] font-bold text-slate-400 hover:text-white transition-colors whitespace-nowrap">
                   <XCircle size={11} /> Fermer
-                </button>
-              )}
-              {(ticket.status === 'resolved' || ticket.status === 'closed') && (
-                <button onClick={() => setStatusAction('reopen')}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] font-bold text-blue-400 hover:bg-blue-500/20 transition-colors whitespace-nowrap">
-                  <RotateCcw size={11} /> Rouvrir
                 </button>
               )}
             </div>

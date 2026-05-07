@@ -406,19 +406,21 @@ const DaretDetailsPage = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const d = await daretService.getDaretById(id);
-        setDaret(d);
-        setMembers(Array.isArray(d?.members) ? d.members : []);
-        setCycles(Array.isArray(d?.cycles) ? d.cycles : []);
-        setPayments(Array.isArray(d?.payments) ? d.payments : []);
+        const data = await daretService.getDaretById(id);
+        setDaret(data);
+        setMembers(Array.isArray(data?.members) ? data.members : []);
+        setCycles(Array.isArray(data?.cycles) ? data.cycles : []);
+        setPayments(Array.isArray(data?.payments) ? data.payments : []);
       } catch {
         setDaret(null);
         setMembers([]);
         setCycles([]);
         setPayments([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
+
     load();
   }, [id]);
 
@@ -463,11 +465,36 @@ const DaretDetailsPage = () => {
 
   if (!daret) {
     return (
-      <div className="py-24 text-center space-y-4">
-        <AlertCircle size={36} className="text-slate-600 mx-auto" />
-        <p className="text-white font-semibold">Daret introuvable</p>
+      <div className="py-24 text-center space-y-5 max-w-md mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-sky-500/10 flex items-center justify-center mx-auto">
+          <AlertCircle size={28} className="text-sky-400" />
+        </div>
+        <div className="space-y-2">
+          <p className="text-white font-semibold text-lg">Détails du Daret non disponibles</p>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Ce Daret n'existe pas ou vous n'y avez pas accès.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button
+            variant="primary"
+            size="sm"
+            isLoading={starting}
+            onClick={handleStart}
+          >
+            Démarrer ce Daret
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            isLoading={paying}
+            onClick={handlePay}
+          >
+            Payer la contribution
+          </Button>
+        </div>
         <Link to="/darets">
-          <Button variant="secondary" size="sm">Retour aux Darets</Button>
+          <Button variant="ghost" size="sm">Retour aux Darets</Button>
         </Link>
       </div>
     );

@@ -35,8 +35,6 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
     try {
       await accountService.deposit({
         amount: Number(amount),
-        source,
-        description: note || 'Dépôt de fonds'
       });
       setIsSuccess(true);
       onSuccess?.();

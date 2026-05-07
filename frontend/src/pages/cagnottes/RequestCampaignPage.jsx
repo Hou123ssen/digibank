@@ -264,14 +264,9 @@ const RequestCampaignPage = () => {
     const e = {};
     if (!form.title.trim()) e.title = 'Le titre est requis';
     else if (form.title.length < 10) e.title = 'Le titre doit contenir au moins 10 caractères';
-    if (!form.category) e.category = 'Sélectionnez une catégorie';
     const amt = Number(form.target_amount);
     if (!form.target_amount || isNaN(amt) || amt <= 0) e.target_amount = 'Montant invalide';
-    else if (amt < 500) e.target_amount = 'Le montant minimum est 500 MAD';
     if (!form.story.trim()) e.story = 'Décrivez votre situation';
-    else if (form.story.length < STORY_MIN) e.story = `Minimum ${STORY_MIN} caractères (${form.story.length}/${STORY_MIN})`;
-    if (!form.beneficiary_name.trim()) e.beneficiary_name = 'Nom du bénéficiaire requis';
-    if (!form.beneficiary_relationship) e.beneficiary_relationship = 'Relation requise';
     if (!form.agree) e.agree = 'Vous devez accepter les conditions';
     return e;
   };
@@ -283,20 +278,23 @@ const RequestCampaignPage = () => {
 
     setSubmitting(true);
     try {
-      const fd = new FormData();
-      fd.append('title',                    form.title);
-      fd.append('category',                 form.category);
-      fd.append('target_amount',            form.target_amount);
-      fd.append('story',                    form.story);
-      fd.append('beneficiary_name',         form.beneficiary_name);
-      fd.append('beneficiary_relationship', form.beneficiary_relationship);
-      if (coverImage) fd.append('cover_image', coverImage);
-      documents.forEach(f => fd.append('documents', f));
-
-      const result = await cagnotteService.requestCagnotte(fd);
+      const result = await cagnotteService.requestCagnotte({
+        title: form.title.trim(),
+        description: form.story.trim(),
+        target_amount: Number(form.target_amount),
+      });
       setSuccessCode(result?.verification_code || result?.cagnotte?.verification_code || 'CAG-XXXX');
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Erreur lors de la soumission';
+      const backend = err?.response?.data;
+      const backendErrors = backend?.errors || {};
+      const nextErrors = {};
+
+      if (backendErrors.title?.[0]) nextErrors.title = backendErrors.title[0];
+      if (backendErrors.description?.[0]) nextErrors.story = backendErrors.description[0];
+      if (backendErrors.target_amount?.[0]) nextErrors.target_amount = backendErrors.target_amount[0];
+      if (Object.keys(nextErrors).length) setErrors(nextErrors);
+
+      const msg = Object.values(backendErrors).flat()[0] || backend?.message || 'Erreur lors de la soumission';
       addToast?.(msg, 'error');
     } finally {
       setSubmitting(false);

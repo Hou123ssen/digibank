@@ -257,11 +257,7 @@ const EmployeeKYCPage = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
-      if (activeTab !== 'all') params.status = activeTab;
-      if (dateFrom)            params.from   = dateFrom;
-      if (dateTo)              params.to     = dateTo;
-      const data = await kycService.getAllKyc(params);
+      const data = await kycService.getPendingKyc();
       setSubmissions(Array.isArray(data) ? data : []);
     } catch {
       addToast?.('Impossible de charger les demandes KYC', 'error');

@@ -129,6 +129,10 @@ const slideIn = {
   animate: { opacity: 1, x: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
   exit:    { opacity: 0, x: -20, transition: { duration: 0.2 } },
 };
+const safeNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const CreateDaretPage = () => {
@@ -161,7 +165,7 @@ const CreateDaretPage = () => {
     const e = {};
     if (step === 0) {
       if (!form.name.trim())                             e.name   = 'Le nom est requis';
-      if (!form.contribution_amount || Number(form.contribution_amount) <= 0)
+      if (!form.contribution_amount || safeNumber(form.contribution_amount) <= 0)
         e.contribution_amount = 'Montant invalide';
     }
     if (step === 2 && !agreed) {
@@ -181,8 +185,8 @@ const CreateDaretPage = () => {
     try {
       const res = await daretService.createDaret({
         name:                form.name.trim(),
-        contribution_amount: Number(form.contribution_amount),
-        total_members:       Number(form.capacity),
+        contribution_amount: safeNumber(form.contribution_amount),
+        total_members:       safeNumber(form.capacity),
       });
       setCreated(res);
       addToast?.('Daret créé avec succès !', 'success');
@@ -195,7 +199,7 @@ const CreateDaretPage = () => {
         const newErrors = {};
         if (backendError.errors.name) newErrors.name = backendError.errors.name[0];
         if (backendError.errors.contribution_amount) newErrors.contribution_amount = backendError.errors.contribution_amount[0];
-        if (backendError.errors.total_members) newErrors.agreed = backendError.errors.total_members[0];
+        if (backendError.errors.total_members) newErrors.capacity = backendError.errors.total_members[0];
         
         // Capture specific eligibility errors
         if (backendError.errors.daret) newErrors.daret = backendError.errors.daret[0];
@@ -223,7 +227,7 @@ const CreateDaretPage = () => {
   };
 
   // ── Derived ─────────────────────────────────────────────────────────────────
-  const totalPot = Number(form.contribution_amount || 0) * (form.capacity || 0);
+  const totalPot = safeNumber(form.contribution_amount) * safeNumber(form.capacity);
   const freqLabel = form.cycle_frequency === 'monthly' ? 'mois' : 'semaines';
   const duration  = `${form.capacity} ${freqLabel}`;
 
@@ -312,7 +316,7 @@ const CreateDaretPage = () => {
       <Card className="p-8 mt-6">
         <StepIndicator current={step} />
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {/* ── Eligibility Error Alert ─────────────────────────── */}
           {errors.daret && (
             <motion.div 
@@ -416,11 +420,14 @@ const CreateDaretPage = () => {
               {/* Capacity slider */}
               <Card className="p-5">
                 <CapacitySlider value={form.capacity} onChange={v => set('capacity', v)} />
+                {errors.capacity && (
+                  <p className="text-xs text-rose-500 mt-3">{errors.capacity}</p>
+                )}
                 {form.contribution_amount && (
                   <p className="text-xs text-slate-500 mt-3 font-mono">
                     Pot total estimé :{' '}
                     <span className="text-emerald-400 font-bold">
-                      {(Number(form.contribution_amount) * form.capacity).toLocaleString('fr-MA')} MAD
+                      {(safeNumber(form.contribution_amount) * safeNumber(form.capacity)).toLocaleString('fr-MA')} MAD
                     </span>
                   </p>
                 )}
@@ -501,7 +508,7 @@ const CreateDaretPage = () => {
                 </div>
 
                 <div className="px-6 py-4">
-                  <ReviewRow label="Contribution / cycle" value={`${Number(form.contribution_amount || 0).toLocaleString('fr-MA')} MAD`} mono />
+                  <ReviewRow label="Contribution / cycle" value={`${safeNumber(form.contribution_amount).toLocaleString('fr-MA')} MAD`} mono />
                   <ReviewRow label="Capacité"             value={`${form.capacity} membres`} />
                   <ReviewRow label="Pot total estimé"     value={`${totalPot.toLocaleString('fr-MA')} MAD`} mono />
                   <ReviewRow label="Fréquence"            value={form.cycle_frequency === 'monthly' ? 'Mensuel' : 'Hebdomadaire'} />

@@ -46,9 +46,7 @@ const AccountOverviewPage = ({ addToast }) => {
         transactionService.getMyTransactions()
       ]);
       setAccount(accRes);
-      // Backend may return { transactions: [...] } inside data
-      const rawTransactions = transRes?.transactions || transRes;
-      setTransactions(Array.isArray(rawTransactions) ? rawTransactions : []);
+      setTransactions(Array.isArray(transRes) ? transRes : []);
     } catch (err) {
       console.error('Error fetching account data:', err);
       // addToast('Impossible de charger les données du compte', 'error');
@@ -133,7 +131,7 @@ const AccountOverviewPage = ({ addToast }) => {
             <p className="text-slate-400 text-sm font-medium">Solde disponible</p>
             <div className="flex items-baseline gap-2">
               <h2 className="text-5xl md:text-6xl font-bold text-white tracking-tight">
-                {Number(account?.balance).toLocaleString()} <span className="text-2xl text-emerald-500 font-medium">MAD</span>
+                {Number(account?.balance ?? 0).toLocaleString()} <span className="text-2xl text-emerald-500 font-medium">MAD</span>
               </h2>
             </div>
             {account?.overdraft_limit > 0 && (
@@ -144,7 +142,7 @@ const AccountOverviewPage = ({ addToast }) => {
           </div>
 
           <div className="pt-4 border-t border-white/5 flex flex-col md:flex-row justify-between gap-4">
-            <p className="text-slate-500 text-xs">Compte ouvert le {new Date(account?.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p className="text-slate-500 text-xs">Compte ouvert le {account?.created_at ? new Date(account.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
             <div className="flex items-center gap-2 text-emerald-500">
               <CheckCircle2 size={14} />
               <span className="text-xs font-semibold uppercase tracking-widest">Compte vérifié par DigiBank</span>

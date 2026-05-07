@@ -344,11 +344,19 @@ const DaretListPage = () => {
 
   const load = async () => {
     setLoading(true);
-    await Promise.allSettled([
-      daretService.getMyDarets().then(d  => setMyDarets(Array.isArray(d)  ? d  : [])).catch(() => {}),
-      daretService.getAllDarets().then(d  => setAllDarets(Array.isArray(d) ? d  : [])).catch(() => {}),
-    ]);
-    setLoading(false);
+    try {
+      const [mine, all] = await Promise.allSettled([
+        daretService.getMyDarets(),
+        daretService.getAllDarets(),
+      ]);
+
+      setMyDarets(mine.status === 'fulfilled' && Array.isArray(mine.value) ? mine.value : []);
+      setAllDarets(all.status === 'fulfilled' && Array.isArray(all.value) ? all.value : []);
+    } catch {
+      addToast?.('Impossible de charger les Darets', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);

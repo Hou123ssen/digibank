@@ -1,6 +1,20 @@
 import api from '../lib/api';
 
 const unwrap = r => r.data?.data ?? r.data;
+const asArray = v => (Array.isArray(v) ? v : []);
+const normalizeMessage = (message, ticket) => ({
+  ...message,
+  content: message?.content ?? message?.message ?? '',
+  sender_name: message?.sender_name ?? message?.sender?.name,
+  sender_type: message?.sender_type ?? (message?.sender_id === ticket?.user_id ? 'user' : 'employee'),
+});
+const normalizeTicket = ticket => ticket ? ({
+  ...ticket,
+  subject: ticket.subject ?? ticket.title ?? '',
+  reference: ticket.reference ?? `#${ticket.id}`,
+  assigned_employee: ticket.assigned_employee ?? ticket.assignee,
+  messages: asArray(ticket.messages).map(message => normalizeMessage(message, ticket)),
+}) : null;
 
 const ticketService = {
   createTicket: async (data) => {
@@ -12,12 +26,15 @@ const ticketService = {
   getMyTickets: async () => {
     const response = await api.get('/tickets/my');
     const d = unwrap(response);
-    return Array.isArray(d) ? d : d?.tickets || [];
+    const tickets = Array.isArray(d) ? d : d?.tickets || [];
+    return asArray(tickets).map(normalizeTicket);
   },
-  getTicketById: async (id) => {
-    const response = await api.get(`/tickets/${id}`);
-    const d = unwrap(response);
-    return d?.ticket || d;
+  getTicketById: async (id, options = {}) => {
+    const tickets = options.employee
+      ? await ticketService.getEmployeeTickets()
+      : await ticketService.getMyTickets();
+
+    return asArray(tickets).find(ticket => String(ticket.id) === String(id)) || null;
   },
   sendMessage: async (id, data) => {
     const response = await api.post(`/tickets/${id}/message`, data, {
@@ -28,7 +45,8 @@ const ticketService = {
   getEmployeeTickets: async () => {
     const response = await api.get('/employee/tickets');
     const d = unwrap(response);
-    return Array.isArray(d) ? d : d?.tickets || [];
+    const tickets = Array.isArray(d) ? d : d?.tickets || [];
+    return asArray(tickets).map(normalizeTicket);
   },
   assignTicket: async (id) => {
     const response = await api.post(`/employee/tickets/${id}/assign`);
@@ -49,8 +67,15 @@ const ticketService = {
     return unwrap(response);
   },
   updateTicketStatus: async (id, status) => {
-    const response = await api.post(`/employee/tickets/${id}/${status}`);
-    return unwrap(response);
+    if (status === 'resolved') {
+      return ticketService.resolveTicket(id);
+    }
+
+    if (status === 'closed') {
+      return ticketService.closeTicket(id);
+    }
+
+    return Promise.reject(new Error(`Unsupported ticket status action: ${status}`));
   },
 };
 

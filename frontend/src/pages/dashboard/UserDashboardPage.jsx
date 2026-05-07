@@ -147,26 +147,19 @@ const UserDashboardPage = () => {
     const fetchAll = async () => {
       setLoading(true);
       await Promise.allSettled([
-        accountService.getMyAccount().then(r => {
-          const d = r?.data ?? r;
-          setAccount(d);
-        }),
+        // Services already unwrap the envelope — use the value directly
+        accountService.getMyAccount().then(r => setAccount(r)),
         transactionService.getMyTransactions().then(r => {
-          const raw = r?.transactions || r;
-          const d = Array.isArray(raw) ? raw : [];
-          setTransactions(d.slice(0, 5));
+          setTransactions(Array.isArray(r) ? r.slice(0, 5) : []);
         }),
-        trustService.getMyTrustScore().then(r => {
-          const d = r?.data ?? r;
-          setTrustScore(d);
-        }),
+        trustService.getMyTrustScore().then(r => setTrustScore(r)),
         notificationService.getNotifications().then(r => {
-          const d = Array.isArray(r?.data) ? r.data : Array.isArray(r) ? r : [];
+          const d = Array.isArray(r) ? r : [];
           setNotifications(d.slice(0, 3));
         }),
         daretService.getMyDarets().then(r => {
-          const d = Array.isArray(r?.data) ? r.data : Array.isArray(r) ? r : [];
-          if (d.length > 0) setDaret(d[0]);
+          const darets = Array.isArray(r) ? r : [];
+          setDaret(darets.find(item => item.status !== 'completed') || null);
         }),
       ]);
       setLoading(false);
@@ -182,8 +175,10 @@ const UserDashboardPage = () => {
   const score       = trustScore?.score ?? trustScore?.trust_score ?? 0;
   const { label: trustLabel, variant: trustVariant } = trustLevel(score);
 
-  const daretProgress = daret
-    ? Math.round(((daret.current_cycle ?? 1) / (daret.total_cycles ?? 1)) * 100)
+  const currentCycle = Number(daret?.current_cycle ?? 1);
+  const totalCycles = Number(daret?.total_cycles ?? 1);
+  const daretProgress = daret && Number.isFinite(currentCycle) && Number.isFinite(totalCycles) && totalCycles > 0
+    ? Math.round((currentCycle / totalCycles) * 100)
     : 0;
 
   const unreadCount = notifications.filter(n => !n.read_at).length;

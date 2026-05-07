@@ -117,13 +117,13 @@ const CreateTicketPage = () => {
       let payload;
       if (attachments.length) {
         payload = new FormData();
-        payload.append('subject',     form.subject);
+        payload.append('title',       form.subject);
         payload.append('category',    form.category);
         payload.append('language',    form.language);
         payload.append('description', form.description);
         attachments.forEach(f => payload.append('attachments', f));
       } else {
-        payload = { ...form };
+        payload = { title: form.subject, description: form.description, category: form.category, language: form.language };
       }
       const result = await ticketService.createTicket(payload);
       const id = result?.ticket?.id || result?.id;
