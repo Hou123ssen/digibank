@@ -61,11 +61,11 @@ export function getErrorMessage(error) {
 /**
  * Safe number formatter — never returns NaN.
  * @param {*} value
- * @param {number} decimals
+ * @param {number} fallback
  */
-export function safeNumber(value, decimals = 2) {
+export function safeNumber(value, fallback = 0) {
   const n = Number(value);
-  return isNaN(n) ? 0 : n;
+  return Number.isFinite(n) ? n : fallback;
 }
 
 export function formatAmount(value, locale = 'fr-MA', currency = 'MAD') {

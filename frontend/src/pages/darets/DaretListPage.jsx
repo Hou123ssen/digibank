@@ -12,6 +12,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import daretService from '../../services/daretService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_MAP = {
@@ -109,12 +110,12 @@ const DaretCard = ({ daret, onJoin, onPay }) => {
         <div className="flex items-center gap-2 bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5">
           <Banknote size={15} className="text-emerald-400 shrink-0" />
           <span className="text-sm font-bold text-white font-mono">
-            {Number(daret.contribution_amount || 0).toLocaleString('fr-MA')} MAD
+            {formatAmount(daret.contribution_amount)}
           </span>
           <span className="text-[10px] text-slate-500">/ cycle</span>
           {daret.capacity && (
             <span className="ml-auto text-[10px] text-slate-500 font-mono shrink-0">
-              Pot: {(Number(daret.contribution_amount || 0) * (daret.capacity || 1)).toLocaleString('fr-MA')} MAD
+              Pot: {formatAmount(safeNumber(daret.contribution_amount) * safeNumber(daret.capacity, 1))}
             </span>
           )}
         </div>
@@ -239,7 +240,7 @@ const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           {[
-            { label: 'Contribution', value: `${Number(daret.contribution_amount || 0).toLocaleString('fr-MA')} MAD` },
+            { label: 'Contribution', value: formatAmount(daret.contribution_amount) },
             { label: 'Membres',      value: `${daret.members_count ?? 0}/${daret.capacity ?? '?'}` },
             { label: 'Fréquence',    value: freqLabel },
           ].map(item => (
@@ -383,13 +384,13 @@ const DaretListPage = () => {
     list.filter(d => {
       if (search && !d.name?.toLowerCase().includes(search.toLowerCase())) return false;
       if (amountFilter !== 'all') {
-        const amt = Number(d.contribution_amount || 0);
+        const amt = safeNumber(d.contribution_amount);
         if (amountFilter === '100-500'  && !(amt >= 100  && amt <=  500)) return false;
         if (amountFilter === '500-1000' && !(amt >= 500  && amt <= 1000)) return false;
         if (amountFilter === '1000+'    &&   amt < 1000)                  return false;
       }
       if (memberFilter !== 'all') {
-        const cap = Number(d.capacity || 0);
+        const cap = safeNumber(d.capacity);
         if (memberFilter === '3-5'   && !(cap >= 3  && cap <=  5)) return false;
         if (memberFilter === '6-10'  && !(cap >= 6  && cap <= 10)) return false;
         if (memberFilter === '11-20' &&   cap < 11)                return false;

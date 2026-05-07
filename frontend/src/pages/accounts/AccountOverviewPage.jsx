@@ -25,6 +25,7 @@ import WithdrawModal from '../../components/accounts/WithdrawModal';
 
 import accountService from '../../services/accountService';
 import transactionService from '../../services/transactionService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 const AccountOverviewPage = ({ addToast }) => {
   const [account, setAccount] = useState(null);
@@ -76,7 +77,9 @@ const AccountOverviewPage = ({ addToast }) => {
     );
   }
 
-  const isOverdraft = account?.balance < 0;
+  const balance = safeNumber(account?.balance ?? account?.data?.balance ?? 0);
+  const overdraftLimit = safeNumber(account?.overdraft_limit ?? 0);
+  const isOverdraft = balance < 0;
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
@@ -131,12 +134,12 @@ const AccountOverviewPage = ({ addToast }) => {
             <p className="text-slate-400 text-sm font-medium">Solde disponible</p>
             <div className="flex items-baseline gap-2">
               <h2 className="text-5xl md:text-6xl font-bold text-white tracking-tight">
-                {Number(account?.balance ?? 0).toLocaleString()} <span className="text-2xl text-emerald-500 font-medium">MAD</span>
+                {balance.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-2xl text-emerald-500 font-medium">MAD</span>
               </h2>
             </div>
-            {account?.overdraft_limit > 0 && (
+            {overdraftLimit > 0 && (
               <p className="text-slate-500 text-sm">
-                Limite de découvert : <span className="text-slate-300 font-semibold">{account?.overdraft_limit} MAD</span>
+                Limite de découvert : <span className="text-slate-300 font-semibold">{formatAmount(overdraftLimit)}</span>
               </p>
             )}
           </div>
@@ -246,7 +249,7 @@ const AccountOverviewPage = ({ addToast }) => {
             <span className={`font-mono font-bold ${
               t.type === 'deposit' ? 'text-emerald-500' : 'text-rose-500'
             }`}>
-              {t.type === 'deposit' ? '+' : '-'}{t.amount} MAD
+              {t.type === 'deposit' ? '+' : '-'}{formatAmount(t.amount)}
             </span>,
             <Badge variant="success">Terminé</Badge>,
             <span className="text-slate-400 text-sm">•••• {t.account_number?.slice(-4)}</span>
@@ -259,14 +262,14 @@ const AccountOverviewPage = ({ addToast }) => {
         isOpen={isDepositOpen} 
         onClose={() => setIsDepositOpen(false)} 
         onSuccess={fetchData}
-        currentBalance={account?.balance}
+        currentBalance={balance}
       />
       <WithdrawModal 
         isOpen={isWithdrawOpen} 
         onClose={() => setIsWithdrawOpen(false)} 
         onSuccess={fetchData}
-        currentBalance={account?.balance}
-        overdraftLimit={account?.overdraft_limit}
+        currentBalance={balance}
+        overdraftLimit={overdraftLimit}
       />
     </div>
   );

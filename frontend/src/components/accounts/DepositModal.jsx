@@ -14,6 +14,7 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import accountService from '../../services/accountService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 const QUICK_AMOUNTS = [100, 500, 1000, 5000];
 
@@ -27,14 +28,14 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) return;
+    if (!amount || safeNumber(amount) <= 0) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
       await accountService.deposit({
-        amount: Number(amount),
+        amount: safeNumber(amount),
       });
       setIsSuccess(true);
       onSuccess?.();
@@ -58,7 +59,9 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
     setTimeout(resetState, 300);
   };
 
-  const previewBalance = Number(currentBalance) + Number(amount || 0);
+  const current = safeNumber(currentBalance);
+  const depositAmount = safeNumber(amount);
+  const previewBalance = current + depositAmount;
 
   return (
     <Modal 
@@ -152,13 +155,13 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
             <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Solde actuel</span>
-                <span className="text-slate-300 font-mono">{Number(currentBalance).toLocaleString()} MAD</span>
+                <span className="text-slate-300 font-mono">{formatAmount(current)}</span>
               </div>
               <div className="flex justify-between text-sm font-bold">
                 <span className="text-slate-400">Nouveau solde</span>
                 <div className="flex items-center gap-2 text-emerald-500">
                   <ArrowRight size={14} />
-                  <span className="font-mono">{previewBalance.toLocaleString()} MAD</span>
+                  <span className="font-mono">{formatAmount(previewBalance)}</span>
                 </div>
               </div>
             </div>
@@ -199,7 +202,7 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Nouveau solde</p>
-              <p className="text-3xl font-bold text-white">{previewBalance.toLocaleString()} <span className="text-emerald-500">MAD</span></p>
+              <p className="text-3xl font-bold text-white">{formatAmount(previewBalance)}</p>
             </div>
             <Button 
               onClick={handleClose} 

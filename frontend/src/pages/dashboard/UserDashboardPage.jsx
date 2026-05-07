@@ -15,6 +15,7 @@ import transactionService  from '../../services/transactionService';
 import trustService        from '../../services/trustService';
 import notificationService from '../../services/notificationService';
 import daretService        from '../../services/daretService';
+import { safeNumber } from '../../utils/apiResponse';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 const container = {
@@ -168,7 +169,15 @@ const UserDashboardPage = () => {
   }, []);
 
   const displayName = user?.first_name || user?.name?.split(' ')[0] || 'Utilisateur';
-  const balance     = account?.balance ?? account?.solde ?? '—';
+  const balance = safeNumber(
+    account?.balance ??
+    account?.data?.balance ??
+    0
+  );
+  const formattedBalance = balance.toLocaleString('fr-MA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
   const accountNo   = account?.account_number ?? account?.numero ?? '4521';
   const maskedNo    = `**** **** ${String(accountNo).slice(-4)}`;
 
@@ -241,7 +250,7 @@ const UserDashboardPage = () => {
                   <p className="text-3xl font-bold text-white font-mono tracking-tight">
                     {balanceHidden
                       ? '••••••'
-                      : `${Number(balance).toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD`}
+                      : `${formattedBalance} MAD`}
                   </p>
                   <p className="text-xs text-emerald-400/80 mt-1 font-mono">{maskedNo}</p>
                 </div>
@@ -399,7 +408,7 @@ const UserDashboardPage = () => {
                     ))
                   ) : transactions.length > 0 ? (
                     transactions.map((tx, i) => {
-                      const amount  = parseFloat(tx.amount ?? tx.montant ?? 0);
+                      const amount  = safeNumber(tx.amount ?? tx.montant ?? 0);
                       const isCredit = amount >= 0;
                       return (
                         <tr key={i} className="hover:bg-white/[0.02] transition-colors">
@@ -478,7 +487,7 @@ const UserDashboardPage = () => {
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Montant</span>
                       <span className="text-white font-mono font-bold">
-                        {Number(daret.contribution_amount).toLocaleString('fr-MA')} MAD
+                        {safeNumber(daret.contribution_amount).toLocaleString('fr-MA')} MAD
                       </span>
                     </div>
                   )}

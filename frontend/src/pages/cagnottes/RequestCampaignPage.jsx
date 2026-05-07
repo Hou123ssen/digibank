@@ -8,6 +8,7 @@ import {
 import { cn } from '../../utils/cn';
 import Button from '../../components/ui/Button';
 import cagnotteService from '../../services/cagnotteService';
+import { safeNumber } from '../../utils/apiResponse';
 
 // ── Category options ──────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -264,8 +265,8 @@ const RequestCampaignPage = () => {
     const e = {};
     if (!form.title.trim()) e.title = 'Le titre est requis';
     else if (form.title.length < 10) e.title = 'Le titre doit contenir au moins 10 caractères';
-    const amt = Number(form.target_amount);
-    if (!form.target_amount || isNaN(amt) || amt <= 0) e.target_amount = 'Montant invalide';
+    const amt = safeNumber(form.target_amount);
+    if (!form.target_amount || amt <= 0) e.target_amount = 'Montant invalide';
     if (!form.story.trim()) e.story = 'Décrivez votre situation';
     if (!form.agree) e.agree = 'Vous devez accepter les conditions';
     return e;
@@ -281,7 +282,7 @@ const RequestCampaignPage = () => {
       const result = await cagnotteService.requestCagnotte({
         title: form.title.trim(),
         description: form.story.trim(),
-        target_amount: Number(form.target_amount),
+        target_amount: safeNumber(form.target_amount),
       });
       setSuccessCode(result?.verification_code || result?.cagnotte?.verification_code || 'CAG-XXXX');
     } catch (err) {

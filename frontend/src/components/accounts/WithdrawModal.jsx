@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import accountService from '../../services/accountService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 const QUICK_AMOUNTS = [100, 500, 1000, 2000];
 
@@ -20,20 +21,23 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState(null);
 
-  const availableFunds = Number(currentBalance) + Number(overdraftLimit);
-  const willUseOverdraft = Number(amount) > Number(currentBalance);
-  const isInsufficientFunds = Number(amount) > availableFunds;
+  const current = safeNumber(currentBalance);
+  const overdraft = safeNumber(overdraftLimit);
+  const withdrawAmount = safeNumber(amount);
+  const availableFunds = current + overdraft;
+  const willUseOverdraft = withdrawAmount > current;
+  const isInsufficientFunds = withdrawAmount > availableFunds;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0 || isInsufficientFunds) return;
+    if (!amount || withdrawAmount <= 0 || isInsufficientFunds) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
       await accountService.withdraw({
-        amount: Number(amount),
+        amount: withdrawAmount,
       });
       setIsSuccess(true);
       onSuccess?.();
@@ -56,7 +60,7 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
     setTimeout(resetState, 300);
   };
 
-  const previewBalance = Number(currentBalance) - Number(amount || 0);
+  const previewBalance = current - withdrawAmount;
 
   return (
     <Modal 
@@ -130,13 +134,13 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
             <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Disponible (incl. découvert)</span>
-                <span className="text-slate-300 font-mono">{availableFunds.toLocaleString()} MAD</span>
+                <span className="text-slate-300 font-mono">{formatAmount(availableFunds)}</span>
               </div>
               <div className="flex justify-between text-sm font-bold">
                 <span className="text-slate-400">Nouveau solde</span>
                 <div className="flex items-center gap-2 text-rose-500">
                   <ArrowRight size={14} />
-                  <span className="font-mono">{previewBalance.toLocaleString()} MAD</span>
+                  <span className="font-mono">{formatAmount(previewBalance)}</span>
                 </div>
               </div>
             </div>
@@ -178,7 +182,7 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Nouveau solde</p>
-              <p className="text-3xl font-bold text-white">{previewBalance.toLocaleString()} <span className="text-emerald-500">MAD</span></p>
+              <p className="text-3xl font-bold text-white">{formatAmount(previewBalance)}</p>
             </div>
             <Button 
               onClick={handleClose} 

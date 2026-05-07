@@ -11,6 +11,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import cagnotteService from '../../services/cagnotteService';
 import CagnotteCodeLookup from '../../components/cagnottes/CagnotteCodeLookup';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const CAT_LABEL = {
@@ -74,7 +75,9 @@ const RejectModal = ({ onConfirm, onCancel, loading }) => {
 const DetailDrawer = ({ cagnotte, onClose, onApprove, onReject, actionLoading }) => {
   if (!cagnotte) return null;
   const st  = STATUS_CONFIG[cagnotte.status] || STATUS_CONFIG.pending;
-  const pct = Math.min((Number(cagnotte.current_amount || 0) / Number(cagnotte.target_amount || 1)) * 100, 100);
+  const current = safeNumber(cagnotte.current_amount);
+  const target = safeNumber(cagnotte.target_amount, 1);
+  const pct = Math.min((current / target) * 100, 100);
 
   return (
     <motion.div
@@ -145,8 +148,8 @@ const DetailDrawer = ({ cagnotte, onClose, onApprove, onReject, actionLoading })
               />
             </div>
             <div className="flex justify-between text-xs">
-              <span className="font-bold text-white font-mono">{Number(cagnotte.current_amount || 0).toLocaleString('fr-MA')} MAD</span>
-              <span className="text-slate-500">/ {Number(cagnotte.target_amount || 0).toLocaleString('fr-MA')} MAD</span>
+              <span className="font-bold text-white font-mono">{formatAmount(current)}</span>
+              <span className="text-slate-500">/ {formatAmount(target)}</span>
             </div>
           </div>
 
@@ -391,7 +394,7 @@ const EmployeeCagnottePage = () => {
                         </td>
                         <td className="px-4 py-3.5 text-sm text-slate-400">{c.organizer_name || c.beneficiary_name || '—'}</td>
                         <td className="px-4 py-3.5 font-mono text-sm text-white">
-                          {Number(c.target_amount || 0).toLocaleString('fr-MA')} MAD
+                          {formatAmount(c.target_amount)}
                         </td>
                         <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">{fmtDate(c.created_at)}</td>
                         <td className="px-4 py-3.5">

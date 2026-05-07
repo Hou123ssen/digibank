@@ -12,6 +12,7 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import daretService from '../../services/daretService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const Pulse = ({ className }) => (
@@ -60,9 +61,9 @@ const OverviewTab = ({ daret, user }) => {
   const isMember  = daret.is_member;
 
   const details = [
-    { label: 'Contribution / cycle',  value: `${Number(daret.contribution_amount || 0).toLocaleString('fr-MA')} MAD`, mono: true },
+    { label: 'Contribution / cycle',  value: formatAmount(daret.contribution_amount), mono: true },
     { label: 'Capacité',              value: `${daret.capacity ?? '?'} membres`     },
-    { label: 'Pot total estimé',      value: `${(Number(daret.contribution_amount || 0) * (daret.capacity || 0)).toLocaleString('fr-MA')} MAD`, mono: true },
+    { label: 'Pot total estimé',      value: formatAmount(safeNumber(daret.contribution_amount) * safeNumber(daret.capacity)), mono: true },
     { label: 'Fréquence',             value: freqLabel(daret.cycle_frequency)       },
     { label: 'Ordre de versement',    value: orderLabel(daret.payout_order)         },
     { label: 'Créé par',             value: daret.created_by?.name || daret.creator?.name || '—' },
@@ -364,7 +365,7 @@ const PaymentsTab = ({ payments }) => {
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <span className="text-sm font-bold font-mono text-white">
-                      {Number(p.amount || 0).toLocaleString('fr-MA')} MAD
+                      {formatAmount(p.amount)}
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-xs text-slate-400 hidden md:table-cell">
@@ -556,8 +557,8 @@ const DaretDetailsPage = () => {
             <div className="flex flex-wrap gap-4 lg:gap-6 shrink-0">
               {[
                 { label: 'Membres',          value: `${daret.members_count ?? 0}/${daret.capacity ?? '?'}` },
-                { label: 'Contribution',     value: `${Number(daret.contribution_amount || 0).toLocaleString('fr-MA')} MAD`, mono: true },
-                { label: 'Pot total',        value: `${(Number(daret.contribution_amount || 0) * (daret.capacity || 0)).toLocaleString('fr-MA')} MAD`, mono: true },
+                { label: 'Contribution',     value: formatAmount(daret.contribution_amount), mono: true },
+                { label: 'Pot total',        value: formatAmount(safeNumber(daret.contribution_amount) * safeNumber(daret.capacity)), mono: true },
                 { label: 'Fréquence',        value: freqLabel(daret.cycle_frequency) },
               ].map(s => (
                 <div key={s.label} className="text-center">

@@ -16,6 +16,7 @@ import Badge from '../../components/ui/Badge';
 import Table from '../../components/ui/Table';
 import adminService from '../../services/adminService';
 import { cn } from '../../utils/cn';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 /* ── helpers ──────────────────────────────────────────────────────── */
 const KYC_BADGE = {
@@ -215,7 +216,7 @@ const TabContent = ({ tab, user, detail, loading }) => {
         <div className="grid grid-cols-2 gap-3">
           <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-1">
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Balance</p>
-            <p className="text-xl font-bold text-white font-mono">{user.balance?.toLocaleString()} <span className="text-xs text-slate-500">MAD</span></p>
+            <p className="text-xl font-bold text-white font-mono">{formatAmount(user.balance)}</p>
           </div>
           <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-1">
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Trust Score</p>
@@ -298,18 +299,24 @@ const TabContent = ({ tab, user, detail, loading }) => {
 
     case 'cagnottes': return (
       <div className="space-y-3">
-        {detail?.cagnottes?.length ? detail.cagnottes.map((c, i) => (
-          <div key={i} className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
-            <p className="text-sm font-semibold text-white">{c.title}</p>
-            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-              <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.min((c.raised / c.goal) * 100, 100)}%` }} />
+        {detail?.cagnottes?.length ? detail.cagnottes.map((c, i) => {
+          const raised = safeNumber(c.raised);
+          const goal = safeNumber(c.goal, 1);
+          const progress = Math.min((raised / goal) * 100, 100);
+
+          return (
+            <div key={i} className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+              <p className="text-sm font-semibold text-white">{c.title}</p>
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-violet-500 rounded-full" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>{formatAmount(raised)} raised</span>
+                <span>Goal: {formatAmount(goal)}</span>
+              </div>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-500">
-              <span>{c.raised?.toLocaleString()} MAD raised</span>
-              <span>Goal: {c.goal?.toLocaleString()} MAD</span>
-            </div>
-          </div>
-        )) : <p className="text-xs text-slate-600 text-center py-6">No cagnottes found for this user.</p>}
+          );
+        }) : <p className="text-xs text-slate-600 text-center py-6">No cagnottes found for this user.</p>}
       </div>
     );
 
@@ -645,7 +652,7 @@ const AdminUsersPage = ({ addToast }) => {
                     <div className={cn('h-full rounded-full', trustBg(u.trust_score))} style={{ width: `${u.trust_score}%` }} />
                   </div>
                 </div>,
-                <span className="font-mono text-white text-sm">{u.balance?.toLocaleString()} <span className="text-slate-600 text-[10px]">MAD</span></span>,
+                <span className="font-mono text-white text-sm">{formatAmount(u.balance)}</span>,
                 <Badge variant="neutral" className="uppercase text-[9px]">{u.role}</Badge>,
                 <div className="flex items-center gap-1.5">
                   <div className={cn('w-1.5 h-1.5 rounded-full', u.status === 'active' ? 'bg-emerald-500' : 'bg-rose-500')} />

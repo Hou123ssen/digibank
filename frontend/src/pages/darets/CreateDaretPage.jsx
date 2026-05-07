@@ -12,6 +12,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import daretService from '../../services/daretService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 const STEPS = [
@@ -128,10 +129,6 @@ const slideIn = {
   initial: { opacity: 0, x: 20 },
   animate: { opacity: 1, x: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
   exit:    { opacity: 0, x: -20, transition: { duration: 0.2 } },
-};
-const safeNumber = (value, fallback = 0) => {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -427,7 +424,7 @@ const CreateDaretPage = () => {
                   <p className="text-xs text-slate-500 mt-3 font-mono">
                     Pot total estimé :{' '}
                     <span className="text-emerald-400 font-bold">
-                      {(safeNumber(form.contribution_amount) * safeNumber(form.capacity)).toLocaleString('fr-MA')} MAD
+                      {formatAmount(safeNumber(form.contribution_amount) * safeNumber(form.capacity))}
                     </span>
                   </p>
                 )}
@@ -508,9 +505,9 @@ const CreateDaretPage = () => {
                 </div>
 
                 <div className="px-6 py-4">
-                  <ReviewRow label="Contribution / cycle" value={`${safeNumber(form.contribution_amount).toLocaleString('fr-MA')} MAD`} mono />
+                  <ReviewRow label="Contribution / cycle" value={formatAmount(form.contribution_amount)} mono />
                   <ReviewRow label="Capacité"             value={`${form.capacity} membres`} />
-                  <ReviewRow label="Pot total estimé"     value={`${totalPot.toLocaleString('fr-MA')} MAD`} mono />
+                  <ReviewRow label="Pot total estimé"     value={formatAmount(totalPot)} mono />
                   <ReviewRow label="Fréquence"            value={form.cycle_frequency === 'monthly' ? 'Mensuel' : 'Hebdomadaire'} />
                   <ReviewRow label="Durée estimée"        value={duration} />
                   <ReviewRow

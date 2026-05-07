@@ -20,6 +20,7 @@ import Input from '../../components/ui/Input';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import accountService from '../../services/accountService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 const RECENT_RECIPIENTS = [
   { id: 1, name: 'Youssef Alami', account: 'MA64 1234 5678 9012', avatar: null },
@@ -41,6 +42,8 @@ const TransferPage = ({ addToast }) => {
   const [recipientData, setRecipientData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const amountValue = safeNumber(formData.amount);
+  const formattedAmount = formatAmount(amountValue);
 
   // Mock recipient validation
   useEffect(() => {
@@ -68,7 +71,7 @@ const TransferPage = ({ addToast }) => {
     try {
       await accountService.transfer({
         account_number: formData.recipient,
-        amount: Number(formData.amount)
+        amount: amountValue
       });
       setStep('success');
       addToast('Virement effectué avec succès !');
@@ -103,7 +106,7 @@ const TransferPage = ({ addToast }) => {
           </div>
           <div className="space-y-2">
             <h2 className="text-3xl font-bold text-white">Virement envoyé !</h2>
-            <p className="text-slate-400">Votre transfert de <span className="text-white font-bold">{formData.amount} MAD</span> vers <span className="text-white font-bold">{recipientData?.name}</span> a été traité avec succès.</p>
+            <p className="text-slate-400">Votre transfert de <span className="text-white font-bold">{formattedAmount}</span> vers <span className="text-white font-bold">{recipientData?.name}</span> a été traité avec succès.</p>
           </div>
           
           <Card className="p-6 bg-white/5 border-white/10 space-y-4">
@@ -117,7 +120,7 @@ const TransferPage = ({ addToast }) => {
             </div>
             <div className="border-t border-white/5 pt-4 flex justify-between font-bold">
               <span className="text-slate-400">Total débité</span>
-              <span className="text-emerald-500">{formData.amount} MAD</span>
+              <span className="text-emerald-500">{formattedAmount}</span>
             </div>
           </Card>
 
@@ -241,7 +244,7 @@ const TransferPage = ({ addToast }) => {
                 </div>
                 <div className="flex justify-between text-lg font-bold text-white pt-4 border-t border-white/5">
                   <span>Total à débiter</span>
-                  <span>{formData.amount || 0} MAD</span>
+                  <span>{formattedAmount}</span>
                 </div>
               </div>
 
@@ -251,7 +254,7 @@ const TransferPage = ({ addToast }) => {
                 disabled={!recipientData || !formData.amount}
                 onClick={() => setStep('confirm')}
               >
-                Envoyer {formData.amount} MAD
+                Envoyer {formattedAmount}
               </Button>
             </div>
           </Card>
@@ -325,7 +328,7 @@ const TransferPage = ({ addToast }) => {
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-4">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Montant</span>
-                    <span className="text-white font-bold">{formData.amount} MAD</span>
+                    <span className="text-white font-bold">{formattedAmount}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Motif</span>

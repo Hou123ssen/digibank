@@ -15,6 +15,7 @@ import Modal from '../../components/ui/Modal';
 import Avatar from '../../components/ui/Avatar';
 import cagnotteService from '../../services/cagnotteService';
 import accountService   from '../../services/accountService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 // ── Shared helpers (same as list page) ───────────────────────────────────────
 const CAT = {
@@ -73,11 +74,11 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
     if (!isOpen) { setAmount(''); setMessage(''); setAnon(false); setSuccess(false); return; }
     accountService.getMyAccount().then(r => {
       const d = r?.data ?? r;
-      setBalance(Number(d?.balance ?? d?.solde ?? 0));
+      setBalance(safeNumber(d?.balance ?? d?.data?.balance ?? d?.solde ?? 0));
     }).catch(() => {});
   }, [isOpen]);
 
-  const amt    = parseFloat(amount) || 0;
+  const amt    = safeNumber(amount);
   const after  = balance !== null ? balance - amt : null;
   const valid  = amt > 0 && (balance === null || amt <= balance);
 
@@ -127,7 +128,7 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
               <p className="text-sm text-slate-400 mt-2">
                 Votre don de{' '}
                 <span className="text-white font-bold font-mono">
-                  {amt.toLocaleString('fr-MA')} MAD
+                  {formatAmount(amt)}
                 </span>{' '}
                 a bien été enregistré.
               </p>
@@ -163,7 +164,7 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-white truncate">{campaign.title}</p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {Number(campaign.current_amount || 0).toLocaleString('fr-MA')} MAD collectés
+                  {formatAmount(campaign.current_amount)} collectés
                 </p>
               </div>
             </div>
@@ -193,7 +194,7 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
                     onClick={() => setAmount(String(v))}
                     className={cn(
                       'px-3 py-1.5 rounded-lg text-xs font-bold border transition-all',
-                      Number(amount) === v
+                      safeNumber(amount) === v
                         ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                         : 'bg-white/5 text-slate-400 border-white/10 hover:text-white hover:border-white/20',
                     )}
@@ -210,7 +211,7 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
                 <div className="p-3 bg-white/[0.03] rounded-xl text-center">
                   <p className="text-[10px] text-slate-500 uppercase tracking-wider">Votre solde</p>
                   <p className="text-sm font-bold text-white font-mono mt-0.5">
-                    {balance.toLocaleString('fr-MA')} MAD
+                    {formatAmount(balance)}
                   </p>
                 </div>
                 <div className={cn(
@@ -224,7 +225,7 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
                     'text-sm font-bold font-mono mt-0.5',
                     after !== null && after < 0 ? 'text-rose-400' : 'text-white',
                   )}>
-                    {after !== null ? `${after.toLocaleString('fr-MA')} MAD` : '—'}
+                    {after !== null ? formatAmount(after) : '—'}
                   </p>
                 </div>
               </div>
@@ -354,8 +355,8 @@ const CagnotteDetailsPage = () => {
   const cat     = getCat(campaign.category);
   const CatIcon = cat.icon;
   const st      = STATUS_MAP[campaign.status] || STATUS_MAP.pending;
-  const current = Number(campaign.current_amount || 0);
-  const target  = Number(campaign.target_amount  || 1);
+  const current = safeNumber(campaign.current_amount);
+  const target  = safeNumber(campaign.target_amount, 1);
   const pct     = Math.min((current / target) * 100, 100);
   const days    = daysLeft(campaign.expires_at);
 
@@ -505,7 +506,7 @@ const CagnotteDetailsPage = () => {
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-sm font-bold text-emerald-400 font-mono">
-                                {Number(d.amount || 0).toLocaleString('fr-MA')} MAD
+                                {formatAmount(d.amount)}
                               </p>
                               <p className="text-[10px] text-slate-600 mt-0.5">
                                 {d.created_at ? new Date(d.created_at).toLocaleDateString('fr-MA') : ''}
@@ -534,10 +535,10 @@ const CagnotteDetailsPage = () => {
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Collecté</p>
               <p className="text-3xl font-bold text-white font-mono">
-                {current.toLocaleString('fr-MA')} MAD
+                {formatAmount(current)}
               </p>
               <p className="text-sm text-slate-400 mt-0.5">
-                sur {target.toLocaleString('fr-MA')} MAD
+                sur {formatAmount(target)}
               </p>
             </div>
 
