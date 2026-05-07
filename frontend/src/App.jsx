@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from './components/ui/Toast';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/routes/ProtectedRoute';
+import { ThemeProvider } from './components/landing/ThemeContext';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -24,30 +25,32 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
-          <Routes>
-            {/* Default Redirect to Dashboard (guarded) or Login */}
-            {/* Root Landing Page */}
-            <Route path="/" element={<LandingPage />} />
-            
-            {/* Auth Routes */}
-            <Route path="/login" element={<LoginPage addToast={addToast} />} />
-            <Route path="/register" element={<RegisterPage addToast={addToast} />} />
-            
-            {/* Protected Routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<DashboardPage addToast={addToast} />} />
-              {/* Additional protected routes can be added here */}
-            </Route>
-            
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
+      <ThemeProvider>
+        <AuthProvider>
+          <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
+            <Routes>
+              {/* Default Redirect to Dashboard (guarded) or Login */}
+              {/* Root Landing Page */}
+              <Route path="/" element={<LandingPage />} />
+              
+              {/* Auth Routes */}
+              <Route path="/login" element={<LoginPage addToast={addToast} />} />
+              <Route path="/register" element={<RegisterPage addToast={addToast} />} />
+              
+              {/* Protected Routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<DashboardPage addToast={addToast} />} />
+                {/* Additional protected routes can be added here */}
+              </Route>
+              
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
 
-          <ToastContainer toasts={toasts} removeToast={removeToast} />
-        </div>
-      </AuthProvider>
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
+          </div>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

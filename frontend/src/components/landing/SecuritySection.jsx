@@ -80,7 +80,7 @@ const SecuritySection = () => {
                 borderColor: dark ? 'rgba(0,194,168,0.15)' : 'rgba(0,150,130,0.25)',
                 boxShadow: dark ? 'none' : '0 2px 16px rgba(0,150,130,0.1)',
               }}>
-              <div className="w-12 h-12 bg-[#00C2A8]/10 border border-[#00C2A8]/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-[#00C2A8]/10 border border-[#00C2A8]/20 rounded-xl flex items-center justify-center shrink-0">
                 <CheckCircle size={24} className="text-[#00C2A8]" />
               </div>
               <div>
@@ -132,7 +132,7 @@ const SecuritySection = () => {
                 <motion.div
                   whileHover={{ scale: 1.15, background: 'rgba(0,194,168,0.25)' }}
                   transition={{ type: 'spring', stiffness: 350, damping: 18 }}
-                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: 'rgba(0,194,168,0.1)', border: '1px solid rgba(0,194,168,0.2)' }}
                 >
                   <Icon size={18} className="text-[#00C2A8]" />

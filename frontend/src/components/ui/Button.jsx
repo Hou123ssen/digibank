@@ -14,7 +14,7 @@ const Button = React.forwardRef(({
   ...props 
 }, ref) => {
   const variants = {
-    primary: "bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-lg shadow-emerald-900/20",
+    primary: "text-white shadow-lg font-semibold",
     secondary: "border border-white/10 bg-white/5 hover:bg-white/10 text-white",
     ghost: "hover:bg-white/5 text-slate-400 hover:text-white",
     danger: "bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-900/20",
@@ -36,6 +36,7 @@ const Button = React.forwardRef(({
         sizes[size],
         className
       )}
+      style={variant === 'primary' ? { background: 'linear-gradient(135deg,#00C2A8,#00a896)', boxShadow: '0 4px 20px rgba(0,194,168,0.3)', ...props.style } : props.style}
       {...props}
     >
       {isLoading ? (

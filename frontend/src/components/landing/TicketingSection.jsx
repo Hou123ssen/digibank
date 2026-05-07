@@ -38,7 +38,7 @@ const TicketingSection = () => {
             transition={{ duration: 0.8, ease: 'easeOut' }}
             className="relative"
           >
-            <div className="absolute inset-[-10px] bg-[#00C2A8]/8 blur-[60px] rounded-3xl pointer-events-none" />
+            <div className="absolute -inset-2.5 bg-[#00C2A8]/8 blur-[60px] rounded-3xl pointer-events-none" />
 
             <div className="relative rounded-2xl overflow-hidden shadow-2xl border"
               style={{
@@ -77,7 +77,7 @@ const TicketingSection = () => {
 
                 {/* User message */}
                 <div className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border"
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 border"
                     style={{ background: dark ? '#003B35' : 'rgba(0,194,168,0.1)', borderColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,194,168,0.2)' }}>
                     <User size={12} style={{ color: dark ? 'rgba(255,255,255,0.5)' : '#00A090' }} />
                   </div>
@@ -117,7 +117,7 @@ const TicketingSection = () => {
                       <span className="text-[10px]" style={{ color: dark ? 'rgba(255,255,255,0.25)' : 'rgba(0,41,32,0.3)' }}>14:24 · AI Generated</span>
                     </div>
                   </div>
-                  <div className="w-7 h-7 bg-gradient-to-br from-[#00C2A8] to-[#007A6E] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-7 h-7 bg-linear-to-br from-[#00C2A8] to-[#007A6E] rounded-full flex items-center justify-center shrink-0 mt-0.5">
                     <Bot size={12} className="text-[#001F1C]" />
                   </div>
                 </div>
@@ -125,7 +125,7 @@ const TicketingSection = () => {
                 {/* Confidence bar */}
                 <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5"
                   style={{ background: dark ? '#001A18' : 'rgba(0,194,168,0.06)' }}>
-                  <AlertCircle size={13} className="text-[#00C2A8] flex-shrink-0" />
+                  <AlertCircle size={13} className="text-[#00C2A8] shrink-0" />
                   <span className="text-[11px]" style={{ color: dark ? 'rgba(234,247,245,0.4)' : 'rgba(0,41,32,0.5)' }}>AI Confidence</span>
                   <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                     <motion.div
@@ -178,7 +178,7 @@ const TicketingSection = () => {
                   transition={{ duration: 0.4, delay: i * 0.09 }}
                   className="flex items-start gap-3"
                 >
-                  <div className="w-5 h-5 bg-[#00C2A8]/15 border border-[#00C2A8]/25 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-5 h-5 bg-[#00C2A8]/15 border border-[#00C2A8]/25 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                     <div className="w-2 h-2 bg-[#00C2A8] rounded-full" />
                   </div>
                   <p className="text-sm leading-relaxed" style={{ color: dark ? 'rgba(234,247,245,0.7)' : 'rgba(0,41,32,0.65)' }}>
