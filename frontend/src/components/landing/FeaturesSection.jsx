@@ -58,8 +58,8 @@ const FeaturesSection = () => {
     <section id="features" className="relative py-16 sm:py-24 lg:py-28" style={{ background: dark ? '#001F1C' : '#fff' }}>
       <AnimatedBackground variant="features" />
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00C2A8]/20 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00C2A8]/10 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-[#00C2A8]/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-[#00C2A8]/10 to-transparent" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

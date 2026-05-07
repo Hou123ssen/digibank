@@ -79,7 +79,7 @@ const Footer = () => {
         <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4"
           style={{ borderColor: dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.2)' }}>
           <p className="text-sm" style={{ color: dark ? 'rgba(234,247,245,0.28)' : 'rgba(255,255,255,0.65)' }}>
-            © 2024 DigiBank. All rights reserved. Premium Moroccan Fintech.
+            © 2026 DigiBank. All rights reserved. Premium Moroccan Fintech.
           </p>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 bg-[#00C2A8] rounded-full animate-pulse" />

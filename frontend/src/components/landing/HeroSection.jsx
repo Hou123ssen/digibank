@@ -36,7 +36,7 @@ const Typewriter = ({ dark }) => {
       <motion.span
         animate={{ opacity: [1, 0, 1] }}
         transition={{ duration: 0.8, repeat: Infinity }}
-        className="inline-block ml-[2px] w-[3px] h-[0.85em] rounded-sm align-middle"
+        className="inline-block ml-0.5 w-0.75 h-[0.85em] rounded-sm align-middle"
         style={{ background: dark ? '#00C2A8' : '#00A090', verticalAlign: 'middle' }}
       />
     </span>

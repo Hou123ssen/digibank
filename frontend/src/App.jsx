@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from './components/ui/Toast';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/routes/ProtectedRoute';
+import { ThemeProvider } from './components/landing/ThemeContext';
 import RoleBasedRoute from './components/routes/RoleBasedRoute';
 
 // Layouts
@@ -67,65 +68,67 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
-          <Routes>
-            {/* ── Public ───────────────────────────────────────────── */}
-            <Route path="/"         element={<LandingPage />} />
-            <Route path="/login"    element={<LoginPage    addToast={addToast} />} />
-            <Route path="/register" element={<RegisterPage addToast={addToast} />} />
+      <ThemeProvider>
+        <AuthProvider>
+          <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
+            <Routes>
+              {/* ── Public ───────────────────────────────────────────── */}
+              <Route path="/"         element={<LandingPage />} />
+              <Route path="/login"    element={<LoginPage    addToast={addToast} />} />
+              <Route path="/register" element={<RegisterPage addToast={addToast} />} />
 
-            {/* ── Protected (user) ─────────────────────────────────── */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<DashboardLayout addToast={addToast} />}>
-                <Route path="/dashboard"          element={<UserDashboardPage />} />
-                <Route path="/accounts"           element={<AccountOverviewPage     addToast={addToast} />} />
-                <Route path="/transactions"       element={<TransactionsHistoryPage addToast={addToast} />} />
-                <Route path="/transfer"           element={<TransferPage            addToast={addToast} />} />
-                <Route path="/darets"             element={<DaretListPage           addToast={addToast} />} />
-                <Route path="/darets/create"      element={<CreateDaretPage         addToast={addToast} />} />
-                <Route path="/darets/:id"         element={<DaretDetailsPage />} />
-                <Route path="/cagnottes"          element={<CagnotteListPage        addToast={addToast} />} />
-                <Route path="/cagnottes/request"  element={<RequestCampaignPage     addToast={addToast} />} />
-                <Route path="/cagnottes/:id"      element={<CagnotteDetailsPage />} />
-                <Route path="/kyc"                element={<KYCPage                 addToast={addToast} />} />
-                <Route path="/trust-score"        element={<TrustScorePage />} />
-                <Route path="/tickets"            element={<MyTicketsPage           addToast={addToast} />} />
-                <Route path="/tickets/create"     element={<CreateTicketPage        addToast={addToast} />} />
-                <Route path="/tickets/:id"        element={<TicketDetailPage />} />
-                <Route path="/notifications"      element={<NotificationsPage       addToast={addToast} />} />
-                <Route path="/settings"           element={<ComingSoon title="Paramètres" />} />
-                <Route path="/profile"            element={<ComingSoon title="Mon Profil" />} />
-              </Route>
+              {/* ── Protected (user) ─────────────────────────────────── */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<DashboardLayout addToast={addToast} />}>
+                  <Route path="/dashboard"          element={<UserDashboardPage />} />
+                  <Route path="/accounts"           element={<AccountOverviewPage     addToast={addToast} />} />
+                  <Route path="/transactions"       element={<TransactionsHistoryPage addToast={addToast} />} />
+                  <Route path="/transfer"           element={<TransferPage            addToast={addToast} />} />
+                  <Route path="/darets"             element={<DaretListPage           addToast={addToast} />} />
+                  <Route path="/darets/create"      element={<CreateDaretPage         addToast={addToast} />} />
+                  <Route path="/darets/:id"         element={<DaretDetailsPage />} />
+                  <Route path="/cagnottes"          element={<CagnotteListPage        addToast={addToast} />} />
+                  <Route path="/cagnottes/request"  element={<RequestCampaignPage     addToast={addToast} />} />
+                  <Route path="/cagnottes/:id"      element={<CagnotteDetailsPage />} />
+                  <Route path="/kyc"                element={<KYCPage                 addToast={addToast} />} />
+                  <Route path="/trust-score"        element={<TrustScorePage />} />
+                  <Route path="/tickets"            element={<MyTicketsPage           addToast={addToast} />} />
+                  <Route path="/tickets/create"     element={<CreateTicketPage        addToast={addToast} />} />
+                  <Route path="/tickets/:id"        element={<TicketDetailPage />} />
+                  <Route path="/notifications"      element={<NotificationsPage       addToast={addToast} />} />
+                  <Route path="/settings"           element={<ComingSoon title="Paramètres" />} />
+                  <Route path="/profile"            element={<ComingSoon title="Mon Profil" />} />
+                </Route>
 
-              {/* ── Employee (role: employee | admin) ──────────────── */}
-              <Route element={<RoleBasedRoute allowedRoles={['employee', 'admin']} />}>
-                <Route element={<EmployeeLayout addToast={addToast} />}>
-                  <Route path="/employee/dashboard" element={<EmployeeDashboardPage addToast={addToast} />} />
-                  <Route path="/employee/kyc"        element={<EmployeeKYCPage      addToast={addToast} />} />
-                  <Route path="/employee/cagnottes"  element={<EmployeeCagnottePage addToast={addToast} />} />
-                  <Route path="/employee/tickets"    element={<EmployeeTicketsPage  addToast={addToast} />} />
-                  <Route path="/employee/tickets/:id" element={<TicketDetailPage />} />
+                {/* ── Employee (role: employee | admin) ──────────────── */}
+                <Route element={<RoleBasedRoute allowedRoles={['employee', 'admin']} />}>
+                  <Route element={<EmployeeLayout addToast={addToast} />}>
+                    <Route path="/employee/dashboard" element={<EmployeeDashboardPage addToast={addToast} />} />
+                    <Route path="/employee/kyc"        element={<EmployeeKYCPage      addToast={addToast} />} />
+                    <Route path="/employee/cagnottes"  element={<EmployeeCagnottePage addToast={addToast} />} />
+                    <Route path="/employee/tickets"    element={<EmployeeTicketsPage  addToast={addToast} />} />
+                    <Route path="/employee/tickets/:id" element={<TicketDetailPage />} />
+                  </Route>
+                </Route>
+
+                {/* ── Admin (role: admin only) ────────────────────────── */}
+                <Route element={<RoleBasedRoute allowedRoles={['admin']} />}>
+                  <Route element={<AdminLayout addToast={addToast} />}>
+                    <Route path="/admin/dashboard"  element={<AdminDashboardPage  addToast={addToast} />} />
+                    <Route path="/admin/users"       element={<AdminUsersPage      addToast={addToast} />} />
+                    <Route path="/admin/employees"   element={<AdminEmployeesPage  addToast={addToast} />} />
+                  </Route>
                 </Route>
               </Route>
 
-              {/* ── Admin (role: admin only) ────────────────────────── */}
-              <Route element={<RoleBasedRoute allowedRoles={['admin']} />}>
-                <Route element={<AdminLayout addToast={addToast} />}>
-                  <Route path="/admin/dashboard"  element={<AdminDashboardPage  addToast={addToast} />} />
-                  <Route path="/admin/users"       element={<AdminUsersPage      addToast={addToast} />} />
-                  <Route path="/admin/employees"   element={<AdminEmployeesPage  addToast={addToast} />} />
-                </Route>
-              </Route>
-            </Route>
+              {/* ── Fallback ──────────────────────────────────────────── */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
 
-            {/* ── Fallback ──────────────────────────────────────────── */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-
-          <ToastContainer toasts={toasts} removeToast={removeToast} />
-        </div>
-      </AuthProvider>
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
+          </div>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

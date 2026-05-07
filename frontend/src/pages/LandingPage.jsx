@@ -5,7 +5,7 @@ import SecuritySection from '../components/landing/SecuritySection.jsx';
 import TicketingSection from '../components/landing/TicketingSection.jsx';
 import CTASection from '../components/landing/CTASection.jsx';
 import Footer from '../components/landing/Footer.jsx';
-import { ThemeProvider, useTheme } from '../components/landing/ThemeContext.jsx';
+import { useTheme } from '../components/landing/ThemeContext.jsx';
 
 const Inner = () => {
   const { dark } = useTheme();
@@ -22,10 +22,6 @@ const Inner = () => {
   );
 };
 
-const LandingPage = () => (
-  <ThemeProvider>
-    <Inner />
-  </ThemeProvider>
-);
+const LandingPage = () => <Inner />;
 
 export default LandingPage;
