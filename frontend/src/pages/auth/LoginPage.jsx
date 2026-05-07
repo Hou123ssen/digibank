@@ -19,24 +19,35 @@ const LoginPage = ({ addToast }) => {
     register,
     handleSubmit,
     setError: setFormFieldError,
+    clearErrors,
     formState: { errors },
   } = useForm();
 
   const onSubmit = async (data) => {
     setIsLoading(true);
     setError(null);
+    clearErrors();
 
     try {
-      await login(data.email, data.password);
+      await login({
+        email: data.email,
+        password: data.password,
+      });
       addToast('Welcome back to DigiBank!');
     } catch (err) {
       console.error('Login error:', err);
+      console.log(err.response?.data);
       const backendError = err.response?.data;
-      
-      if (backendError?.errors) {
-        // Show validation errors from Laravel
-        Object.keys(backendError.errors).forEach((key) => {
-          setFormFieldError(key, { message: backendError.errors[key][0] });
+
+      const fieldErrors = backendError?.errors;
+      const hasFieldErrors = fieldErrors && typeof fieldErrors === 'object' && Object.keys(fieldErrors).length > 0;
+
+      if (hasFieldErrors) {
+        Object.entries(fieldErrors).forEach(([key, messages]) => {
+          const message = Array.isArray(messages) ? messages[0] : messages;
+          if (message) {
+            setFormFieldError(key, { type: 'server', message });
+          }
         });
       } else {
         setError(backendError?.message || 'Invalid credentials. Please check your email and password.');

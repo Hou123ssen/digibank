@@ -22,8 +22,10 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const response = await authService.me();
-      setUser(response.data);
+      const data = await authService.me();
+      // If backend returns { user: {...} }, use that
+      const userData = data?.user || data;
+      setUser(userData);
       setIsAuthenticated(true);
     } catch (error) {
       console.error('Error loading user:', error);
@@ -58,20 +60,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (email, password) => {
-    const response = await authService.login({ email, password });
-    const authData = response.data?.data;
-    const user = authData?.user;
-    const token = authData?.token;
-    const account = authData?.account;
+  const login = async (credentials, password = undefined) => {
+    const payload = typeof credentials === 'object'
+      ? credentials
+      : { email: credentials, password };
+
+    const data = await authService.login(payload);
+    const user = data?.user;
+    const token = data?.token;
+    const account = data?.account;
 
     handleAuthSuccess(user, token, account);
-    return response.data;
+    return data;
   };
 
   const register = async (formData) => {
-    const response = await authService.register(formData);
-    return response.data;
+    const data = await authService.register(formData);
+    const user = data?.user;
+    const token = data?.token;
+    const account = data?.account;
+
+    handleAuthSuccess(user, token, account);
+    return data;
   };
 
   const logout = async () => {

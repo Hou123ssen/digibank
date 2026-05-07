@@ -3,11 +3,11 @@ import api from '../lib/api';
 const notificationService = {
   getNotifications: async () => {
     const response = await api.get('/notifications');
-    return response.data;
+    return response.data?.data || response.data;
   },
   markAsRead: async (id) => {
     const response = await api.post(`/notifications/${id}/read`);
-    return response.data;
+    return response.data?.data || response.data;
   },
 };
 
