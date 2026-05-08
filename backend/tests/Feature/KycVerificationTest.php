@@ -16,7 +16,7 @@ class KycVerificationTest extends TestCase
 
     public function test_user_can_submit_kyc_verification(): void
     {
-        Storage::fake('local');
+        Storage::fake('public');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
@@ -25,14 +25,20 @@ class KycVerificationTest extends TestCase
         ]);
 
         $response->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.kyc_verification.status', KycVerification::STATUS_PENDING);
+            ->assertJsonPath('success', true);
+
+        $this->assertContains(
+            $response->json('data.kyc_verification.status'),
+            KycVerification::REVIEWABLE_STATUSES
+        );
 
         $kyc = $user->kycVerification()->first();
 
         $this->assertNotNull($kyc);
-        Storage::disk('local')->assertExists($kyc->cin_front_path);
-        Storage::disk('local')->assertExists($kyc->cin_back_path);
+        Storage::disk('public')->assertExists($kyc->cin_front_path);
+        Storage::disk('public')->assertExists($kyc->cin_back_path);
+        $this->assertNotNull($kyc->cin_front_url);
+        $this->assertNotNull($kyc->cin_back_url);
     }
 
     public function test_user_cannot_submit_again_when_pending_or_approved(): void
@@ -55,7 +61,7 @@ class KycVerificationTest extends TestCase
 
     public function test_rejected_user_can_resubmit_kyc(): void
     {
-        Storage::fake('local');
+        Storage::fake('public');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
@@ -69,8 +75,12 @@ class KycVerificationTest extends TestCase
         ]);
 
         $response->assertCreated()
-            ->assertJsonPath('data.kyc_verification.status', KycVerification::STATUS_PENDING)
             ->assertJsonPath('data.kyc_verification.rejection_reason', null);
+
+        $this->assertContains(
+            $response->json('data.kyc_verification.status'),
+            KycVerification::REVIEWABLE_STATUSES
+        );
 
         $this->assertDatabaseCount('kyc_verifications', 1);
     }
@@ -83,6 +93,32 @@ class KycVerificationTest extends TestCase
         $this->getJson('/api/admin/kyc/pending')
             ->assertForbidden()
             ->assertJsonPath('success', false);
+    }
+
+    public function test_employee_can_see_pending_and_needs_review_kyc(): void
+    {
+        $employee = User::factory()->create(['role' => User::ROLE_EMPLOYEE]);
+        KycVerification::create($this->kycAttributes(User::factory()->create()));
+        KycVerification::create($this->kycAttributes(User::factory()->create(), [
+            'status' => KycVerification::STATUS_NEEDS_REVIEW,
+        ]));
+        KycVerification::create($this->kycAttributes(User::factory()->create(), [
+            'status' => KycVerification::STATUS_APPROVED,
+        ]));
+        Sanctum::actingAs($employee);
+
+        $this->getJson('/api/admin/kyc/pending')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'cin_front_url',
+                        'cin_back_url',
+                    ],
+                ],
+            ]);
     }
 
     public function test_employee_can_approve_pending_kyc(): void
@@ -117,10 +153,13 @@ class KycVerificationTest extends TestCase
             ->assertJsonPath('data.kyc_verification.rejection_reason', 'Document is unreadable.');
     }
 
-    public function test_pending_endpoint_returns_pending_kyc_only(): void
+    public function test_pending_endpoint_returns_pending_and_needs_review_kyc_only(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
         KycVerification::create($this->kycAttributes(User::factory()->create()));
+        KycVerification::create($this->kycAttributes(User::factory()->create(), [
+            'status' => KycVerification::STATUS_NEEDS_REVIEW,
+        ]));
         KycVerification::create($this->kycAttributes(User::factory()->create(), [
             'status' => KycVerification::STATUS_APPROVED,
         ]));
@@ -128,7 +167,7 @@ class KycVerificationTest extends TestCase
 
         $this->getJson('/api/admin/kyc/pending')
             ->assertOk()
-            ->assertJsonCount(1, 'data.kyc_verifications');
+            ->assertJsonCount(2, 'data');
     }
 
     private function validPayload(): array

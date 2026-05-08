@@ -22,9 +22,13 @@ const STATUS_TABS = [
 
 const STATUS_BADGE = {
   pending:  { label: 'En attente', variant: 'warning' },
+  needs_review: { label: 'En attente', variant: 'warning' },
   approved: { label: 'Approuvé',   variant: 'success' },
   rejected: { label: 'Rejeté',     variant: 'danger'  },
 };
+
+const PENDING_STATUSES = ['pending', 'needs_review'];
+const isPendingStatus = status => PENDING_STATUSES.includes(status);
 
 const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
 
@@ -164,8 +168,8 @@ const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, approve
               {/* CIN images */}
               <div className="grid grid-cols-2 gap-3 pt-4">
                 {[
-                  { label: 'CIN Recto', key: 'cin_front', src: sub.cin_front || sub.front_image },
-                  { label: 'CIN Verso', key: 'cin_back',  src: sub.cin_back  || sub.back_image  },
+                  { label: 'CIN Recto', key: 'cin_front', src: sub.cin_front_url },
+                  { label: 'CIN Verso', key: 'cin_back',  src: sub.cin_back_url  },
                 ].map(img => (
                   <div key={img.key} className="space-y-1.5">
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{img.label}</p>
@@ -216,7 +220,7 @@ const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, approve
               )}
 
               {/* Actions (only for pending) */}
-              {sub.status === 'pending' && (
+              {isPendingStatus(sub.status) && (
                 <div className="flex gap-3 pt-1">
                   <Button
                     variant="ghost"
@@ -258,7 +262,8 @@ const EmployeeKYCPage = () => {
     setLoading(true);
     try {
       const data = await kycService.getPendingKyc();
-      setSubmissions(Array.isArray(data) ? data : []);
+      const items = data?.data ?? data ?? [];
+      setSubmissions(Array.isArray(items) ? items : []);
     } catch {
       addToast?.('Impossible de charger les demandes KYC', 'error');
     } finally {
@@ -269,16 +274,22 @@ const EmployeeKYCPage = () => {
   useEffect(() => { loadData(); }, [loadData]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return submissions;
+    const byStatus = submissions.filter(s => {
+      if (activeTab === 'all') return true;
+      if (activeTab === 'pending') return isPendingStatus(s.status);
+      return s.status === activeTab;
+    });
+
+    if (!search.trim()) return byStatus;
     const q = search.toLowerCase();
-    return submissions.filter(s => {
+    return byStatus.filter(s => {
       const u = s.user || {};
       return (u.email || '').toLowerCase().includes(q)
           || (u.first_name || u.name || '').toLowerCase().includes(q)
           || (u.last_name || '').toLowerCase().includes(q)
           || (s.cin_number || '').toLowerCase().includes(q);
     });
-  }, [submissions, search]);
+  }, [submissions, activeTab, search]);
 
   const setLoaderFor = (id, val) => setActionLoading(prev => ({ ...prev, [id]: val }));
 
@@ -386,7 +397,9 @@ const EmployeeKYCPage = () => {
         {/* Status tabs */}
         <div className="flex items-center gap-1 p-1 bg-white/5 border border-white/5 rounded-xl w-fit overflow-x-auto">
           {STATUS_TABS.map(t => {
-            const count = t.id === 'all' ? submissions.length : submissions.filter(s => s.status === t.id).length;
+            const count = t.id === 'all'
+              ? submissions.length
+              : submissions.filter(s => t.id === 'pending' ? isPendingStatus(s.status) : s.status === t.id).length;
             return (
               <button
                 key={t.id}

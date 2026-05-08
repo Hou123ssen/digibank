@@ -13,6 +13,8 @@ const Button = React.forwardRef(({
   disabled, 
   ...props 
 }, ref) => {
+  // Ensure leftIcon and rightIcon (original prop names) are not in props
+  const { leftIcon, rightIcon, ...buttonProps } = props;
   const variants = {
     primary: "text-white shadow-lg font-semibold",
     secondary: "border border-white/10 bg-white/5 hover:bg-white/10 text-white",
@@ -36,8 +38,8 @@ const Button = React.forwardRef(({
         sizes[size],
         className
       )}
-      style={variant === 'primary' ? { background: 'linear-gradient(135deg,#00C2A8,#00a896)', boxShadow: '0 4px 20px rgba(0,194,168,0.3)', ...props.style } : props.style}
-      {...props}
+      style={variant === 'primary' ? { background: 'linear-gradient(135deg,#00C2A8,#00a896)', boxShadow: '0 4px 20px rgba(0,194,168,0.3)', ...buttonProps.style } : buttonProps.style}
+      {...buttonProps}
     >
       {isLoading ? (
         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

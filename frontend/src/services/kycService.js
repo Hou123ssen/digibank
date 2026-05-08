@@ -15,7 +15,7 @@ const kycService = {
   getPendingKyc: async () => {
     const response = await api.get('/admin/kyc/pending');
     const d = unwrap(response);
-    return arr(Array.isArray(d) ? d : d?.submissions ?? d?.kyc);
+    return arr(Array.isArray(d) ? d : d?.kyc_verifications ?? d?.submissions ?? d?.kyc);
   },
   getAllKyc: async (params = {}) => {
     return kycService.getPendingKyc(params);

@@ -105,8 +105,15 @@ const KYCPage = ({ addToast }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate
     if (!files.front || !files.back) {
-      addToast('Veuillez télécharger les deux faces de votre CIN', 'error');
+      addToast("Veuillez télécharger les deux faces de votre CIN", "error");
+      return;
+    }
+
+    if (!form.national_id_number || !form.full_name || !form.birth_date) {
+      addToast("Veuillez remplir tous les champs obligatoires", "error");
       return;
     }
 
@@ -117,15 +124,23 @@ const KYCPage = ({ addToast }) => {
       formData.append('cin_back', files.back);
       formData.append('national_id_number', form.national_id_number);
       formData.append('full_name', form.full_name);
-      formData.append('birth_date', form.birth_date);
+      
+      const birthDate = form.birth_date ? String(form.birth_date).slice(0, 10) : "";
+      formData.append('birth_date', birthDate);
 
       await kycService.submitKyc(formData);
       addToast('KYC soumis avec succès !', 'success');
       fetchKycStatus();
-    } catch (err) {
-      console.error('KYC Submission error:', err);
-      const msg = err.response?.data?.message || 'Erreur lors de la soumission.';
-      addToast(msg, 'error');
+    } catch (error) {
+      const data = error.response?.data;
+      console.log("KYC backend response:", data);
+
+      const message =
+        data?.message ||
+        Object.values(data?.errors || {}).flat()?.[0] ||
+        "KYC submission failed.";
+
+      addToast(message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -274,7 +289,7 @@ const KYCPage = ({ addToast }) => {
                       ref={frontInputRef} 
                       className="hidden" 
                       onChange={(e) => handleFileChange(e, 'front')}
-                      accept="image/*,.pdf"
+                      accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                       disabled={isLocked}
                     />
                     
@@ -315,7 +330,7 @@ const KYCPage = ({ addToast }) => {
                       ref={backInputRef} 
                       className="hidden" 
                       onChange={(e) => handleFileChange(e, 'back')}
-                      accept="image/*,.pdf"
+                      accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                       disabled={isLocked}
                     />
                     

@@ -24,18 +24,16 @@ class KycReviewController extends Controller
     {
         $verifications = KycVerification::query()
             ->with('user:id,name,email,role')
-            ->where('status', KycVerification::STATUS_PENDING)
+            ->whereIn('status', KycVerification::REVIEWABLE_STATUSES)
             ->latest()
             ->get();
 
-        return ApiResponse::success('Pending KYC verifications retrieved successfully.', [
-            'kyc_verifications' => $verifications,
-        ]);
+        return ApiResponse::success('Pending KYC verifications retrieved successfully.', $verifications);
     }
 
     public function approve(KycVerification $kyc)
     {
-        if ($kyc->status !== KycVerification::STATUS_PENDING) {
+        if (!in_array($kyc->status, KycVerification::REVIEWABLE_STATUSES, true)) {
             return ApiResponse::error('Only pending KYC verifications can be approved.', [], 409);
         }
 
@@ -65,7 +63,7 @@ class KycReviewController extends Controller
 
     public function reject(RejectKycRequest $request, KycVerification $kyc)
     {
-        if ($kyc->status !== KycVerification::STATUS_PENDING) {
+        if (!in_array($kyc->status, KycVerification::REVIEWABLE_STATUSES, true)) {
             return ApiResponse::error('Only pending KYC verifications can be rejected.', [], 409);
         }
 
