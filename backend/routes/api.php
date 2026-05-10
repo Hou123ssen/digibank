@@ -26,11 +26,14 @@ Route::prefix('auth')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+        Route::patch('/profile', [AuthController::class, 'updateProfile']);
     });
 });
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/accounts/me', [AccountController::class, 'me']);
+    Route::get('/accounts/me/summary', [AccountController::class, 'summary']);
+    Route::get('/accounts/me/statement-pdf', [AccountController::class, 'statementPdf']);
     Route::post('/accounts/deposit', [AccountController::class, 'deposit']);
     Route::post('/accounts/withdraw', [AccountController::class, 'withdraw']);
     Route::post('/accounts/transfer', [AccountController::class, 'transfer']);
@@ -50,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/darets/my', [DaretController::class, 'my']);
     Route::get('/darets/{daret}', [DaretController::class, 'show']);
     Route::post('/darets', [DaretController::class, 'store']);
+    Route::post('/darets/join-by-code', [DaretController::class, 'joinByCode']);
     Route::post('/darets/{daret}/join', [DaretController::class, 'join']);
     Route::post('/darets/{daret}/start', [DaretController::class, 'start']);
     Route::post('/darets/{daret}/pay', [DaretController::class, 'pay']);
@@ -69,6 +73,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::middleware(EnsureEmployeeDepartment::class)->prefix('employee')->group(function (): void {
         Route::get('/stats', [EmployeeDashboardController::class, 'stats']);
         Route::get('/performance', [EmployeeDashboardController::class, 'performance']);
+        Route::get('/analytics', [EmployeeDashboardController::class, 'analytics']);
         Route::get('/activity', [EmployeeDashboardController::class, 'activity']);
     });
 

@@ -8,6 +8,8 @@ use App\Http\Requests\RegisterRequest;
 use App\Services\AuthService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
@@ -43,6 +45,29 @@ class AuthController extends Controller
     {
         return ApiResponse::success('Authenticated user profile.', [
             'user' => $request->user()->load('account'),
+        ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'password' => ['nullable', 'confirmed', Password::min(8)],
+        ]);
+
+        $user = $request->user();
+        $user->name = $data['name'];
+        $user->phone = $data['phone'] ?? null;
+
+        if (!empty($data['password'])) {
+            $user->password = Hash::make($data['password']);
+        }
+
+        $user->save();
+
+        return ApiResponse::success('Profile updated successfully.', [
+            'user' => $user->fresh()->load('account'),
         ]);
     }
 }

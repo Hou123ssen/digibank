@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Search, Calendar, Banknote, ChevronRight,
   CheckCircle2, AlertCircle, Star, Clock, ArrowRight,
+  KeyRound,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -12,7 +13,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import daretService from '../../services/daretService';
-import { safeNumber, formatAmount } from '../../utils/apiResponse';
+import { safeNumber, formatAmount, getErrorMessage } from '../../utils/apiResponse';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_MAP = {
@@ -305,6 +306,51 @@ const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
   );
 };
 
+const JoinByCodeModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
+  const [inviteCode, setInviteCode] = useState('');
+
+  const submit = (event) => {
+    event.preventDefault();
+    if (!inviteCode.trim()) return;
+    onConfirm(inviteCode.trim());
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Rejoindre par code">
+      <form onSubmit={submit} className="space-y-5">
+        <div className="p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <KeyRound size={18} className="text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white">Code d'invitation</p>
+            <p className="text-xs text-slate-400 mt-1">Saisissez le code partage par le createur du Daret.</p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-slate-300">Code</label>
+          <input
+            value={inviteCode}
+            onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
+            placeholder="DRT-XXXXXX"
+            className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white font-mono tracking-widest transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-600"
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button type="submit" variant="primary" className="flex-1" isLoading={isLoading} disabled={!inviteCode.trim() || isLoading}>
+            Rejoindre
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'my',        label: 'Mes Darets'  },
@@ -342,6 +388,7 @@ const DaretListPage = () => {
   const [loading,      setLoading]      = useState(true);
   const [joining,      setJoining]      = useState(false);
   const [joinModal,    setJoinModal]    = useState(null);
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -376,8 +423,28 @@ const DaretListPage = () => {
     }
   };
 
-  const handlePay = (daret) => {
-    addToast?.('Paiement de la contribution initié', 'info');
+  const handleJoinByCode = async (inviteCode) => {
+    setJoining(true);
+    try {
+      await daretService.joinByCode(inviteCode);
+      addToast?.('Vous avez rejoint le Daret avec succes !', 'success');
+      setCodeModalOpen(false);
+      await load();
+    } catch (err) {
+      addToast?.(getErrorMessage(err) || 'Erreur lors de l\'adhesion', 'error');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handlePay = async (daret) => {
+    try {
+      await daretService.payDaret(daret.id, {});
+      addToast?.('Contribution payee avec succes !', 'success');
+      await load();
+    } catch (err) {
+      addToast?.(getErrorMessage(err) || 'Erreur lors du paiement', 'error');
+    }
   };
 
   const applyFilters = (list) =>
@@ -416,9 +483,14 @@ const DaretListPage = () => {
           <h1 className="text-2xl font-bold text-white">Daret Digital</h1>
           <p className="text-sm text-slate-400 mt-1">Tontine collaborative à la marocaine 🇲🇦</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" leftIcon={KeyRound} onClick={() => setCodeModalOpen(true)}>
+            Code invitation
+          </Button>
         <Link to="/darets/create">
           <Button variant="primary" leftIcon={Plus}>Créer un Daret</Button>
         </Link>
+        </div>
       </div>
 
       {/* ── Tabs ────────────────────────────────────────────────────── */}
@@ -534,6 +606,12 @@ const DaretListPage = () => {
         isOpen={!!joinModal}
         onClose={() => setJoinModal(null)}
         onConfirm={handleJoin}
+        isLoading={joining}
+      />
+      <JoinByCodeModal
+        isOpen={codeModalOpen}
+        onClose={() => setCodeModalOpen(false)}
+        onConfirm={handleJoinByCode}
         isLoading={joining}
       />
     </div>

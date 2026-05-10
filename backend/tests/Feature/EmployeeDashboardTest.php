@@ -49,6 +49,69 @@ class EmployeeDashboardTest extends TestCase
             ->assertJsonMissingPath('data.assigned_tickets');
     }
 
+    public function test_kyc_employee_analytics_returns_real_weekly_review_data(): void
+    {
+        $employee = User::factory()->create([
+            'role' => User::ROLE_EMPLOYEE,
+            'department' => 'kyc',
+            'status' => 'active',
+        ]);
+        $monday = now()->startOfWeek();
+
+        $approved = $this->createKyc([
+            'status' => KycVerification::STATUS_APPROVED,
+            'reviewed_by' => $employee->id,
+            'reviewed_at' => $monday->copy()->addHours(3),
+        ]);
+        $approved->forceFill(['created_at' => $monday->copy()->addHour()])->save();
+
+        $rejected = $this->createKyc([
+            'status' => KycVerification::STATUS_REJECTED,
+            'reviewed_by' => $employee->id,
+            'reviewed_at' => $monday->copy()->addDay()->addHours(4),
+        ]);
+        $rejected->forceFill(['created_at' => $monday->copy()->addDay()->addHours(2)])->save();
+
+        $this->createKyc([
+            'status' => KycVerification::STATUS_APPROVED,
+            'reviewed_by' => User::factory()->create(['role' => User::ROLE_EMPLOYEE])->id,
+            'reviewed_at' => $monday,
+        ]);
+
+        Sanctum::actingAs($employee);
+
+        $this->getJson('/api/employee/analytics')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.department', 'kyc')
+            ->assertJsonPath('data.reviewed', 2)
+            ->assertJsonPath('data.approved', 1)
+            ->assertJsonPath('data.rejected', 1)
+            ->assertJsonPath('data.approval_rate', 50)
+            ->assertJsonPath('data.avg_processing_minutes', 120)
+            ->assertJsonCount(7, 'data.weekly_activity')
+            ->assertJsonPath('data.weekly_activity.0.reviewed', 1)
+            ->assertJsonPath('data.weekly_activity.1.reviewed', 1)
+            ->assertJsonPath('data.approval_breakdown.0.count', 1)
+            ->assertJsonPath('data.approval_breakdown.1.count', 1);
+    }
+
+    public function test_non_kyc_employee_analytics_returns_empty_series(): void
+    {
+        $employee = User::factory()->create([
+            'role' => User::ROLE_EMPLOYEE,
+            'department' => 'tickets',
+            'status' => 'active',
+        ]);
+        Sanctum::actingAs($employee);
+
+        $this->getJson('/api/employee/analytics')
+            ->assertOk()
+            ->assertJsonPath('data.department', 'tickets')
+            ->assertJsonPath('data.reviewed', 0)
+            ->assertJsonPath('data.weekly_activity', []);
+    }
+
     public function test_ticket_employee_dashboard_returns_ticket_stats_only(): void
     {
         $employee = User::factory()->create([

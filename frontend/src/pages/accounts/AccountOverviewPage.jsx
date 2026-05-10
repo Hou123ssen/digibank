@@ -30,7 +30,13 @@ import { safeNumber, formatAmount } from '../../utils/apiResponse';
 const AccountOverviewPage = ({ addToast }) => {
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [summary, setSummary] = useState({
+    monthly_inflows: 0,
+    monthly_outflows: 0,
+    net_flow: 0,
+  });
   const [loading, setLoading] = useState(true);
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -39,20 +45,26 @@ const AccountOverviewPage = ({ addToast }) => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = true) => {
     try {
-      setLoading(true);
-      const [accRes, transRes] = await Promise.all([
+      if (showLoading) setLoading(true);
+      const [accRes, transRes, summaryRes] = await Promise.all([
         accountService.getMyAccount(),
-        transactionService.getMyTransactions()
+        transactionService.getMyTransactions(),
+        accountService.getMySummary()
       ]);
       setAccount(accRes);
       setTransactions(Array.isArray(transRes) ? transRes : []);
+      setSummary({
+        monthly_inflows: safeNumber(summaryRes?.monthly_inflows),
+        monthly_outflows: safeNumber(summaryRes?.monthly_outflows),
+        net_flow: safeNumber(summaryRes?.net_flow),
+      });
     } catch (err) {
       console.error('Error fetching account data:', err);
       // addToast('Impossible de charger les données du compte', 'error');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -61,6 +73,38 @@ const AccountOverviewPage = ({ addToast }) => {
     setIsCopied(true);
     addToast('Numéro de compte copié !');
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleStatementPdf = async () => {
+    try {
+      setIsPdfLoading(true);
+      const response = await accountService.downloadStatementPdf();
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'releve-digibank.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      addToast('Releve PDF genere avec succes', 'success');
+    } catch (err) {
+      console.error('Error generating statement PDF:', err);
+      addToast('Impossible de generer le releve PDF', 'error');
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
+  const handleDepositSuccess = async (result) => {
+    if (result?.account) {
+      setAccount(result.account);
+    } else if (result?.new_balance !== undefined) {
+      setAccount(prev => prev ? { ...prev, balance: result.new_balance } : prev);
+    }
+
+    await fetchData(false);
   };
 
   if (loading) {
@@ -180,8 +224,10 @@ const AccountOverviewPage = ({ addToast }) => {
           Virement
         </Button>
         <Button 
+          onClick={handleStatementPdf}
           variant="secondary" 
           leftIcon={FileText} 
+          isLoading={isPdfLoading}
           className="h-14 rounded-2xl bg-white/5 hover:bg-white/10"
         >
           Relevé PDF
@@ -192,15 +238,13 @@ const AccountOverviewPage = ({ addToast }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard 
           label="Entrées ce mois" 
-          value="MAD 12,450.00" 
-          delta="12%" 
+          value={formatAmount(summary.monthly_inflows)} 
           icon={TrendingUp} 
           trend="up"
         />
         <StatCard 
           label="Sorties ce mois" 
-          value="MAD 8,200.00" 
-          delta="5%" 
+          value={formatAmount(summary.monthly_outflows)} 
           icon={TrendingDown} 
           trend="down"
         />
@@ -210,7 +254,9 @@ const AccountOverviewPage = ({ addToast }) => {
             <Activity size={18} className="text-emerald-500" />
           </div>
           <div className="flex items-end justify-between gap-4">
-            <h3 className="text-2xl font-bold text-white">+ MAD 4,250</h3>
+            <h3 className={`text-2xl font-bold ${summary.net_flow >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              {summary.net_flow >= 0 ? '+' : ''}{formatAmount(summary.net_flow)}
+            </h3>
             <div className="flex-1 h-12 flex items-end gap-1">
               {[40, 20, 60, 30, 80, 50, 90, 45, 70].map((h, i) => (
                 <div 
@@ -261,7 +307,8 @@ const AccountOverviewPage = ({ addToast }) => {
       <DepositModal 
         isOpen={isDepositOpen} 
         onClose={() => setIsDepositOpen(false)} 
-        onSuccess={fetchData}
+        onSuccess={handleDepositSuccess}
+        addToast={addToast}
         currentBalance={balance}
       />
       <WithdrawModal 

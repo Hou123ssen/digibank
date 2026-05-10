@@ -77,7 +77,14 @@ const SidebarLink = ({ item, onNavigate }) => {
 };
 
 // ── Sidebar content (shared between desktop + mobile drawer) ──────────────────
-const SidebarContent = ({ user, logout, onNavigate }) => (
+const SidebarContent = ({ user, logout, onNavigate }) => {
+  const settingsPath = user?.role === 'admin'
+    ? '/admin/settings'
+    : user?.role === 'employee'
+      ? '/employee/settings'
+      : '/dashboard/settings';
+
+  return (
   <div className="flex flex-col h-full">
     {/* Logo */}
     <div className="px-5 pt-6 pb-4">
@@ -112,7 +119,7 @@ const SidebarContent = ({ user, logout, onNavigate }) => (
     {/* Bottom */}
     <div className="p-3 border-t border-white/5 space-y-0.5">
       <NavLink
-        to="/settings"
+        to={settingsPath}
         onClick={onNavigate}
         className={({ isActive }) =>
           cn(
@@ -145,7 +152,8 @@ const SidebarContent = ({ user, logout, onNavigate }) => (
       </button>
     </div>
   </div>
-);
+  );
+};
 
 // ── Main layout ───────────────────────────────────────────────────────────────
 const DashboardLayout = ({ addToast }) => {
@@ -186,13 +194,23 @@ const DashboardLayout = ({ addToast }) => {
   const roleLabel   = user?.role === 'admin'    ? 'Administrateur'
                     : user?.role === 'employee'  ? 'Employé'
                     : 'Client Premium';
+  const profilePath = user?.role === 'admin'
+    ? '/admin/profile'
+    : user?.role === 'employee'
+      ? '/employee/profile'
+      : '/dashboard/profile';
+  const settingsPath = user?.role === 'admin'
+    ? '/admin/settings'
+    : user?.role === 'employee'
+      ? '/employee/settings'
+      : '/dashboard/settings';
 
   return (
     <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
 
       {/* ── Desktop sidebar (fixed, always visible ≥ lg) ───────────────── */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 z-20 w-[260px] bg-bg-card border-r border-white/5 flex-col">
-        <SidebarContent logout={logout} />
+        <SidebarContent user={user} logout={logout} />
       </aside>
 
       {/* ── Mobile drawer ──────────────────────────────────────────────── */}
@@ -393,8 +411,8 @@ const DashboardLayout = ({ addToast }) => {
 
                   <div className="py-1">
                     {[
-                      { to: '/profile',  icon: User,              label: 'Mon Profil' },
-                      { to: '/settings', icon: SlidersHorizontal, label: 'Paramètres' },
+                      { to: profilePath, icon: User,              label: 'Mon Profil' },
+                      { to: settingsPath, icon: SlidersHorizontal, label: 'Paramètres' },
                     ].map(item => (
                       <NavLink
                         key={item.to}

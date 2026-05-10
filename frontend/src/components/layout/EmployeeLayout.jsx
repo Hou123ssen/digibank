@@ -52,6 +52,11 @@ const SidebarLink = ({ item, onNavigate }) => {
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 const SidebarContent = ({ logout, onNavigate, user }) => {
   const department = String(user?.department || '').trim().toLowerCase();
+  const settingsPath = user?.role === 'admin'
+    ? '/admin/settings'
+    : user?.role === 'employee'
+      ? '/employee/settings'
+      : '/dashboard/settings';
   const navItems = EMPLOYEE_NAV.filter(item => (
     user?.role === 'admin'
       || !item.departments
@@ -98,7 +103,7 @@ const SidebarContent = ({ logout, onNavigate, user }) => {
       </Link>
 
       <NavLink
-        to="/settings"
+        to={settingsPath}
         onClick={onNavigate}
         className={({ isActive }) => cn(
           'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
@@ -167,6 +172,16 @@ const EmployeeLayout = ({ addToast }) => {
   }, []);
 
   const displayName = user?.first_name || user?.name?.split(' ')[0] || 'Employé';
+  const profilePath = user?.role === 'admin'
+    ? '/admin/profile'
+    : user?.role === 'employee'
+      ? '/employee/profile'
+      : '/dashboard/profile';
+  const settingsPath = user?.role === 'admin'
+    ? '/admin/settings'
+    : user?.role === 'employee'
+      ? '/employee/settings'
+      : '/dashboard/settings';
 
   return (
     <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
@@ -319,8 +334,8 @@ const EmployeeLayout = ({ addToast }) => {
                   </div>
                   <div className="py-1">
                     {[
-                      { to: '/profile',  icon: User,              label: 'Mon Profil' },
-                      { to: '/settings', icon: SlidersHorizontal, label: 'Paramètres' },
+                      { to: profilePath, icon: User,              label: 'Mon Profil' },
+                      { to: settingsPath, icon: SlidersHorizontal, label: 'Paramètres' },
                     ].map(item => (
                       <NavLink key={item.to} to={item.to} onClick={() => setProfileOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">

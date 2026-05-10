@@ -8,8 +8,11 @@ class StoreDaretRequest extends ApiFormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
             'contribution_amount' => ['required', 'numeric', 'gt:0'],
             'total_members' => ['required', 'integer', 'min:2', 'max:100'],
+            'frequency' => ['nullable', 'in:monthly,weekly'],
+            'payout_order_type' => ['nullable', 'in:sequential,random,auto_rotation'],
         ];
     }
 }

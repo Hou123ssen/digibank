@@ -6,6 +6,18 @@ import {
   ChevronRight, TrendingUp, Star, Activity,
   CheckCircle2, XCircle, MessageSquare, UserCheck,
 } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { cn } from '../../utils/cn';
 import Badge from '../../components/ui/Badge';
 import employeeService from '../../services/employeeService';
@@ -105,6 +117,141 @@ const EmptyPanel = ({ children }) => (
   </div>
 );
 
+const ChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-bg-card px-3 py-2 shadow-xl">
+      <p className="mb-1 text-xs font-semibold text-white">{label}</p>
+      {payload.map(item => (
+        <p key={item.dataKey} className="text-[11px]" style={{ color: item.color }}>
+          {item.name}: {item.value}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+const AnalyticsCard = ({ label, value, sub, icon: Icon, color = 'text-emerald-400' }) => (
+  <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className="mt-0.5 text-[10px] text-slate-600">{sub}</p>
+      </div>
+      <Icon size={16} className={color} />
+    </div>
+    <p className={cn('mt-3 text-2xl font-bold font-mono', color)}>{value}</p>
+  </div>
+);
+
+const ChartShell = ({ title, children, empty }) => (
+  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+    <div className="mb-3 flex items-center justify-between">
+      <p className="text-sm font-semibold text-white">{title}</p>
+    </div>
+    {empty ? (
+      <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-white/10 text-sm text-slate-500">
+        Aucune donnee disponible
+      </div>
+    ) : (
+      <div className="h-56">
+        {children}
+      </div>
+    )}
+  </div>
+);
+
+const KycAnalyticsPanel = ({ loading, analytics }) => {
+  const weekly = Array.isArray(analytics?.weekly_activity) ? analytics.weekly_activity : [];
+  const breakdown = Array.isArray(analytics?.approval_breakdown) ? analytics.approval_breakdown : [];
+  const performance = Array.isArray(analytics?.weekly_performance) ? analytics.weekly_performance : [];
+  const hasWeeklyData = weekly.some(day => Number(day.reviewed || 0) > 0 || Number(day.approved || 0) > 0 || Number(day.rejected || 0) > 0);
+  const hasBreakdown = breakdown.some(item => Number(item.count || 0) > 0);
+  const hasPerformance = performance.some(day => Number(day.approval_rate || 0) > 0);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-xl bg-white/5" />)}
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="h-72 animate-pulse rounded-xl bg-white/5" />
+          <div className="h-72 animate-pulse rounded-xl bg-white/5" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <AnalyticsCard icon={BadgeCheck} label="KYC traites" value={analytics?.reviewed ?? 0} sub="cette semaine" />
+        <AnalyticsCard icon={CheckCircle2} label="Approuves" value={analytics?.approved ?? 0} sub="dossiers valides" color="text-emerald-400" />
+        <AnalyticsCard icon={XCircle} label="Rejetes" value={analytics?.rejected ?? 0} sub="dossiers refuses" color="text-rose-400" />
+        <AnalyticsCard icon={TrendingUp} label="Approval rate" value={asPercent(analytics?.approval_rate)} sub="approbation" color="text-sky-400" />
+        <AnalyticsCard icon={Clock} label="Temps moyen" value={analytics?.avg_processing_label ?? '0 min'} sub="traitement" color="text-amber-400" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ChartShell title="KYC traites par jour" empty={!hasWeeklyData}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={weekly}>
+              <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar name="Traites" dataKey="reviewed" fill="#38bdf8" radius={[5, 5, 0, 0]} />
+              <Bar name="Approuves" dataKey="approved" fill="#34d399" radius={[5, 5, 0, 0]} />
+              <Bar name="Rejetes" dataKey="rejected" fill="#fb7185" radius={[5, 5, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartShell>
+
+        <ChartShell title="KYC approuves vs rejetes" empty={!hasBreakdown}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={breakdown}>
+              <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <XAxis dataKey="status" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+              <Bar name="Dossiers" dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartShell>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ChartShell title="Performance hebdomadaire" empty={!hasPerformance}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={performance}>
+              <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+              <Tooltip content={<ChartTooltip />} />
+              <Line name="Approval rate %" type="monotone" dataKey="approval_rate" stroke="#38bdf8" strokeWidth={3} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartShell>
+
+        <ChartShell title="Temps moyen de traitement" empty={!hasWeeklyData}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={weekly}>
+              <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+              <Bar name="Minutes" dataKey="avg_processing_minutes" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartShell>
+      </div>
+    </div>
+  );
+};
+
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.07 } } };
 const cardAnim = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
 
@@ -113,6 +260,7 @@ const EmployeeDashboardPage = () => {
   const department = user?.role === 'admin' ? 'admin' : String(user?.department || '').trim().toLowerCase();
   const [stats, setStats] = useState({});
   const [performance, setPerformance] = useState({});
+  const [analytics, setAnalytics] = useState({});
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -121,9 +269,10 @@ const EmployeeDashboardPage = () => {
 
     (async () => {
       setLoading(true);
-      const [statsR, perfR, actR] = await Promise.allSettled([
+      const [statsR, perfR, analyticsR, actR] = await Promise.allSettled([
         employeeService.getDashboardStats(),
         employeeService.getMyPerformance(),
+        employeeService.getAnalytics(),
         employeeService.getActivityFeed(),
       ]);
 
@@ -131,10 +280,12 @@ const EmployeeDashboardPage = () => {
 
       const nextStats = statsR.status === 'fulfilled' ? statsR.value : {};
       const nextPerformance = perfR.status === 'fulfilled' ? perfR.value : {};
+      const nextAnalytics = analyticsR.status === 'fulfilled' ? analyticsR.value : {};
       const nextActivity = actR.status === 'fulfilled' ? actR.value : nextStats.activity ?? [];
 
       setStats(nextStats || {});
       setPerformance(nextPerformance || {});
+      setAnalytics(nextAnalytics || {});
       setActivity(Array.isArray(nextActivity) ? nextActivity.slice(0, 8) : []);
       setLoading(false);
     })();
@@ -313,7 +464,9 @@ const EmployeeDashboardPage = () => {
             <span className="ml-auto text-[10px] text-slate-500">Cette semaine</span>
           </div>
 
-          {loading ? (
+          {department === 'kyc' ? (
+            <KycAnalyticsPanel loading={loading} analytics={analytics} />
+          ) : loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map(i => <div key={i} className="h-14 bg-white/5 animate-pulse rounded-xl" />)}
             </div>

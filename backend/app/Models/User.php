@@ -44,6 +44,21 @@ class User extends Authenticatable
         return $this->hasMany(DaretMember::class);
     }
 
+    public function createdDarets(): HasMany
+    {
+        return $this->hasMany(Daret::class, 'creator_id');
+    }
+
+    public function beneficiaryDaretCycles(): HasMany
+    {
+        return $this->hasMany(DaretCycle::class, 'beneficiary_user_id');
+    }
+
+    public function daretPayments(): HasMany
+    {
+        return $this->hasMany(DaretPayment::class);
+    }
+
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);

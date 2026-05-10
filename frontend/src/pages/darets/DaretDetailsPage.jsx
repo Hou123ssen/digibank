@@ -12,7 +12,7 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import daretService from '../../services/daretService';
-import { safeNumber, formatAmount } from '../../utils/apiResponse';
+import { safeNumber, formatAmount, getErrorMessage } from '../../utils/apiResponse';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const Pulse = ({ className }) => (
@@ -43,7 +43,7 @@ const STATUS_MAP = {
 const getStatus = s => STATUS_MAP[s] || STATUS_MAP.open;
 
 const freqLabel = f => ({ monthly: 'Mensuel', weekly: 'Hebdomadaire' }[f] || 'Mensuel');
-const orderLabel = o => ({ sequential: 'Séquentiel', random: 'Aléatoire', auto: 'Auto-rotation' }[o] || o || '—');
+const orderLabel = o => ({ sequential: 'Séquentiel', random: 'Aléatoire', auto: 'Auto-rotation', auto_rotation: 'Auto-rotation' }[o] || o || '—');
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const TABS = [
@@ -403,36 +403,53 @@ const DaretDetailsPage = () => {
   const [starting,  setStarting] = useState(false);
   const [paying,    setPaying]   = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const data = await daretService.getDaretById(id);
-        setDaret(data);
-        setMembers(Array.isArray(data?.members) ? data.members : []);
-        setCycles(Array.isArray(data?.cycles) ? data.cycles : []);
-        setPayments(Array.isArray(data?.payments) ? data.payments : []);
-      } catch {
-        setDaret(null);
-        setMembers([]);
-        setCycles([]);
-        setPayments([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const applyDaretData = (data) => {
+    const loadedMembers = Array.isArray(data?.members) ? data.members : [];
+    const loadedCycles = Array.isArray(data?.cycles) ? data.cycles : [];
+    const loadedPayments = Array.isArray(data?.payments) ? data.payments : [];
+    const currentCycle = loadedCycles.find(c => ['pending', 'late', 'active', 'in_progress'].includes(c.status));
+    const hasPaidCurrentCycle = loadedPayments.some(payment =>
+      String(payment.user_id) === String(user?.id) &&
+      (!currentCycle || Number(payment.cycle_number) === Number(currentCycle.cycle_number)) &&
+      payment.status === 'paid'
+    );
 
-    load();
-  }, [id]);
+    setDaret({
+      ...data,
+      has_paid_current_cycle: data?.has_paid_current_cycle ?? hasPaidCurrentCycle,
+    });
+    setMembers(loadedMembers);
+    setCycles(loadedCycles);
+    setPayments(loadedPayments);
+  };
+
+  const loadDaret = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      const data = await daretService.getDaretById(id);
+      applyDaretData(data);
+    } catch {
+      setDaret(null);
+      setMembers([]);
+      setCycles([]);
+      setPayments([]);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDaret();
+  }, [id, user?.id]);
 
   const handleStart = async () => {
     setStarting(true);
     try {
-      const res = await daretService.startDaret(id);
-      setDaret(res || { ...daret, status: 'active' });
+      await daretService.startDaret(id);
+      await loadDaret(false);
       addToast?.('Daret démarré avec succès !', 'success');
     } catch (err) {
-      addToast?.(err?.response?.data?.message || 'Erreur lors du démarrage', 'error');
+      addToast?.(getErrorMessage(err) || 'Erreur lors du demarrage', 'error');
     } finally {
       setStarting(false);
     }
@@ -443,9 +460,9 @@ const DaretDetailsPage = () => {
     try {
       await daretService.payDaret(id, {});
       addToast?.('Contribution payée avec succès !', 'success');
-      setDaret(d => d ? { ...d, has_paid_current_cycle: true } : d);
+      await loadDaret(false);
     } catch (err) {
-      addToast?.(err?.response?.data?.message || 'Erreur lors du paiement', 'error');
+      addToast?.(getErrorMessage(err) || 'Erreur lors du paiement', 'error');
     } finally {
       setPaying(false);
     }

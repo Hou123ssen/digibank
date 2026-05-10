@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  ArrowRight, 
-  CheckCircle2, 
+import {
+  ArrowRight,
+  CheckCircle2,
   Wallet,
   CreditCard,
   Banknote,
-  Plus
+  Plus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -18,7 +17,7 @@ import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 const QUICK_AMOUNTS = [100, 500, 1000, 5000];
 
-const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
+const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0 }) => {
   const [amount, setAmount] = useState('');
   const [source, setSource] = useState('card');
   const [note, setNote] = useState('');
@@ -26,37 +25,69 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState(null);
 
+  const toast = (message, type) => {
+    addToast?.(message, type);
+  };
+
+  const resetState = () => {
+    setAmount('');
+    setSource('card');
+    setNote('');
+    setIsSuccess(false);
+    setError(null);
+    setIsLoading(false);
+  };
+
+  const handleClose = () => {
+    if (isLoading) return;
+    onClose();
+    setTimeout(resetState, 300);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || safeNumber(amount) <= 0) return;
+    if (!amount || safeNumber(amount) <= 0 || isLoading) return;
+
+    const payload = {
+      amount: safeNumber(amount),
+      source,
+      note,
+    };
+    console.log('Deposit request payload:', payload);
 
     setIsLoading(true);
     setError(null);
 
     try {
-      await accountService.deposit({
-        amount: safeNumber(amount),
-      });
+      const response = await accountService.deposit(payload);
+      console.log('Deposit backend response:', response);
+
+      const backendConfirmed = response?.success === true
+        && response?.transaction
+        && (response?.new_balance !== undefined || response?.account?.balance !== undefined);
+
+      if (!backendConfirmed) {
+        throw new Error('Deposit response was not confirmed by backend.');
+      }
+
       setIsSuccess(true);
-      onSuccess?.();
+      await onSuccess?.(response);
+
+      const language = localStorage.getItem('digibank_language_preference');
+      toast(language === 'ar' ? 'تم إيداع الأموال بنجاح' : 'Dépôt effectué avec succès', 'success');
+
+      setTimeout(() => {
+        handleClose();
+      }, 650);
     } catch (err) {
       console.error('Deposit error:', err);
-      setError(err.response?.data?.message || 'Une erreur est survenue lors du dépôt.');
+      console.log('Deposit error response:', err.response?.data || err.message);
+      const errorMessage = err.response?.data?.message || 'Une erreur est survenue lors du dépôt.';
+      setError(errorMessage);
+      toast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const resetState = () => {
-    setAmount('');
-    setNote('');
-    setIsSuccess(false);
-    setError(null);
-  };
-
-  const handleClose = () => {
-    onClose();
-    setTimeout(resetState, 300);
   };
 
   const current = safeNumber(currentBalance);
@@ -64,20 +95,20 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
   const previewBalance = current + depositAmount;
 
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={handleClose} 
-      title={!isSuccess ? "Déposer des fonds" : null}
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={!isSuccess ? 'Déposer des fonds' : null}
       className="max-w-md"
     >
       <AnimatePresence mode="wait">
         {!isSuccess ? (
-          <motion.form 
+          <motion.form
             key="form"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onSubmit={handleSubmit} 
+            onSubmit={handleSubmit}
             className="space-y-6"
           >
             {error && (
@@ -86,29 +117,29 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
               </div>
             )}
 
-            {/* Amount Input */}
             <div className="space-y-3">
               <label className="text-sm font-medium text-slate-400 uppercase tracking-wider">Montant à déposer</label>
               <div className="relative">
-                <input 
+                <input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
                   className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-4xl font-bold text-center text-white placeholder:text-white/10 focus:outline-none focus:border-emerald-500/50 transition-all"
                   required
+                  disabled={isLoading}
                 />
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 text-xl font-bold text-emerald-500">MAD</div>
               </div>
 
-              {/* Quick Amount Chips */}
               <div className="flex flex-wrap gap-2 pt-2">
                 {QUICK_AMOUNTS.map(amt => (
                   <button
                     key={amt}
                     type="button"
                     onClick={() => setAmount(amt.toString())}
-                    className="flex-1 py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm font-semibold hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-500 transition-all"
+                    disabled={isLoading}
+                    className="flex-1 py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm font-semibold hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-500 transition-all disabled:opacity-50"
                   >
                     +{amt}
                   </button>
@@ -116,7 +147,6 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
               </div>
             </div>
 
-            {/* Source Selection */}
             <div className="space-y-3">
               <label className="text-sm font-medium text-slate-400 uppercase tracking-wider">Source des fonds</label>
               <div className="grid grid-cols-3 gap-3">
@@ -129,9 +159,10 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
                     key={s.id}
                     type="button"
                     onClick={() => setSource(s.id)}
-                    className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
-                      source === s.id 
-                        ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' 
+                    disabled={isLoading}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all disabled:opacity-50 ${
+                      source === s.id
+                        ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500'
                         : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                     }`}
                   >
@@ -142,16 +173,15 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
               </div>
             </div>
 
-            {/* Note Input */}
-            <Input 
+            <Input
               label="Note (optionnel)"
               placeholder="Ex: Remboursement ami"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="bg-white/5 border-white/10"
+              disabled={isLoading}
             />
 
-            {/* Summary Box */}
             <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Solde actuel</span>
@@ -167,18 +197,20 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <Button 
-                type="button" 
-                variant="secondary" 
-                onClick={handleClose} 
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleClose}
+                disabled={isLoading}
                 className="flex-1"
               >
                 Annuler
               </Button>
-              <Button 
-                type="submit" 
-                variant="primary" 
-                isLoading={isLoading} 
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isLoading}
+                disabled={isLoading || safeNumber(amount) <= 0}
                 className="flex-1"
                 leftIcon={Plus}
               >
@@ -187,10 +219,11 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
             </div>
           </motion.form>
         ) : (
-          <motion.div 
+          <motion.div
             key="success"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
             className="py-8 text-center space-y-6"
           >
             <div className="w-20 h-20 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -204,11 +237,7 @@ const DepositModal = ({ isOpen, onClose, onSuccess, currentBalance = 0 }) => {
               <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Nouveau solde</p>
               <p className="text-3xl font-bold text-white">{formatAmount(previewBalance)}</p>
             </div>
-            <Button 
-              onClick={handleClose} 
-              variant="primary" 
-              className="w-full"
-            >
+            <Button onClick={handleClose} variant="primary" className="w-full">
               Terminé
             </Button>
           </motion.div>

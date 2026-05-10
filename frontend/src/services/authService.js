@@ -17,6 +17,10 @@ const authService = {
     const response = await api.get('/auth/me');
     return response.data?.data || response.data;
   },
+  updateProfile: async (data) => {
+    const response = await api.patch('/auth/profile', data);
+    return response.data?.data || response.data;
+  },
 };
 
 export default authService;

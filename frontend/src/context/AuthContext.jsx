@@ -81,6 +81,14 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
+  const updateProfile = async (profileData) => {
+    const data = await authService.updateProfile(profileData);
+    const userData = data?.user || data;
+    setUser(userData);
+    localStorage.setItem('digibank_user', JSON.stringify(userData));
+    return data;
+  };
+
   const logout = async () => {
     try {
       if (token) {
@@ -107,6 +115,7 @@ export const AuthProvider = ({ children }) => {
       loading, 
       login, 
       register, 
+      updateProfile,
       logout,
       loadUser 
     }}>

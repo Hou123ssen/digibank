@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from './components/ui/Toast';
 import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import { ThemeProvider } from './components/landing/ThemeContext';
 import RoleBasedRoute from './components/routes/RoleBasedRoute';
@@ -32,6 +33,8 @@ import RequestCampaignPage     from './pages/cagnottes/RequestCampaignPage';
 import MyTicketsPage           from './pages/tickets/MyTicketsPage';
 import CreateTicketPage        from './pages/tickets/CreateTicketPage';
 import TicketDetailPage        from './pages/tickets/TicketDetailPage';
+import ProfilePage             from './pages/profile/ProfilePage';
+import SettingsPage            from './pages/settings/SettingsPage';
 
 // ── Employee pages ────────────────────────────────────────────────────
 import EmployeeDashboardPage from './pages/employee/EmployeeDashboardPage';
@@ -56,6 +59,24 @@ const ComingSoon = ({ title }) => (
     </p>
   </div>
 );
+
+const ProfileRedirect = () => {
+  const { user } = useAuth();
+
+  if (user?.role === 'admin') return <Navigate to="/admin/profile" replace />;
+  if (user?.role === 'employee') return <Navigate to="/employee/profile" replace />;
+
+  return <Navigate to="/dashboard/profile" replace />;
+};
+
+const SettingsRedirect = () => {
+  const { user } = useAuth();
+
+  if (user?.role === 'admin') return <Navigate to="/admin/settings" replace />;
+  if (user?.role === 'employee') return <Navigate to="/employee/settings" replace />;
+
+  return <Navigate to="/dashboard/settings" replace />;
+};
 
 function App() {
   const [toasts, setToasts] = useState([]);
@@ -97,14 +118,22 @@ function App() {
                   <Route path="/tickets/create"     element={<CreateTicketPage        addToast={addToast} />} />
                   <Route path="/tickets/:id"        element={<TicketDetailPage />} />
                   <Route path="/notifications"      element={<NotificationsPage       addToast={addToast} />} />
-                  <Route path="/settings"           element={<ComingSoon title="Paramètres" />} />
-                  <Route path="/profile"            element={<ComingSoon title="Mon Profil" />} />
+                  <Route path="/settings"           element={<SettingsRedirect />} />
+                  <Route path="/profile"            element={<ProfileRedirect />} />
+                  <Route element={<RoleBasedRoute allowedRoles={['user']} />}>
+                    <Route path="/dashboard/profile" element={<ProfilePage />} />
+                    <Route path="/dashboard/settings" element={<SettingsPage />} />
+                  </Route>
                 </Route>
 
                 {/* ── Employee (role: employee | admin) ──────────────── */}
                 <Route element={<RoleBasedRoute allowedRoles={['employee', 'admin']} />}>
                   <Route element={<EmployeeLayout addToast={addToast} />}>
                     <Route path="/employee/dashboard" element={<EmployeeDashboardPage addToast={addToast} />} />
+                    <Route element={<RoleBasedRoute allowedRoles={['employee']} />}>
+                      <Route path="/employee/profile" element={<ProfilePage />} />
+                      <Route path="/employee/settings" element={<SettingsPage />} />
+                    </Route>
                     <Route element={<DepartmentRoute allowedDepartments={['kyc']} />}>
                       <Route path="/employee/kyc" element={<EmployeeKYCPage addToast={addToast} />} />
                     </Route>
@@ -124,6 +153,8 @@ function App() {
                     <Route path="/admin/dashboard"  element={<AdminDashboardPage  addToast={addToast} />} />
                     <Route path="/admin/users"       element={<AdminUsersPage      addToast={addToast} />} />
                     <Route path="/admin/employees"   element={<AdminEmployeesPage  addToast={addToast} />} />
+                    <Route path="/admin/profile"     element={<ProfilePage />} />
+                    <Route path="/admin/settings"    element={<SettingsPage />} />
                   </Route>
                 </Route>
               </Route>

@@ -9,6 +9,7 @@ use App\Models\KycVerification;
 use App\Models\Ticket;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
@@ -85,6 +86,27 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function analytics(Request $request)
+    {
+        $user = $request->user();
+        $department = $this->department($user->department);
+
+        return ApiResponse::success('Employee analytics retrieved successfully.', match ($department) {
+            'kyc' => $this->kycAnalytics($user->id),
+            default => [
+                'department' => $department,
+                'reviewed' => 0,
+                'approved' => 0,
+                'rejected' => 0,
+                'approval_rate' => 0,
+                'avg_processing_minutes' => 0,
+                'weekly_activity' => [],
+                'approval_breakdown' => [],
+                'weekly_performance' => [],
+            ],
+        });
+    }
+
     private function kycStats(): array
     {
         return [
@@ -103,6 +125,96 @@ class DashboardController extends Controller
                 ->count(),
             'activity' => $this->kycActivity(),
         ];
+    }
+
+    private function kycAnalytics(int $employeeId): array
+    {
+        $start = now()->startOfWeek();
+        $end = now()->endOfWeek();
+
+        $reviewedQuery = KycVerification::query()
+            ->where('reviewed_by', $employeeId)
+            ->whereBetween('reviewed_at', [$start, $end]);
+
+        $reviewed = (clone $reviewedQuery)->count();
+        $approved = (clone $reviewedQuery)->where('status', KycVerification::STATUS_APPROVED)->count();
+        $rejected = (clone $reviewedQuery)->where('status', KycVerification::STATUS_REJECTED)->count();
+        $avgProcessingMinutes = $this->averageKycProcessingMinutes($employeeId, $start, $end);
+        $weeklyActivity = $this->weeklyKycActivity($employeeId, $start);
+
+        return [
+            'department' => 'kyc',
+            'reviewed' => $reviewed,
+            'approved' => $approved,
+            'rejected' => $rejected,
+            'approval_rate' => $this->rate($approved, $reviewed),
+            'avg_processing_minutes' => $avgProcessingMinutes,
+            'avg_processing_label' => $this->minutesLabel($avgProcessingMinutes),
+            'weekly_activity' => $weeklyActivity,
+            'approval_breakdown' => [
+                ['status' => 'Approuves', 'count' => $approved],
+                ['status' => 'Rejetes', 'count' => $rejected],
+            ],
+            'weekly_performance' => array_map(
+                fn (array $day): array => [
+                    'date' => $day['date'],
+                    'day' => $day['day'],
+                    'approval_rate' => $this->rate($day['approved'], $day['reviewed']),
+                ],
+                $weeklyActivity
+            ),
+        ];
+    }
+
+    private function weeklyKycActivity(int $employeeId, Carbon $start): array
+    {
+        return collect(range(0, 6))
+            ->map(function (int $offset) use ($employeeId, $start): array {
+                $date = $start->copy()->addDays($offset);
+                $query = KycVerification::query()
+                    ->where('reviewed_by', $employeeId)
+                    ->whereDate('reviewed_at', $date);
+                $reviewed = (clone $query)->count();
+                $approved = (clone $query)->where('status', KycVerification::STATUS_APPROVED)->count();
+                $rejected = (clone $query)->where('status', KycVerification::STATUS_REJECTED)->count();
+
+                return [
+                    'date' => $date->toDateString(),
+                    'day' => ucfirst($date->locale('fr')->isoFormat('ddd')),
+                    'reviewed' => $reviewed,
+                    'approved' => $approved,
+                    'rejected' => $rejected,
+                    'avg_processing_minutes' => $this->averageKycProcessingMinutes($employeeId, $date->copy()->startOfDay(), $date->copy()->endOfDay()),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function averageKycProcessingMinutes(int $employeeId, Carbon $start, Carbon $end): int
+    {
+        $items = KycVerification::query()
+            ->where('reviewed_by', $employeeId)
+            ->whereNotNull('reviewed_at')
+            ->whereBetween('reviewed_at', [$start, $end])
+            ->get(['created_at', 'reviewed_at']);
+
+        if ($items->isEmpty()) {
+            return 0;
+        }
+
+        return (int) round($items->avg(
+            fn (KycVerification $kyc): int => $kyc->created_at->diffInMinutes($kyc->reviewed_at)
+        ));
+    }
+
+    private function minutesLabel(int $minutes): string
+    {
+        if ($minutes < 60) {
+            return $minutes . ' min';
+        }
+
+        return round($minutes / 60, 1) . ' h';
     }
 
     private function ticketStats(int $employeeId): array
