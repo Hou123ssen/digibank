@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "DigiBank",
+    "tagline": "System Bank",
+    "admin": "Administration",
+    "employee": "Employee Space"
+  },
+  "language": {
+    "select": "Choose language",
+    "fr": "French",
+    "en": "English",
+    "ar": "Arabic"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "account": "Account",
+    "transactions": "Transactions",
+    "transfer": "Transfer",
+    "daret": "Daret",
+    "cagnotte": "Cagnotte",
+    "kyc": "KYC",
+    "trustScore": "Trust Score",
+    "tickets": "Tickets",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "profile": "My profile",
+    "users": "Users",
+    "employees": "Employees",
+    "kycReviews": "KYC Reviews",
+    "kycQueue": "KYC Queue",
+    "supportQueue": "Support Queue",
+    "employeeSpace": "Employee space",
+    "clientSpace": "Client space",
+    "adminPanel": "Admin panel",
+    "navigation": "Navigation",
+    "staffPanel": "Staff panel",
+    "management": "Management"
+  },
+  "actions": {
+    "search": "Search...",
+    "logout": "Logout",
+    "viewAllNotifications": "View all notifications →",
+    "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "continue": "Continue",
+    "refresh": "Refresh",
+    "new": "New"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "employee": "Employee",
+    "client": "Premium Client"
+  },
+  "status": {
+    "online": "Online",
+    "liveNetwork": "Live Network",
+    "adminMode": "Admin Mode",
+    "employeeMode": "Employee Mode"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications",
+    "new_one": "{{count}} new",
+    "new_other": "{{count}} new",
+    "fallbackTitle": "Notification"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Connection unavailable. Check your network.",
+    "validation": "Please check the entered information."
+  }
+}

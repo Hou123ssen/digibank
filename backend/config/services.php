@@ -35,6 +35,12 @@ return [
         ],
     ],
 
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        'timeout' => env('OPENAI_TIMEOUT', 30),
+    ],
+
     'cin_ai' => [
         'url' => env('CIN_AI_SERVICE_URL'),
         'timeout' => env('CIN_AI_SERVICE_TIMEOUT', 30),

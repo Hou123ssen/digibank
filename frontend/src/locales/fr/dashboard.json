@@ -1,0 +1,8 @@
+{
+  "title": "Tableau de bord",
+  "welcome": "Bonjour, {{name}}",
+  "balance": "Solde actuel",
+  "recentTransactions": "Transactions récentes",
+  "monthlySpending": "Dépenses mensuelles",
+  "quickActions": "Actions rapides"
+}

@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "DigiBank",
+    "tagline": "System Bank",
+    "admin": "Administration",
+    "employee": "Espace Employé"
+  },
+  "language": {
+    "select": "Choisir la langue",
+    "fr": "Français",
+    "en": "Anglais",
+    "ar": "Arabe"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "account": "Compte",
+    "transactions": "Transactions",
+    "transfer": "Virement",
+    "daret": "Daret",
+    "cagnotte": "Cagnotte",
+    "kyc": "KYC",
+    "trustScore": "Trust Score",
+    "tickets": "Tickets",
+    "notifications": "Notifications",
+    "settings": "Paramètres",
+    "profile": "Mon profil",
+    "users": "Utilisateurs",
+    "employees": "Employés",
+    "kycReviews": "Revues KYC",
+    "kycQueue": "File KYC",
+    "supportQueue": "File support",
+    "employeeSpace": "Espace employé",
+    "clientSpace": "Espace client",
+    "adminPanel": "Panneau admin",
+    "navigation": "Navigation",
+    "staffPanel": "Espace staff",
+    "management": "Gestion"
+  },
+  "actions": {
+    "search": "Rechercher...",
+    "logout": "Déconnexion",
+    "viewAllNotifications": "Voir toutes les notifications →",
+    "close": "Fermer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "submit": "Envoyer",
+    "continue": "Continuer",
+    "refresh": "Actualiser",
+    "new": "Nouveau"
+  },
+  "roles": {
+    "admin": "Administrateur",
+    "employee": "Employé",
+    "client": "Client Premium"
+  },
+  "status": {
+    "online": "En ligne",
+    "liveNetwork": "Réseau actif",
+    "adminMode": "Mode admin",
+    "employeeMode": "Mode employé"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Aucune notification",
+    "new_one": "{{count}} nouvelle",
+    "new_other": "{{count}} nouvelles",
+    "fallbackTitle": "Notification"
+  },
+  "errors": {
+    "generic": "Une erreur est survenue. Veuillez réessayer.",
+    "network": "Connexion indisponible. Vérifiez votre réseau.",
+    "validation": "Veuillez vérifier les informations saisies."
+  }
+}

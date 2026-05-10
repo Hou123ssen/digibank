@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\KycReviewController;
+use App\Http\Controllers\Api\AiAssistantController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CagnotteController;
@@ -41,6 +42,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/trust-score/me', [TrustScoreController::class, 'me']);
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+
+    Route::get('/ai/conversations', [AiAssistantController::class, 'conversations']);
+    Route::get('/ai/conversations/{conversation}', [AiAssistantController::class, 'show']);
+    Route::post('/ai/chat', [AiAssistantController::class, 'chat']);
+    Route::post('/ai/chat/stream', [AiAssistantController::class, 'stream']);
 
     Route::post('/tickets', [TicketController::class, 'store']);
     Route::get('/tickets/my', [TicketController::class, 'my']);

@@ -1,46 +1,40 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Wallet, ArrowLeftRight, Send, Users, HeartHandshake,
-  BadgeCheck, Star, LifeBuoy, Bell, Settings, LogOut, Menu, X,
-  Search, ChevronDown, User, SlidersHorizontal, ShieldCheck, UserCog
+  ArrowLeftRight, BadgeCheck, Bell, HeartHandshake, LayoutDashboard,
+  LifeBuoy, Send, ShieldCheck, Star, UserCog, Users, Wallet
 } from 'lucide-react';
-import { cn } from '../../utils/cn';
-import { useAuth } from '../../context/AuthContext';
-import Avatar from '../ui/Avatar';
-import notificationService from '../../services/notificationService';
+import AuthenticatedLayout from './AuthenticatedLayout';
 
 const USER_NAV_ITEMS = [
-  { label: 'Dashboard',     icon: LayoutDashboard, path: '/dashboard',     end: true },
-  { label: 'Account',       icon: Wallet,          path: '/accounts' },
-  { label: 'Transactions',  icon: ArrowLeftRight,  path: '/transactions' },
-  { label: 'Transfer',      icon: Send,            path: '/transfer' },
-  { label: 'Daret',         icon: Users,           path: '/darets' },
-  { label: 'Cagnotte',      icon: HeartHandshake,  path: '/cagnottes' },
-  { label: 'KYC',           icon: BadgeCheck,      path: '/kyc' },
-  { label: 'Trust Score',   icon: Star,            path: '/trust-score' },
-  { label: 'Tickets',       icon: LifeBuoy,        path: '/tickets' },
-  { label: 'Notifications', icon: Bell,            path: '/notifications' },
+  { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/dashboard', end: true },
+  { labelKey: 'nav.account', icon: Wallet, path: '/accounts' },
+  { labelKey: 'nav.transactions', icon: ArrowLeftRight, path: '/transactions' },
+  { labelKey: 'nav.transfer', icon: Send, path: '/transfer' },
+  { labelKey: 'nav.daret', icon: Users, path: '/darets' },
+  { labelKey: 'nav.cagnotte', icon: HeartHandshake, path: '/cagnottes' },
+  { labelKey: 'nav.kyc', icon: BadgeCheck, path: '/kyc' },
+  { labelKey: 'nav.trustScore', icon: Star, path: '/trust-score' },
+  { labelKey: 'nav.tickets', icon: LifeBuoy, path: '/tickets' },
+  { labelKey: 'nav.notifications', icon: Bell, path: '/notifications' },
 ];
 
 const ADMIN_NAV_ITEMS = [
-  { label: 'Admin Panel',   icon: ShieldCheck,     path: '/admin/dashboard', end: true },
-  { label: 'Users',         icon: Users,           path: '/admin/users' },
-  { label: 'Employees',     icon: UserCog,         path: '/admin/employees' },
-  { label: 'KYC Reviews',    icon: BadgeCheck,      path: '/admin/kyc' },
-  { label: 'Tickets',       icon: LifeBuoy,        path: '/tickets' },
-  { label: 'Notifications', icon: Bell,            path: '/notifications' },
+  { labelKey: 'nav.adminPanel', icon: ShieldCheck, path: '/admin/dashboard', end: true },
+  { labelKey: 'nav.users', icon: Users, path: '/admin/users' },
+  { labelKey: 'nav.employees', icon: UserCog, path: '/admin/employees' },
+  { labelKey: 'nav.kycReviews', icon: BadgeCheck, path: '/admin/kyc' },
+  { labelKey: 'nav.tickets', icon: LifeBuoy, path: '/tickets' },
+  { labelKey: 'nav.notifications', icon: Bell, path: '/notifications' },
 ];
 
 const EMPLOYEE_NAV_ITEMS = [
-  { label: 'Dashboard',     icon: LayoutDashboard, path: '/dashboard',     end: true },
-  { label: 'KYC Queue',     icon: BadgeCheck,      path: '/admin/kyc' },
-  { label: 'Support Queue', icon: LifeBuoy,        path: '/tickets' },
-  { label: 'Cagnottes',     icon: HeartHandshake,  path: '/cagnottes' },
-  { label: 'Notifications', icon: Bell,            path: '/notifications' },
+  { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/dashboard', end: true },
+  { labelKey: 'nav.kycQueue', icon: BadgeCheck, path: '/admin/kyc' },
+  { labelKey: 'nav.supportQueue', icon: LifeBuoy, path: '/tickets' },
+  { labelKey: 'nav.cagnotte', icon: HeartHandshake, path: '/cagnottes' },
+  { labelKey: 'nav.notifications', icon: Bell, path: '/notifications' },
 ];
 
+<<<<<<< HEAD
 const LANGS = ['AR', 'FR', 'EN'];
 
 // ── Sidebar nav link ──────────────────────────────────────────────────────────
@@ -449,6 +443,21 @@ const DashboardLayout = ({ addToast }) => {
         </main>
       </div>
     </div>
+=======
+const DashboardLayout = ({ addToast }) => {
+  const role = JSON.parse(localStorage.getItem('digibank_user') || '{}')?.role;
+  const navItems = role === 'admin' ? ADMIN_NAV_ITEMS : role === 'employee' ? EMPLOYEE_NAV_ITEMS : USER_NAV_ITEMS;
+
+  return (
+    <AuthenticatedLayout
+      addToast={addToast}
+      navItems={navItems}
+      variant="emerald"
+      mode="client"
+      brandIcon={Wallet}
+      brandLabelKey="app.tagline"
+    />
+>>>>>>> 64b4c1eb2f7747c9bc84ef01dfafd23d74376b16
   );
 };
 

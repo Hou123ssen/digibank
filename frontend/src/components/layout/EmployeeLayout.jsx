@@ -1,15 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Outlet, Link } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { NavLink, Link, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, BadgeCheck, HeartHandshake, LifeBuoy,
-  Bell, Settings, LogOut, Menu, X, Search, ChevronDown,
-  User, SlidersHorizontal, Shield, ArrowLeft,
+  BadgeCheck, HeartHandshake, LayoutDashboard, LifeBuoy, Shield,
+  ArrowLeft, Settings, LogOut, Menu, Search, Bell, ChevronDown,
+  User, SlidersHorizontal, X,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
-import Avatar from '../ui/Avatar';
 import notificationService from '../../services/notificationService';
+import Avatar from '../ui/Avatar';
 
 const EMPLOYEE_NAV = [
   { label: 'Tableau de bord', icon: LayoutDashboard, path: '/employee/dashboard', end: true },
@@ -64,21 +64,75 @@ const SidebarContent = ({ logout, onNavigate, user }) => {
   ));
 
   return (
-  <div className="flex flex-col h-full">
-    {/* Header */}
-    <div className="px-5 pt-6 pb-4">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-900/40">
-          <Shield size={19} className="text-white" />
-        </div>
-        <div>
-          <p className="text-[15px] font-bold text-white tracking-tight leading-none">DigiBank</p>
-          <p className="text-[9px] text-amber-400 font-bold tracking-[0.18em] uppercase mt-0.5">
-            Espace Employé
-          </p>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-5 pt-6 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-900/40">
+            <Shield size={19} className="text-white" />
+          </div>
+          <div>
+            <p className="text-[15px] font-bold text-white tracking-tight leading-none">DigiBank</p>
+            <p className="text-[9px] text-amber-400 font-bold tracking-[0.18em] uppercase mt-0.5">
+              Espace Employé
+            </p>
+          </div>
         </div>
       </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+        <p className="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2.5">
+          Gestion
+        </p>
+        {navItems.map(item => (
+          <SidebarLink key={item.path} item={item} onNavigate={onNavigate} />
+        ))}
+      </nav>
+
+      {/* Bottom */}
+      <div className="p-3 border-t border-white/5 space-y-0.5">
+        <Link
+          to="/dashboard"
+          onClick={onNavigate}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-colors"
+        >
+          <ArrowLeft size={15} className="shrink-0" />
+          <span>Espace client</span>
+        </Link>
+
+        <NavLink
+          to="/settings"
+          onClick={onNavigate}
+          className={({ isActive }) => cn(
+            'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+            isActive
+              ? 'bg-emerald-500/10 text-emerald-400'
+              : 'text-slate-400 hover:bg-white/5 hover:text-white',
+          )}
+        >
+          {({ isActive }) => (
+            <>
+              <span className={cn(
+                'absolute left-0 w-0.5 h-5 rounded-r-full bg-emerald-400 transition-opacity',
+                isActive ? 'opacity-100' : 'opacity-0',
+              )} />
+              <Settings size={17} className="shrink-0" />
+              <span>Paramètres</span>
+            </>
+          )}
+        </NavLink>
+
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+        >
+          <LogOut size={17} className="shrink-0" />
+          Déconnexion
+        </button>
+      </div>
     </div>
+<<<<<<< HEAD
 
     {/* Nav */}
     <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
@@ -133,6 +187,8 @@ const SidebarContent = ({ logout, onNavigate, user }) => {
       </button>
     </div>
   </div>
+=======
+>>>>>>> 64b4c1eb2f7747c9bc84ef01dfafd23d74376b16
   );
 };
 
@@ -166,7 +222,7 @@ const EmployeeLayout = ({ addToast }) => {
                     : Array.isArray(res?.data)          ? res.data
                     : Array.isArray(res)                ? res : [];
         setNotifications(items.slice(0, 5));
-        setUnreadCount(items.filter(n => !n.is_read).length);
+        setUnreadCount(items.filter(n => !n.is_read && !n.read_at).length);
       } catch { /* silent */ }
     })();
   }, []);
@@ -290,7 +346,7 @@ const EmployeeLayout = ({ addToast }) => {
                   </div>
                   <div className="divide-y divide-white/5 max-h-60 overflow-y-auto">
                     {notifications.length > 0 ? notifications.map((n, i) => (
-                      <div key={i} className={cn('px-4 py-3 text-xs', !n.is_read && 'bg-emerald-500/[0.04]')}>
+                      <div key={i} className={cn('px-4 py-3 text-xs', (!n.is_read && !n.read_at) && 'bg-emerald-500/[0.04]')}>
                         <p className="text-slate-200 truncate">{n.title || n.message}</p>
                         <p className="text-slate-600 mt-0.5">{new Date(n.created_at).toLocaleDateString('fr-FR')}</p>
                       </div>

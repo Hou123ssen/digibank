@@ -1,23 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Outlet, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  LayoutDashboard, Users, UserCog, Bell,
-  Settings, LogOut, Menu, X, Search,
-  ChevronDown, User, SlidersHorizontal,
-  ShieldCheck, ArrowLeft,
-} from 'lucide-react';
-import { cn } from '../../utils/cn';
-import { useAuth } from '../../context/AuthContext';
-import Avatar from '../ui/Avatar';
-import notificationService from '../../services/notificationService';
+import { LayoutDashboard, ShieldCheck, UserCog, Users } from 'lucide-react';
+import AuthenticatedLayout from './AuthenticatedLayout';
 
 const ADMIN_NAV = [
-  { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin/dashboard', end: true },
-  { label: 'Utilisateurs',    icon: Users,           path: '/admin/users'     },
-  { label: 'Employés',        icon: UserCog,         path: '/admin/employees' },
+  { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/admin/dashboard', end: true },
+  { labelKey: 'nav.users', icon: Users, path: '/admin/users' },
+  { labelKey: 'nav.employees', icon: UserCog, path: '/admin/employees' },
 ];
 
+<<<<<<< HEAD
 const LANGS = ['AR', 'FR', 'EN'];
 
 const SidebarLink = ({ item, onNavigate }) => {
@@ -276,4 +266,18 @@ const AdminLayout = ({ addToast }) => {
   );
 };
 
+=======
+const AdminLayout = ({ addToast }) => (
+  <AuthenticatedLayout
+    addToast={addToast}
+    navItems={ADMIN_NAV}
+    variant="violet"
+    mode="admin"
+    brandIcon={ShieldCheck}
+    brandLabelKey="app.admin"
+    backLink={{ to: '/employee/dashboard', labelKey: 'nav.employeeSpace' }}
+  />
+);
+
+>>>>>>> 64b4c1eb2f7747c9bc84ef01dfafd23d74376b16
 export default AdminLayout;
