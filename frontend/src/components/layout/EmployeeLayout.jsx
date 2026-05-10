@@ -13,9 +13,9 @@ import notificationService from '../../services/notificationService';
 
 const EMPLOYEE_NAV = [
   { label: 'Tableau de bord', icon: LayoutDashboard, path: '/employee/dashboard', end: true },
-  { label: 'File KYC',        icon: BadgeCheck,      path: '/employee/kyc'       },
-  { label: 'Cagnottes',       icon: HeartHandshake,  path: '/employee/cagnottes' },
-  { label: 'Tickets',         icon: LifeBuoy,        path: '/employee/tickets'   },
+  { label: 'File KYC',        icon: BadgeCheck,      path: '/employee/kyc',       departments: ['kyc'] },
+  { label: 'Cagnottes',       icon: HeartHandshake,  path: '/employee/cagnottes', departments: ['cagnotte'] },
+  { label: 'Tickets',         icon: LifeBuoy,        path: '/employee/tickets',   departments: ['tickets'] },
 ];
 
 const LANGS = ['AR', 'FR', 'EN'];
@@ -50,7 +50,15 @@ const SidebarLink = ({ item, onNavigate }) => {
 };
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-const SidebarContent = ({ logout, onNavigate }) => (
+const SidebarContent = ({ logout, onNavigate, user }) => {
+  const department = String(user?.department || '').trim().toLowerCase();
+  const navItems = EMPLOYEE_NAV.filter(item => (
+    user?.role === 'admin'
+      || !item.departments
+      || item.departments.includes(department)
+  ));
+
+  return (
   <div className="flex flex-col h-full">
     {/* Header */}
     <div className="px-5 pt-6 pb-4">
@@ -72,7 +80,7 @@ const SidebarContent = ({ logout, onNavigate }) => (
       <p className="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2.5">
         Gestion
       </p>
-      {EMPLOYEE_NAV.map(item => (
+      {navItems.map(item => (
         <SidebarLink key={item.path} item={item} onNavigate={onNavigate} />
       ))}
     </nav>
@@ -120,7 +128,8 @@ const SidebarContent = ({ logout, onNavigate }) => (
       </button>
     </div>
   </div>
-);
+  );
+};
 
 // ── Main layout ───────────────────────────────────────────────────────────────
 const EmployeeLayout = ({ addToast }) => {
@@ -164,7 +173,7 @@ const EmployeeLayout = ({ addToast }) => {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 z-20 w-[260px] bg-bg-card border-r border-white/5 flex-col">
-        <SidebarContent logout={logout} />
+        <SidebarContent logout={logout} user={user} />
       </aside>
 
       {/* Mobile drawer */}
@@ -189,7 +198,7 @@ const EmployeeLayout = ({ addToast }) => {
               >
                 <X size={18} />
               </button>
-              <SidebarContent logout={logout} onNavigate={() => setSidebarOpen(false)} />
+              <SidebarContent logout={logout} user={user} onNavigate={() => setSidebarOpen(false)} />
             </motion.aside>
           </>
         )}

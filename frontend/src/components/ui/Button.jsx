@@ -11,10 +11,8 @@ const Button = React.forwardRef(({
   rightIcon: RightIcon, 
   children, 
   disabled, 
-  ...props 
+  ...buttonProps
 }, ref) => {
-  // Ensure leftIcon and rightIcon (original prop names) are not in props
-  const { leftIcon, rightIcon, ...buttonProps } = props;
   const variants = {
     primary: "text-white shadow-lg font-semibold",
     secondary: "border border-white/10 bg-white/5 hover:bg-white/10 text-white",

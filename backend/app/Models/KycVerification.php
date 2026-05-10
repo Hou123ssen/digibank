@@ -22,16 +22,27 @@ use Illuminate\Support\Facades\Storage;
     'extracted_text',
     'detected_cin_number',
     'ocr_verified',
+    'ocr_confidence_score',
+    'ocr_keyword_score',
+    'ocr_text_density_score',
+    'ocr_document_shape_score',
+    'ocr_blur_score',
+    'ocr_document_detected',
+    'ocr_suspicious',
+    'ocr_extracted_full_name',
+    'ocr_extracted_birth_date',
 ])]
 class KycVerification extends Model
 {
     public const STATUS_PENDING = 'pending';
+    public const STATUS_PENDING_REVIEW = 'pending_review';
     public const STATUS_NEEDS_REVIEW = 'needs_review';
     public const STATUS_APPROVED = 'approved';
     public const STATUS_REJECTED = 'rejected';
 
     public const REVIEWABLE_STATUSES = [
         self::STATUS_PENDING,
+        self::STATUS_PENDING_REVIEW,
         self::STATUS_NEEDS_REVIEW,
     ];
 
@@ -47,6 +58,14 @@ class KycVerification extends Model
             'birth_date' => 'date',
             'reviewed_at' => 'datetime',
             'ocr_verified' => 'boolean',
+            'ocr_confidence_score' => 'integer',
+            'ocr_keyword_score' => 'integer',
+            'ocr_text_density_score' => 'integer',
+            'ocr_document_shape_score' => 'integer',
+            'ocr_blur_score' => 'integer',
+            'ocr_document_detected' => 'boolean',
+            'ocr_suspicious' => 'boolean',
+            'ocr_extracted_birth_date' => 'date',
         ];
     }
 

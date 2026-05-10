@@ -85,7 +85,7 @@ class CagnotteDonationTest extends TestCase
     public function test_employee_can_find_approve_and_reject_cagnotte_requests(): void
     {
         [$creator, , $cagnotte] = $this->campaignFixture(targetAmount: 500, status: Cagnotte::STATUS_PENDING);
-        $employee = User::factory()->create(['role' => User::ROLE_EMPLOYEE]);
+        $employee = User::factory()->create(['role' => User::ROLE_EMPLOYEE, 'department' => 'cagnotte', 'status' => 'active']);
         Sanctum::actingAs($employee);
 
         $this->getJson('/api/employee/cagnottes/pending')

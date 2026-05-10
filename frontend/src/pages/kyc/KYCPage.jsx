@@ -30,7 +30,7 @@ const KYCPage = ({ addToast }) => {
   const [kycData, setKycData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [status, setStatus] = useState('not_submitted'); // not_submitted, pending, approved, rejected
+  const [status, setStatus] = useState('not_submitted'); // not_submitted, pending_review, needs_review, approved, rejected
 
   // Form state
   const [form, setForm] = useState({
@@ -132,13 +132,15 @@ const KYCPage = ({ addToast }) => {
       addToast('KYC soumis avec succès !', 'success');
       fetchKycStatus();
     } catch (error) {
-      const data = error.response?.data;
-      console.log("KYC backend response:", data);
+      console.log("FULL KYC ERROR:", error);
+      console.log("KYC RESPONSE:", error.response);
+      console.log("KYC RESPONSE DATA:", error.response?.data);
 
+      const data = error.response?.data;
       const message =
         data?.message ||
         Object.values(data?.errors || {}).flat()?.[0] ||
-        "KYC submission failed.";
+        "KYC submission failed";
 
       addToast(message, 'error');
     } finally {
@@ -149,6 +151,8 @@ const KYCPage = ({ addToast }) => {
   const getStatusBadge = () => {
     switch (status) {
       case 'pending': return <Badge variant="warning" leftIcon={Clock}>En attente</Badge>;
+      case 'pending_review': return <Badge variant="warning" leftIcon={Clock}>En attente</Badge>;
+      case 'needs_review': return <Badge variant="warning" leftIcon={Clock}>Verification manuelle</Badge>;
       case 'approved': return <Badge variant="success" leftIcon={CheckCircle2}>Approuvé</Badge>;
       case 'rejected': return <Badge variant="danger" leftIcon={XCircle}>Rejeté</Badge>;
       default: return <Badge variant="neutral">Non soumis</Badge>;
@@ -167,7 +171,7 @@ const KYCPage = ({ addToast }) => {
     );
   }
 
-  const isLocked = status === 'pending' || status === 'approved';
+  const isLocked = ['pending', 'pending_review', 'needs_review', 'approved'].includes(status);
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
@@ -178,7 +182,7 @@ const KYCPage = ({ addToast }) => {
         actions={getStatusBadge()}
       />
 
-      {status === 'pending' && (
+      {['pending', 'pending_review', 'needs_review'].includes(status) && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -30,6 +30,12 @@ const kycService = {
     });
     return unwrap(response);
   },
+  downloadKycPdf: async (id) => {
+    const response = await api.get(`/employee/kyc/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
   bulkApprove: async (ids) => {
     return Promise.all(arr(ids).map(id => kycService.approveKyc(id)));
   },

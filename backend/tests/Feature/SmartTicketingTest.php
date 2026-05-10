@@ -16,7 +16,7 @@ class SmartTicketingTest extends TestCase
 
     public function test_user_can_create_ticket_with_rule_based_ai_fields_and_employee_notification(): void
     {
-        $employee = User::factory()->create(['role' => User::ROLE_EMPLOYEE]);
+        $employee = User::factory()->create(['role' => User::ROLE_EMPLOYEE, 'department' => 'tickets', 'status' => 'active']);
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
@@ -79,7 +79,7 @@ class SmartTicketingTest extends TestCase
 
     public function test_employee_can_view_assign_reply_resolve_and_close_ticket(): void
     {
-        $employee = User::factory()->create(['role' => User::ROLE_EMPLOYEE]);
+        $employee = User::factory()->create(['role' => User::ROLE_EMPLOYEE, 'department' => 'tickets', 'status' => 'active']);
         $user = User::factory()->create();
         $ticket = $this->ticketFor($user);
         Sanctum::actingAs($employee);
