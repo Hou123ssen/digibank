@@ -1,0 +1,10 @@
+{
+  "title": "التحقق KYC",
+  "subtitle": "أكد هويتك لفتح جميع ميزات DigiBank.",
+  "status": "حالة KYC",
+  "approved": "مقبول",
+  "pending": "قيد المراجعة",
+  "rejected": "مرفوض",
+  "notSubmitted": "لم يتم الإرسال",
+  "submit": "إرسال التحقق"
+}

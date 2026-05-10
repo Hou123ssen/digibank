@@ -1,0 +1,13 @@
+{
+  "title": "Tickets",
+  "subtitle": "Track your requests and talk to DigiBank support.",
+  "create": "Create ticket",
+  "myTickets": "My tickets",
+  "subject": "Subject",
+  "description": "Description",
+  "category": "Category",
+  "priority": "Priority",
+  "language": "Language",
+  "send": "Send ticket",
+  "status": "Status"
+}

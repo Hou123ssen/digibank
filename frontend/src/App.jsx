@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import { ThemeProvider } from './components/landing/ThemeContext';
 import RoleBasedRoute from './components/routes/RoleBasedRoute';
+import AIBankingAssistant from './components/ai/AIBankingAssistant';
 
 // Layouts
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -126,6 +127,7 @@ function App() {
             </Routes>
 
             <ToastContainer toasts={toasts} removeToast={removeToast} />
+            <AIBankingAssistant />
           </div>
         </AuthProvider>
       </ThemeProvider>

@@ -26,8 +26,13 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-bg-dark text-white font-sans antialiased;
+    transition: direction 0.2s ease;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -52,4 +57,47 @@
 /* RTL Support */
 [dir="rtl"] {
   font-family: var(--font-arabic);
+}
+
+[dir="rtl"] body,
+[dir="rtl"] input,
+[dir="rtl"] textarea,
+[dir="rtl"] select,
+[dir="rtl"] button {
+  font-family: var(--font-arabic);
+}
+
+[dir="rtl"] .rtl\:text-right {
+  text-align: right;
+}
+
+[dir="rtl"] .lg\:ml-\[260px\] {
+  margin-left: 0;
+  margin-right: 260px;
+}
+
+[dir="rtl"] .lg\:left-0 {
+  left: auto;
+  right: 0;
+}
+
+[dir="rtl"] .border-r {
+  border-right-width: 0;
+  border-left-width: 1px;
+}
+
+[dir="rtl"] .left-0 {
+  left: auto;
+  right: 0;
+}
+
+[dir="rtl"] .right-0 {
+  right: auto;
+  left: 0;
+}
+
+@media (max-width: 1023px) {
+  [dir="rtl"] .lg\:ml-\[260px\] {
+    margin-right: 0;
+  }
 }

@@ -9,6 +9,8 @@ import logo from '../../images/logo digi.png';
 import AuthBackground from '../../components/layout/AuthBackground';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../components/landing/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../../components/i18n/LanguageSwitcher';
 
 const LoginPage = ({ addToast }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -16,6 +18,7 @@ const LoginPage = ({ addToast }) => {
   const [error, setError]               = useState(null);
   const { login } = useAuth();
   const { dark, toggle } = useTheme();
+  const { t } = useTranslation(['auth', 'common']);
 
   const { register, handleSubmit, watch, setError: setFormFieldError, clearErrors, formState: { errors } } = useForm();
   const emailVal = watch('email', '');
@@ -32,7 +35,7 @@ const LoginPage = ({ addToast }) => {
         email: data.email,
         password: data.password,
       });
-      addToast('Welcome back to DigiBank!');
+      addToast(t('auth:login.success'));
     } catch (err) {
       console.error('Login error:', err);
       const backendError = err.response?.data;
@@ -48,7 +51,7 @@ const LoginPage = ({ addToast }) => {
           }
         });
       } else {
-        setError(backendError?.message || 'Invalid credentials. Please check your email and password.');
+        setError(backendError?.message || t('auth:validation.invalidCredentials'));
       }
     } finally {
       setIsLoading(false);
@@ -89,6 +92,7 @@ const LoginPage = ({ addToast }) => {
                 <p className="text-[10px] font-semibold tracking-[0.2em] uppercase" style={{ color: '#00C2A8' }}>System Bank</p>
               </div>
             </div>
+            <LanguageSwitcher accent="emerald" />
             {/* theme toggle */}
             <motion.button
               onClick={toggle}
@@ -109,9 +113,9 @@ const LoginPage = ({ addToast }) => {
           {/* headline */}
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.15 }} className="max-w-xl">
             <h1 className="text-4xl lg:text-6xl font-bold leading-tight mb-6" style={{ color: dark ? '#fff' : '#002920' }}>
-              Your money.<br />Your rules.<br />
+              {t('auth:login.heroTitle').split('\n').slice(0, 2).map(line => <React.Fragment key={line}>{line}<br /></React.Fragment>)}
               <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg,#00C2A8,#00E0C8)' }}>
-                Your bank.
+                {t('auth:login.heroAccent')}
               </span>
             </h1>
             <p className="text-lg font-medium italic" style={{ color: dark ? 'rgba(0,194,168,0.65)' : 'rgba(0,80,65,0.7)' }}>
@@ -159,8 +163,8 @@ const LoginPage = ({ addToast }) => {
             <div style={{ background: cardBg, borderRadius: '1.15rem', padding: '2rem', backdropFilter: 'blur(20px)' }}>
 
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="mb-8 relative">
-                <h2 className="text-2xl font-bold" style={{ color: titleCol }}>Welcome back</h2>
-                <p className="mt-1 text-sm" style={{ color: subCol }}>Sign in to your DigiBank account</p>
+                <h2 className="text-2xl font-bold" style={{ color: titleCol }}>{t('auth:login.title')}</h2>
+                <p className="mt-1 text-sm" style={{ color: subCol }}>{t('auth:login.subtitle')}</p>
 
                 {/* Theme toggle button */}
                 <motion.button
@@ -187,15 +191,15 @@ const LoginPage = ({ addToast }) => {
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                 <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
-                  <Input light={!dark} label="Email Address" type="email" placeholder="name@company.com" leftIcon={Mail}
+                  <Input light={!dark} label={t('auth:login.email')} type="email" placeholder="name@company.com" leftIcon={Mail}
                     error={errors.email?.message} disabled={isLoading}
-                    {...register('email', { required: 'Email is required', pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: 'Invalid email address' } })} />
+                    {...register('email', { required: t('auth:validation.emailRequired'), pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: t('auth:validation.emailInvalid') } })} />
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="relative">
-                  <Input light={!dark} label="Password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" leftIcon={Lock}
+                  <Input light={!dark} label={t('auth:login.password')} type={showPassword ? 'text' : 'password'} placeholder="••••••••" leftIcon={Lock}
                     error={errors.password?.message} disabled={isLoading}
-                    {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Password must be at least 6 characters' } })} />
+                    {...register('password', { required: t('auth:validation.passwordRequired'), minLength: { value: 6, message: t('auth:validation.passwordMin6') } })} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3.5 top-9.5 transition-colors"
                     style={{ color: !dark ? 'rgba(0,41,32,0.4)' : 'rgba(100,116,139,1)' }}>
@@ -207,13 +211,13 @@ const LoginPage = ({ addToast }) => {
                   className="flex items-center justify-between">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" className="w-4 h-4 rounded cursor-pointer" style={{ accentColor: '#00C2A8' }} />
-                    <span className="text-sm" style={{ color: subCol }}>Remember me</span>
+                    <span className="text-sm" style={{ color: subCol }}>{t('auth:login.remember')}</span>
                   </label>
-                  <Link to="/forgot-password" className="text-sm font-medium" style={{ color: '#00C2A8' }}>Forgot password?</Link>
+                  <Link to="/forgot-password" className="text-sm font-medium" style={{ color: '#00C2A8' }}>{t('auth:login.forgot')}</Link>
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.55 }}>
-                  <Button type="submit" className="w-full" isLoading={isLoading} variant="primary">Sign in</Button>
+                  <Button type="submit" className="w-full" isLoading={isLoading} variant="primary">{t('auth:login.submit')}</Button>
                 </motion.div>
 
                 <div className="relative my-6">
@@ -221,7 +225,7 @@ const LoginPage = ({ addToast }) => {
                     <div className="w-full border-t" style={{ borderColor: !dark ? 'rgba(0,41,32,0.08)' : 'rgba(255,255,255,0.05)' }} />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="px-2" style={{ background: cardBg, color: subCol }}>or</span>
+                    <span className="px-2" style={{ background: cardBg, color: subCol }}>{t('auth:login.or')}</span>
                   </div>
                 </div>
 
@@ -231,13 +235,13 @@ const LoginPage = ({ addToast }) => {
                     color:       !dark ? '#007a6a' : '#fff',
                     background:  !dark ? 'rgba(0,194,168,0.06)' : 'rgba(255,255,255,0.05)',
                   }}>
-                  Continue as guest
+                  {t('auth:login.guest')}
                 </button>
               </form>
 
               <p className="mt-8 text-center text-sm" style={{ color: subCol }}>
-                New to DigiBank?{' '}
-                <Link to="/register" className="font-semibold" style={{ color: '#00C2A8' }}>Create an account</Link>
+                {t('auth:login.new')}{' '}
+                <Link to="/register" className="font-semibold" style={{ color: '#00C2A8' }}>{t('auth:login.create')}</Link>
               </p>
             </div>
           </motion.div>
