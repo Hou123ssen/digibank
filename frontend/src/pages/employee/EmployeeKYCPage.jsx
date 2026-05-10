@@ -4,7 +4,7 @@ import {
   Search, CheckCircle2, XCircle, ZoomIn, X,
   ChevronDown, ChevronUp, Calendar, Loader2,
   BadgeCheck, User, Phone, AlertCircle, Shield,
-  CheckSquare, Square,
+  CheckSquare, Square, Download,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import Badge from '../../components/ui/Badge';
@@ -22,9 +22,14 @@ const STATUS_TABS = [
 
 const STATUS_BADGE = {
   pending:  { label: 'En attente', variant: 'warning' },
+  pending_review: { label: 'En attente', variant: 'warning' },
+  needs_review: { label: 'En attente', variant: 'warning' },
   approved: { label: 'Approuvé',   variant: 'success' },
   rejected: { label: 'Rejeté',     variant: 'danger'  },
 };
+
+const PENDING_STATUSES = ['pending', 'pending_review', 'needs_review'];
+const isPendingStatus = status => PENDING_STATUSES.includes(status);
 
 const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
 
@@ -96,7 +101,7 @@ const RejectModal = ({ loading, onConfirm, onCancel, isBulk, count }) => {
 };
 
 // ── KYC Card (expandable) ─────────────────────────────────────────────────────
-const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, approveLoading, rejectLoading }) => {
+const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, onDownloadPdf, approveLoading, rejectLoading, pdfLoading }) => {
   const [expanded, setExpanded] = useState(false);
   const st = STATUS_BADGE[sub.status] || STATUS_BADGE.pending;
   const user = sub.user || {};
@@ -164,8 +169,8 @@ const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, approve
               {/* CIN images */}
               <div className="grid grid-cols-2 gap-3 pt-4">
                 {[
-                  { label: 'CIN Recto', key: 'cin_front', src: sub.cin_front || sub.front_image },
-                  { label: 'CIN Verso', key: 'cin_back',  src: sub.cin_back  || sub.back_image  },
+                  { label: 'CIN Recto', key: 'cin_front', src: sub.cin_front_url },
+                  { label: 'CIN Verso', key: 'cin_back',  src: sub.cin_back_url  },
                 ].map(img => (
                   <div key={img.key} className="space-y-1.5">
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{img.label}</p>
@@ -195,7 +200,10 @@ const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, approve
                   { icon: User,      label: 'Nom',         value: user.last_name  },
                   { icon: Calendar,  label: 'Date de nais.',value: sub.date_of_birth ? fmtDate(sub.date_of_birth) : user.date_of_birth },
                   { icon: Phone,     label: 'Téléphone',   value: sub.phone || user.phone },
-                  { icon: BadgeCheck,label: 'CIN numéro',  value: sub.cin_number },
+                  { icon: BadgeCheck,label: 'CIN numéro',  value: sub.national_id_number || sub.cin_number },
+                  { icon: BadgeCheck,label: 'CIN OCR',     value: sub.detected_cin_number },
+                  { icon: Shield,    label: 'Confiance OCR', value: sub.ocr_confidence_score != null ? `${sub.ocr_confidence_score}%` : null },
+                  { icon: AlertCircle,label: 'Suspicion OCR', value: sub.ocr_suspicious ? 'Oui' : sub.ocr_suspicious === false ? 'Non' : null },
                   { icon: Shield,    label: 'Trust Score', value: sub.trust_score != null ? `${sub.trust_score} pts` : user.trust_score != null ? `${user.trust_score} pts` : '—' },
                 ].filter(r => r.value).map(r => (
                   <div key={r.label} className="bg-white/[0.02] border border-white/5 rounded-xl px-3 py-2.5">
@@ -215,8 +223,17 @@ const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, approve
                 </div>
               )}
 
+              <Button
+                variant="ghost"
+                className="w-full border border-white/10"
+                onClick={() => onDownloadPdf(sub)}
+                disabled={pdfLoading}
+              >
+                {pdfLoading ? <Loader2 size={13} className="animate-spin" /> : <><Download size={13} className="mr-1.5" /> Download KYC PDF</>}
+              </Button>
+
               {/* Actions (only for pending) */}
-              {sub.status === 'pending' && (
+              {isPendingStatus(sub.status) && (
                 <div className="flex gap-3 pt-1">
                   <Button
                     variant="ghost"
@@ -258,7 +275,8 @@ const EmployeeKYCPage = () => {
     setLoading(true);
     try {
       const data = await kycService.getPendingKyc();
-      setSubmissions(Array.isArray(data) ? data : []);
+      const items = data?.data ?? data ?? [];
+      setSubmissions(Array.isArray(items) ? items : []);
     } catch {
       addToast?.('Impossible de charger les demandes KYC', 'error');
     } finally {
@@ -269,16 +287,24 @@ const EmployeeKYCPage = () => {
   useEffect(() => { loadData(); }, [loadData]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return submissions;
+    const byStatus = submissions.filter(s => {
+      if (activeTab === 'all') return true;
+      if (activeTab === 'pending') return isPendingStatus(s.status);
+      return s.status === activeTab;
+    });
+
+    if (!search.trim()) return byStatus;
     const q = search.toLowerCase();
-    return submissions.filter(s => {
+    return byStatus.filter(s => {
       const u = s.user || {};
       return (u.email || '').toLowerCase().includes(q)
           || (u.first_name || u.name || '').toLowerCase().includes(q)
           || (u.last_name || '').toLowerCase().includes(q)
-          || (s.cin_number || '').toLowerCase().includes(q);
+          || (s.cin_number || '').toLowerCase().includes(q)
+          || (s.national_id_number || '').toLowerCase().includes(q)
+          || (s.detected_cin_number || '').toLowerCase().includes(q);
     });
-  }, [submissions, search]);
+  }, [submissions, activeTab, search]);
 
   const setLoaderFor = (id, val) => setActionLoading(prev => ({ ...prev, [id]: val }));
 
@@ -340,6 +366,37 @@ const EmployeeKYCPage = () => {
     }
   };
 
+  const safeFileName = (value) => (value || 'utilisateur')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'utilisateur';
+
+  const handleDownloadPdf = async (sub) => {
+    setLoaderFor(`pdf-${sub.id}`, true);
+    try {
+      const blob = await kycService.downloadKycPdf(sub.id);
+      const user = sub.user || {};
+      const displayName = user.first_name && user.last_name
+        ? `${user.first_name} ${user.last_name}`
+        : user.name || `kyc-${sub.id}`;
+      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `kyc-report-${safeFileName(displayName)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      addToast?.('Impossible de telecharger le rapport KYC', 'error');
+    } finally {
+      setLoaderFor(`pdf-${sub.id}`, false);
+    }
+  };
+
   const toggleSelect = (id) => setSelectedIds(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -386,7 +443,9 @@ const EmployeeKYCPage = () => {
         {/* Status tabs */}
         <div className="flex items-center gap-1 p-1 bg-white/5 border border-white/5 rounded-xl w-fit overflow-x-auto">
           {STATUS_TABS.map(t => {
-            const count = t.id === 'all' ? submissions.length : submissions.filter(s => s.status === t.id).length;
+            const count = t.id === 'all'
+              ? submissions.length
+              : submissions.filter(s => t.id === 'pending' ? isPendingStatus(s.status) : s.status === t.id).length;
             return (
               <button
                 key={t.id}
@@ -511,8 +570,10 @@ const EmployeeKYCPage = () => {
                 onApprove={handleApprove}
                 onReject={id => setRejectTarget({ id, isBulk: false })}
                 onZoom={(src, alt) => setLightbox({ src, alt })}
+                onDownloadPdf={handleDownloadPdf}
                 approveLoading={!!actionLoading[`app-${sub.id}`]}
                 rejectLoading={!!actionLoading[`rej-${sub.id}`]}
+                pdfLoading={!!actionLoading[`pdf-${sub.id}`]}
               />
             ))
           ) : (

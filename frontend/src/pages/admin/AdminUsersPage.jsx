@@ -22,17 +22,39 @@ import { safeNumber, formatAmount } from '../../utils/apiResponse';
 const KYC_BADGE = {
   approved:      <Badge variant="success">Approved</Badge>,
   pending:       <Badge variant="warning">Pending</Badge>,
+  needs_review:  <Badge variant="warning">Needs Review</Badge>,
   rejected:      <Badge variant="danger">Rejected</Badge>,
   not_submitted: <Badge variant="neutral">Not Sub.</Badge>,
 };
 
 const trustColor = score => {
+  if (score == null) return 'text-slate-400';
   if (score >= 90) return 'text-emerald-400';
   if (score >= 70) return 'text-blue-400';
   if (score >= 40) return 'text-amber-400';
   return 'text-rose-400';
 };
 const trustBg = score => trustColor(score).replace('text', 'bg');
+
+const normalizeAdminUser = user => {
+  const score = user?.trust_score?.score ?? user?.trust_score ?? null;
+
+  return {
+    ...user,
+    phone: user?.phone || 'Non fourni',
+    status: user?.status || user?.account?.status || 'active',
+    balance: Number(user?.account?.balance ?? user?.balance ?? 0),
+    account_number: user?.account?.account_number ?? user?.account_number ?? null,
+    kyc: user?.kyc?.status ?? user?.kyc ?? 'not_submitted',
+    trust_score: score == null ? null : Number(score),
+    trust_level: user?.trust_score?.level ?? user?.trust_level ?? null,
+    trust_history: Array.isArray(user?.trust_history) ? user.trust_history : [],
+    darets: Array.isArray(user?.darets) ? user.darets : [],
+    cagnottes: Array.isArray(user?.cagnottes) ? user.cagnottes : [],
+    tickets: Array.isArray(user?.tickets) ? user.tickets : [],
+    logs: Array.isArray(user?.logs) ? user.logs : [],
+  };
+};
 
 /* ── FilterPill ───────────────────────────────────────────────────── */
 const FilterPill = ({ label, options, value, onChange }) => {
@@ -140,7 +162,7 @@ const AdjustTrustModal = ({ user, onClose, onSave, addToast }) => {
         </div>
         <div className="space-y-1 mb-5">
           <p className="text-xs text-slate-500">Current score for <span className="text-white font-semibold">{user.name}</span></p>
-          <p className={cn('text-3xl font-bold font-mono', trustColor(user.trust_score))}>{user.trust_score * 10} pts</p>
+          <p className={cn('text-3xl font-bold font-mono', trustColor(user.trust_score))}>{user.trust_score ?? '-'} pts</p>
         </div>
         <div className="flex items-center justify-center gap-4 mb-5">
           <button onClick={() => setDelta(d => d - 10)}
@@ -220,7 +242,7 @@ const TabContent = ({ tab, user, detail, loading }) => {
           </div>
           <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-1">
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Trust Score</p>
-            <p className={cn('text-xl font-bold font-mono', trustColor(user.trust_score))}>{user.trust_score * 10} <span className="text-xs">pts</span></p>
+            <p className={cn('text-xl font-bold font-mono', trustColor(user.trust_score))}>{user.trust_score ?? '-'} <span className="text-xs">pts</span></p>
           </div>
         </div>
         <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-2">
@@ -236,9 +258,9 @@ const TabContent = ({ tab, user, detail, loading }) => {
     case 'kyc': return (
       <div className="space-y-4">
         <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
-          <div className={cn('p-3 rounded-xl', user.kyc === 'approved' ? 'bg-emerald-500/10' : user.kyc === 'pending' ? 'bg-amber-500/10' : 'bg-rose-500/10')}>
+          <div className={cn('p-3 rounded-xl', user.kyc === 'approved' ? 'bg-emerald-500/10' : ['pending', 'needs_review'].includes(user.kyc) ? 'bg-amber-500/10' : 'bg-rose-500/10')}>
             {user.kyc === 'approved' ? <CheckCircle2 size={18} className="text-emerald-400" /> :
-             user.kyc === 'pending'  ? <Clock        size={18} className="text-amber-400"  /> :
+             ['pending', 'needs_review'].includes(user.kyc) ? <Clock size={18} className="text-amber-400" /> :
                                        <XCircle      size={18} className="text-rose-400"   />}
           </div>
           <div>
@@ -262,11 +284,7 @@ const TabContent = ({ tab, user, detail, loading }) => {
 
     case 'trust': return (
       <div className="space-y-3">
-        {(detail?.trust_history || [
-          { action: 'KYC Approval', delta: +500, date: '2024-03-15', by: 'System' },
-          { action: 'Suspicious Activity', delta: -200, date: '2024-04-01', by: 'System' },
-          { action: 'Admin Adjustment', delta: +100, date: '2024-04-10', by: 'Admin' },
-        ]).map((h, i) => (
+        {(detail?.trust_history || []).map((h, i) => (
           <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.02] transition-colors">
             <div className={cn('p-2 rounded-lg', h.delta >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10')}>
               {h.delta >= 0 ? <TrendingUp size={13} className="text-emerald-400" /> : <TrendingUp size={13} className="text-rose-400 rotate-180" />}
@@ -280,6 +298,9 @@ const TabContent = ({ tab, user, detail, loading }) => {
             </span>
           </div>
         ))}
+        {!(detail?.trust_history?.length) && (
+          <p className="text-xs text-slate-600 text-center py-6">No trust history found for this user.</p>
+        )}
       </div>
     );
 
@@ -351,24 +372,7 @@ const TabContent = ({ tab, user, detail, loading }) => {
               <p className="text-[9px] text-slate-600 mt-0.5 font-mono">{l.created_at}</p>
             </div>
           </div>
-        )) : (
-          <div className="space-y-1">
-            {[
-              { action: 'Login', description: 'Successful login from 192.168.1.1', created_at: '2024-05-01 10:32' },
-              { action: 'Transfer', description: 'Sent 2,000 MAD to account #3849', created_at: '2024-05-01 11:05' },
-              { action: 'KYC Submitted', description: 'Identity documents uploaded', created_at: '2024-04-28 09:14' },
-            ].map((l, i) => (
-              <div key={i} className="flex gap-3 p-3 rounded-xl hover:bg-white/[0.02] transition-colors">
-                <div className="w-1.5 h-1.5 rounded-full bg-slate-600 mt-1.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-white">{l.action}</p>
-                  <p className="text-[10px] text-slate-500">{l.description}</p>
-                  <p className="text-[9px] text-slate-600 mt-0.5 font-mono">{l.created_at}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        )) : <p className="text-xs text-slate-600 text-center py-6">No logs found for this user.</p>}
       </div>
     );
 
@@ -388,15 +392,12 @@ const UserDrawer = ({ user, onClose, addToast }) => {
     const load = async () => {
       setDetailLoading(true);
       try {
-        const [tickets, darets, logs] = await Promise.allSettled([
-          adminService.getUserTickets(user.id),
-          adminService.getUserDarets(user.id),
-          adminService.getUserLogs(user.id),
-        ]);
         setDetail({
-          tickets:   tickets.status  === 'fulfilled' ? tickets.value  : [],
-          darets:    darets.status   === 'fulfilled' ? darets.value   : [],
-          logs:      logs.status     === 'fulfilled' ? logs.value     : [],
+          tickets: user.tickets || [],
+          darets: user.darets || [],
+          cagnottes: user.cagnottes || [],
+          trust_history: user.trust_history || [],
+          logs: user.logs || [],
         });
       } catch { /* silent */ }
       setDetailLoading(false);
@@ -559,9 +560,11 @@ const AdminUsersPage = ({ addToast }) => {
     try {
       setLoading(true);
       const data = await adminService.getUsers();
-      setUsers(data);
-    } catch (err) {
-      console.error('Error fetching users:', err);
+      const items = data?.data ?? data ?? [];
+      setUsers(Array.isArray(items) ? items.map(normalizeAdminUser) : []);
+    } catch {
+      setUsers([]);
+      addToast?.('Impossible de charger les utilisateurs', 'error');
     } finally {
       setLoading(false);
     }
@@ -580,13 +583,43 @@ const AdminUsersPage = ({ addToast }) => {
 
   const hasFilter = filterKyc || filterStatus || filterRole || search;
 
+  const exportCsv = () => {
+    const rows = [
+      ['id', 'name', 'email', 'phone', 'role', 'status', 'kyc', 'trust_score', 'balance', 'account_number', 'created_at'],
+      ...filtered.map(u => [
+        u.id,
+        u.name,
+        u.email,
+        u.phone || 'Non fourni',
+        u.role,
+        u.status,
+        u.kyc || 'not_submitted',
+        u.trust_score ?? '-',
+        u.balance ?? 0,
+        u.account_number || '',
+        u.created_at,
+      ]),
+    ];
+
+    const csv = rows
+      .map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'admin-users.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
       <PageHeader
         title="User Management"
         subtitle="Manage client accounts, review KYC status, and adjust trust scores."
         breadcrumbs={['Admin', 'Users']}
-        actions={<Button variant="secondary" size="sm" leftIcon={Download}>Export CSV</Button>}
+        actions={<Button variant="secondary" size="sm" leftIcon={Download} onClick={exportCsv}>Export CSV</Button>}
       />
 
       {/* Filter bar */}
@@ -606,6 +639,7 @@ const AdminUsersPage = ({ addToast }) => {
             options={[
               { label: 'Approved',      value: 'approved' },
               { label: 'Pending',       value: 'pending' },
+              { label: 'Needs Review',  value: 'needs_review' },
               { label: 'Rejected',      value: 'rejected' },
               { label: 'Not Submitted', value: 'not_submitted' },
             ]} />
@@ -647,9 +681,9 @@ const AdminUsersPage = ({ addToast }) => {
                 </div>,
                 KYC_BADGE[u.kyc] || <Badge variant="neutral">—</Badge>,
                 <div className="flex items-center gap-2">
-                  <span className={cn('font-mono font-bold text-sm', trustColor(u.trust_score))}>{u.trust_score * 10}</span>
+                  <span className={cn('font-mono font-bold text-sm', trustColor(u.trust_score))}>{u.trust_score ?? '-'}</span>
                   <div className="w-14 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div className={cn('h-full rounded-full', trustBg(u.trust_score))} style={{ width: `${u.trust_score}%` }} />
+                    <div className={cn('h-full rounded-full', trustBg(u.trust_score))} style={{ width: `${u.trust_score ?? 0}%` }} />
                   </div>
                 </div>,
                 <span className="font-mono text-white text-sm">{formatAmount(u.balance)}</span>,

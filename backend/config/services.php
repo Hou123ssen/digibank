@@ -41,4 +41,15 @@ return [
         'timeout' => env('OPENAI_TIMEOUT', 30),
     ],
 
+    'cin_ai' => [
+        'url' => env('CIN_AI_SERVICE_URL'),
+        'timeout' => env('CIN_AI_SERVICE_TIMEOUT', 30),
+    ],
+
+    'tesseract' => [
+        'executable' => env('TESSERACT_EXECUTABLE', 'C:\Program Files\Tesseract-OCR\tesseract.exe'),
+        'tessdata' => env('TESSDATA_PREFIX', 'C:\Program Files\Tesseract-OCR\tessdata'),
+        'languages' => env('TESSERACT_LANGUAGES', 'fra+ara'),
+    ],
+
 ];

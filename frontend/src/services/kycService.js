@@ -15,7 +15,7 @@ const kycService = {
   getPendingKyc: async () => {
     const response = await api.get('/admin/kyc/pending');
     const d = unwrap(response);
-    return arr(Array.isArray(d) ? d : d?.submissions ?? d?.kyc);
+    return arr(Array.isArray(d) ? d : d?.kyc_verifications ?? d?.submissions ?? d?.kyc);
   },
   getAllKyc: async (params = {}) => {
     return kycService.getPendingKyc(params);
@@ -29,6 +29,12 @@ const kycService = {
       rejection_reason: data?.rejection_reason ?? data?.reason ?? '',
     });
     return unwrap(response);
+  },
+  downloadKycPdf: async (id) => {
+    const response = await api.get(`/employee/kyc/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
   },
   bulkApprove: async (ids) => {
     return Promise.all(arr(ids).map(id => kycService.approveKyc(id)));

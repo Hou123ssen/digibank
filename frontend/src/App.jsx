@@ -6,6 +6,7 @@ import ProtectedRoute from './components/routes/ProtectedRoute';
 import { ThemeProvider } from './components/landing/ThemeContext';
 import RoleBasedRoute from './components/routes/RoleBasedRoute';
 import AIBankingAssistant from './components/ai/AIBankingAssistant';
+import DepartmentRoute from './components/routes/DepartmentRoute';
 
 // Layouts
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -105,10 +106,16 @@ function App() {
                 <Route element={<RoleBasedRoute allowedRoles={['employee', 'admin']} />}>
                   <Route element={<EmployeeLayout addToast={addToast} />}>
                     <Route path="/employee/dashboard" element={<EmployeeDashboardPage addToast={addToast} />} />
-                    <Route path="/employee/kyc"        element={<EmployeeKYCPage      addToast={addToast} />} />
-                    <Route path="/employee/cagnottes"  element={<EmployeeCagnottePage addToast={addToast} />} />
-                    <Route path="/employee/tickets"    element={<EmployeeTicketsPage  addToast={addToast} />} />
-                    <Route path="/employee/tickets/:id" element={<TicketDetailPage />} />
+                    <Route element={<DepartmentRoute allowedDepartments={['kyc']} />}>
+                      <Route path="/employee/kyc" element={<EmployeeKYCPage addToast={addToast} />} />
+                    </Route>
+                    <Route element={<DepartmentRoute allowedDepartments={['cagnotte']} />}>
+                      <Route path="/employee/cagnottes" element={<EmployeeCagnottePage addToast={addToast} />} />
+                    </Route>
+                    <Route element={<DepartmentRoute allowedDepartments={['tickets']} />}>
+                      <Route path="/employee/tickets" element={<EmployeeTicketsPage addToast={addToast} />} />
+                      <Route path="/employee/tickets/:id" element={<TicketDetailPage />} />
+                    </Route>
                   </Route>
                 </Route>
 

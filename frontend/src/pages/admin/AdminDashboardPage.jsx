@@ -17,15 +17,21 @@ import { cn } from '../../utils/cn';
 const LineChart = ({ data = [], color = '#8b5cf6' }) => {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true });
-  if (!data.length) return null;
+  const pointsData = data.map(item => Number(typeof item === 'object' ? item.count : item) || 0);
+  if (!pointsData.length) return null;
+  const labels = data.map(item => {
+    if (!item || typeof item !== 'object' || !item.date) return '';
+
+    return new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+  });
 
   const W = 400, H = 120, PAD = 8;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
+  const min = Math.min(...pointsData);
+  const max = Math.max(...pointsData);
   const range = max - min || 1;
 
-  const pts = data.map((v, i) => ({
-    x: PAD + (i / (data.length - 1)) * (W - PAD * 2),
+  const pts = pointsData.map((v, i) => ({
+    x: PAD + (pointsData.length === 1 ? 0.5 : i / (pointsData.length - 1)) * (W - PAD * 2),
     y: H - PAD - ((v - min) / range) * (H - PAD * 2),
   }));
 
@@ -91,8 +97,10 @@ const LineChart = ({ data = [], color = '#8b5cf6' }) => {
 
       {/* X-axis labels */}
       <div className="flex justify-between mt-1 px-2">
-        {['Day 1', '', 'Day 8', '', 'Day 15', '', 'Day 22', '', 'Today'].map((l, i) => (
-          <span key={i} className="text-[9px] text-slate-600 font-mono">{l}</span>
+        {pointsData.map((_, i) => (
+          <span key={i} className="text-[9px] text-slate-600 font-mono">
+            {i === 0 || i === pointsData.length - 1 || i % 7 === 0 ? labels[i] : ''}
+          </span>
         ))}
       </div>
     </div>
@@ -172,28 +180,53 @@ const EVENT_CONFIG = {
   danger:  { icon: ShieldCheck,   bg: 'bg-rose-500/10',   text: 'text-rose-400',   dot: 'bg-rose-500' },
 };
 
-const EVENTS = [
-  { event: 'New Employee Created',      user: 'Admin',      desc: 'Employee account for Mehdi Alami (KYC Dept) initialized.', time: '12m ago', type: 'info' },
-  { event: 'Large Withdrawal Flagged',  user: 'System',     desc: 'Account #8841: withdrawal of 50,000 MAD exceeds daily average.', time: '1h ago', type: 'warning' },
-  { event: 'Cagnotte Milestone',        user: 'Community',  desc: '"Education pour tous" reached 100,000 MAD funding goal.', time: '3h ago', type: 'success' },
-  { event: 'KYC Batch Approval',        user: 'Fatima Z.',  desc: '45 pending verifications processed in bulk.', time: '5h ago', type: 'info' },
-  { event: 'Suspicious Login Attempt',  user: 'Security',   desc: 'Multiple failed login attempts detected on account #2291.', time: '6h ago', type: 'danger' },
-];
+const EMPTY_DASHBOARD_STATS = {
+  total_users: 0,
+  employees_count: 0,
+  active_darets: 0,
+  active_cagnottes: 0,
+  transactions_today: 0,
+  user_growth: [],
+  transaction_volume: {
+    transfers: 0,
+    deposits: 0,
+    withdrawals: 0,
+    daret_payments: 0,
+    cagnotte_donations: 0,
+  },
+  kyc_distribution: {
+    approved: 0,
+    pending: 0,
+    needs_review: 0,
+    rejected: 0,
+    not_submitted: 0,
+  },
+  trust_level_distribution: {
+    excellent: 0,
+    trusted: 0,
+    normal: 0,
+    risky: 0,
+  },
+  system_events: [],
+};
 
 /* ── Main Component ─────────────────────────────────────────────────── */
 const AdminDashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => { fetchStats(); }, []);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
+      setError('');
       const data = await adminService.getDashboardStats();
-      setStats(data);
-    } catch (err) {
-      console.error('Admin stats error:', err);
+      setStats({ ...EMPTY_DASHBOARD_STATS, ...(data || {}) });
+    } catch {
+      setStats(EMPTY_DASHBOARD_STATS);
+      setError('Impossible de charger les statistiques du tableau de bord.');
     } finally {
       setLoading(false);
     }
@@ -218,27 +251,33 @@ const AdminDashboardPage = () => {
     );
   }
 
-  const kycTotal = stats.kyc_distribution
-    ? Object.values(stats.kyc_distribution).reduce((a, b) => a + b, 0) || 1
-    : 1;
-  const kycSegs = stats.kyc_distribution ? [
-    { pct: Math.round((stats.kyc_distribution.approved   / kycTotal) * 100), color: '#10b981', label: 'Approved',      value: stats.kyc_distribution.approved },
-    { pct: Math.round((stats.kyc_distribution.pending    / kycTotal) * 100), color: '#3b82f6', label: 'Pending',       value: stats.kyc_distribution.pending },
-    { pct: Math.round((stats.kyc_distribution.rejected   / kycTotal) * 100), color: '#f43f5e', label: 'Rejected',      value: stats.kyc_distribution.rejected },
-    { pct: Math.round((stats.kyc_distribution.not_submitted / kycTotal) * 100), color: '#475569', label: 'Not Submitted', value: stats.kyc_distribution.not_submitted },
-  ] : [];
+  const safeStats = { ...EMPTY_DASHBOARD_STATS, ...(stats || {}) };
+  const kycDistribution = { ...EMPTY_DASHBOARD_STATS.kyc_distribution, ...(safeStats.kyc_distribution || {}) };
+  const trustDistribution = { ...EMPTY_DASHBOARD_STATS.trust_level_distribution, ...(safeStats.trust_level_distribution || {}) };
+  const transactionVolume = { ...EMPTY_DASHBOARD_STATS.transaction_volume, ...(safeStats.transaction_volume || {}) };
+  const systemEvents = Array.isArray(safeStats.system_events) ? safeStats.system_events : [];
+  const kycTotal = Object.values(kycDistribution).reduce((a, b) => a + Number(b || 0), 0);
+  const trustTotal = Object.values(trustDistribution).reduce((a, b) => a + Number(b || 0), 0);
+  const volumeTotal = Object.values(transactionVolume).reduce((a, b) => a + Number(b || 0), 0);
+  const growthTotal = (safeStats.user_growth || []).reduce((sum, item) => sum + Number(item?.count || 0), 0);
+  const pct = (value, total) => total > 0 ? Math.round((Number(value || 0) / total) * 100) : 0;
 
-  const trustTotal = stats.trust_levels
-    ? Object.values(stats.trust_levels).reduce((a, b) => a + b, 0) || 1
-    : 1;
-  const trustSegs = stats.trust_levels ? [
-    { pct: Math.round((stats.trust_levels.excellent / trustTotal) * 100), color: '#a855f7', label: 'Excellent', value: stats.trust_levels.excellent },
-    { pct: Math.round((stats.trust_levels.trusted   / trustTotal) * 100), color: '#10b981', label: 'Trusted',   value: stats.trust_levels.trusted },
-    { pct: Math.round((stats.trust_levels.normal    / trustTotal) * 100), color: '#f59e0b', label: 'Normal',    value: stats.trust_levels.normal },
-    { pct: Math.round((stats.trust_levels.risky     / trustTotal) * 100), color: '#f43f5e', label: 'Risky',     value: stats.trust_levels.risky },
-  ] : [];
+  const kycSegs = [
+    { pct: pct(kycDistribution.approved, kycTotal), color: '#10b981', label: 'Approved', value: kycDistribution.approved },
+    { pct: pct(kycDistribution.pending, kycTotal), color: '#3b82f6', label: 'Pending', value: kycDistribution.pending },
+    { pct: pct(kycDistribution.needs_review, kycTotal), color: '#f59e0b', label: 'Needs Review', value: kycDistribution.needs_review },
+    { pct: pct(kycDistribution.rejected, kycTotal), color: '#f43f5e', label: 'Rejected', value: kycDistribution.rejected },
+    { pct: pct(kycDistribution.not_submitted, kycTotal), color: '#475569', label: 'Not Submitted', value: kycDistribution.not_submitted },
+  ];
 
-  const kycApprovedPct = Math.round((stats.kyc_distribution?.approved / kycTotal) * 100);
+  const trustSegs = [
+    { pct: pct(trustDistribution.excellent, trustTotal), color: '#a855f7', label: 'Excellent', value: trustDistribution.excellent },
+    { pct: pct(trustDistribution.trusted, trustTotal), color: '#10b981', label: 'Trusted', value: trustDistribution.trusted },
+    { pct: pct(trustDistribution.normal, trustTotal), color: '#f59e0b', label: 'Normal', value: trustDistribution.normal },
+    { pct: pct(trustDistribution.risky, trustTotal), color: '#f43f5e', label: 'Risky', value: trustDistribution.risky },
+  ];
+
+  const kycApprovedPct = pct(kycDistribution.approved, kycTotal);
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto">
@@ -254,14 +293,20 @@ const AdminDashboardPage = () => {
         }
       />
 
+      {error && (
+        <Card className="p-4 border-rose-500/20 bg-rose-500/[0.04]">
+          <p className="text-sm text-rose-300">{error}</p>
+        </Card>
+      )}
+
       {/* ── Stat Cards ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { title: 'Total Users',       value: stats.total_users?.toLocaleString(),        delta: '+12%', icon: Users,         color: 'blue',   variant: 'A' },
-          { title: 'Employees',          value: stats.total_employees,                       delta: '+1',   icon: UserPlus,      color: 'purple', variant: 'A' },
-          { title: 'Active Darets',      value: stats.active_darets,                         delta: '+4',   icon: Target,        color: 'emerald',variant: 'A' },
-          { title: 'Active Cagnottes',   value: stats.active_cagnottes,                      delta: '+2',   icon: HeartHandshake,color: 'rose',   variant: 'A' },
-          { title: "Transactions Today", value: stats.transactions_today,                     delta: '+18%', icon: Activity,      color: 'amber',  variant: 'A' },
+          { title: 'Total Users',       value: safeStats.total_users.toLocaleString(),       icon: Users,         color: 'blue',   variant: 'A' },
+          { title: 'Employees',          value: safeStats.employees_count.toLocaleString(),   icon: UserPlus,      color: 'purple', variant: 'A' },
+          { title: 'Active Darets',      value: safeStats.active_darets.toLocaleString(),     icon: Target,        color: 'emerald',variant: 'A' },
+          { title: 'Active Cagnottes',   value: safeStats.active_cagnottes.toLocaleString(),  icon: HeartHandshake,color: 'rose',   variant: 'A' },
+          { title: "Transactions Today", value: safeStats.transactions_today.toLocaleString(), icon: Activity,      color: 'amber',  variant: 'A' },
         ].map((c, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
             <StatCard {...c} />
@@ -280,10 +325,10 @@ const AdminDashboardPage = () => {
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-500/10 border border-violet-500/20 rounded-full">
               <TrendingUp size={11} className="text-violet-400" />
-              <span className="text-[10px] font-bold text-violet-400">+24%</span>
+              <span className="text-[10px] font-bold text-violet-400">{growthTotal.toLocaleString()}</span>
             </div>
           </div>
-          <LineChart data={stats.user_growth || []} color="#8b5cf6" />
+          <LineChart data={safeStats.user_growth || []} color="#8b5cf6" />
         </Card>
 
         {/* Horizontal bar progress — transaction volume */}
@@ -297,10 +342,11 @@ const AdminDashboardPage = () => {
           </div>
           <div className="space-y-4 pt-2">
             {[
-              { label: 'Transfers',          val: 65, color: 'bg-emerald-500' },
-              { label: 'Deposits',           val: 42, color: 'bg-blue-500' },
-              { label: 'Daret Payments',     val: 88, color: 'bg-purple-500' },
-              { label: 'Cagnotte Donations', val: 24, color: 'bg-rose-500' },
+              { label: 'Transfers',          val: pct(transactionVolume.transfers, volumeTotal), color: 'bg-emerald-500' },
+              { label: 'Deposits',           val: pct(transactionVolume.deposits, volumeTotal), color: 'bg-blue-500' },
+              { label: 'Withdrawals',        val: pct(transactionVolume.withdrawals, volumeTotal), color: 'bg-amber-500' },
+              { label: 'Daret Payments',     val: pct(transactionVolume.daret_payments, volumeTotal), color: 'bg-purple-500' },
+              { label: 'Cagnotte Donations', val: pct(transactionVolume.cagnotte_donations, volumeTotal), color: 'bg-rose-500' },
             ].map(t => <BarRow key={t.label} {...t} />)}
           </div>
         </Card>
@@ -336,8 +382,8 @@ const AdminDashboardPage = () => {
         <Card className="p-6 flex items-center gap-8">
           <DonutChart
             segments={trustSegs}
-            centerLabel="724"
-            centerSub="Avg Score"
+            centerLabel={trustTotal.toLocaleString()}
+            centerSub="Users"
           />
           <div className="flex-1 space-y-3">
             <h4 className="font-bold text-white text-sm mb-3">Trust Level Distribution</h4>
@@ -367,7 +413,12 @@ const AdminDashboardPage = () => {
           <Button variant="ghost" size="sm" leftIcon={ArrowUpRight}>Full Audit Trail</Button>
         </div>
         <div className="space-y-1">
-          {EVENTS.map((ev, i) => {
+          {systemEvents.length === 0 && (
+            <div className="py-10 text-center text-sm text-slate-500">
+              Aucun événement système.
+            </div>
+          )}
+          {systemEvents.map((ev, i) => {
             const cfg = EVENT_CONFIG[ev.type] || EVENT_CONFIG.info;
             const EvIcon = cfg.icon;
             return (

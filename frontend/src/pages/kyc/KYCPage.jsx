@@ -30,7 +30,7 @@ const KYCPage = ({ addToast }) => {
   const [kycData, setKycData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [status, setStatus] = useState('not_submitted'); // not_submitted, pending, approved, rejected
+  const [status, setStatus] = useState('not_submitted'); // not_submitted, pending_review, needs_review, approved, rejected
 
   // Form state
   const [form, setForm] = useState({
@@ -105,8 +105,15 @@ const KYCPage = ({ addToast }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate
     if (!files.front || !files.back) {
-      addToast('Veuillez télécharger les deux faces de votre CIN', 'error');
+      addToast("Veuillez télécharger les deux faces de votre CIN", "error");
+      return;
+    }
+
+    if (!form.national_id_number || !form.full_name || !form.birth_date) {
+      addToast("Veuillez remplir tous les champs obligatoires", "error");
       return;
     }
 
@@ -117,15 +124,25 @@ const KYCPage = ({ addToast }) => {
       formData.append('cin_back', files.back);
       formData.append('national_id_number', form.national_id_number);
       formData.append('full_name', form.full_name);
-      formData.append('birth_date', form.birth_date);
+      
+      const birthDate = form.birth_date ? String(form.birth_date).slice(0, 10) : "";
+      formData.append('birth_date', birthDate);
 
       await kycService.submitKyc(formData);
       addToast('KYC soumis avec succès !', 'success');
       fetchKycStatus();
-    } catch (err) {
-      console.error('KYC Submission error:', err);
-      const msg = err.response?.data?.message || 'Erreur lors de la soumission.';
-      addToast(msg, 'error');
+    } catch (error) {
+      console.log("FULL KYC ERROR:", error);
+      console.log("KYC RESPONSE:", error.response);
+      console.log("KYC RESPONSE DATA:", error.response?.data);
+
+      const data = error.response?.data;
+      const message =
+        data?.message ||
+        Object.values(data?.errors || {}).flat()?.[0] ||
+        "KYC submission failed";
+
+      addToast(message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -134,6 +151,8 @@ const KYCPage = ({ addToast }) => {
   const getStatusBadge = () => {
     switch (status) {
       case 'pending': return <Badge variant="warning" leftIcon={Clock}>En attente</Badge>;
+      case 'pending_review': return <Badge variant="warning" leftIcon={Clock}>En attente</Badge>;
+      case 'needs_review': return <Badge variant="warning" leftIcon={Clock}>Verification manuelle</Badge>;
       case 'approved': return <Badge variant="success" leftIcon={CheckCircle2}>Approuvé</Badge>;
       case 'rejected': return <Badge variant="danger" leftIcon={XCircle}>Rejeté</Badge>;
       default: return <Badge variant="neutral">Non soumis</Badge>;
@@ -152,7 +171,7 @@ const KYCPage = ({ addToast }) => {
     );
   }
 
-  const isLocked = status === 'pending' || status === 'approved';
+  const isLocked = ['pending', 'pending_review', 'needs_review', 'approved'].includes(status);
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
@@ -163,7 +182,7 @@ const KYCPage = ({ addToast }) => {
         actions={getStatusBadge()}
       />
 
-      {status === 'pending' && (
+      {['pending', 'pending_review', 'needs_review'].includes(status) && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -274,7 +293,7 @@ const KYCPage = ({ addToast }) => {
                       ref={frontInputRef} 
                       className="hidden" 
                       onChange={(e) => handleFileChange(e, 'front')}
-                      accept="image/*,.pdf"
+                      accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                       disabled={isLocked}
                     />
                     
@@ -315,7 +334,7 @@ const KYCPage = ({ addToast }) => {
                       ref={backInputRef} 
                       className="hidden" 
                       onChange={(e) => handleFileChange(e, 'back')}
-                      accept="image/*,.pdf"
+                      accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                       disabled={isLocked}
                     />
                     

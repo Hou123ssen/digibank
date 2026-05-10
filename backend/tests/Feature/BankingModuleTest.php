@@ -23,6 +23,7 @@ class BankingModuleTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'john@example.com',
+            'phone' => '+212 600000000',
             'role' => 'user',
         ]);
 
@@ -316,6 +317,7 @@ class BankingModuleTest extends TestCase
         return [
             'name' => 'John Doe',
             'email' => $email,
+            'phone' => '+212 600000000',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ];
