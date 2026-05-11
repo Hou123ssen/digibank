@@ -11,22 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasTable('daret_payments')) {
-            return;
-        }
-
         Schema::create('daret_payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('daret_id')->constrained()->cascadeOnDelete();
             $table->foreignId('daret_cycle_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('daret_member_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('daret_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->decimal('amount', 15, 2);
-            $table->string('status')->default('paid');
+            $table->enum('status', ['paid', 'pending', 'late'])->default('pending');
             $table->timestamp('paid_at')->nullable();
             $table->timestamps();
 
-            $table->unique(['daret_cycle_id', 'daret_member_id']);
+            $table->unique(['daret_cycle_id', 'user_id']);
+            $table->index(['daret_id', 'status']);
         });
     }
 

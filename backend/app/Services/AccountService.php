@@ -13,9 +13,7 @@ class AccountService
     public function __construct(
         private readonly TransactionService $transactionService,
         private readonly TrustScoreService $trustScoreService
-    )
-    {
-    }
+    ) {}
 
     public function createAccountForUser(User $user): Account
     {
@@ -43,18 +41,18 @@ class AccountService
         ];
     }
 
-    public function deposit(User $user, float $amount): Account
+    public function deposit(User $user, float $amount): array
     {
         $this->ensurePositiveAmount($amount, 'deposit');
 
-        return DB::transaction(function () use ($user, $amount): Account {
+        return DB::transaction(function () use ($user, $amount): array {
             $account = $this->lockUserAccount($user);
             $before = (float) $account->balance;
             $after = $before + $amount;
 
             $account->update(['balance' => $after]);
 
-            $this->transactionService->record(
+            $transaction = $this->transactionService->record(
                 $account,
                 $user,
                 Transaction::TYPE_DEPOSIT,
@@ -64,7 +62,11 @@ class AccountService
                 description: 'Account deposit'
             );
 
-            return $account->fresh();
+            return [
+                'account' => $account->fresh(),
+                'transaction' => $transaction,
+                'new_balance' => number_format($after, 2, '.', ''),
+            ];
         });
     }
 

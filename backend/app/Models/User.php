@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'role', 'trust_score'])]
+#[Fillable(['name', 'email', 'phone', 'password', 'role', 'department', 'status', 'trust_score'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -44,6 +44,21 @@ class User extends Authenticatable
         return $this->hasMany(DaretMember::class);
     }
 
+    public function createdDarets(): HasMany
+    {
+        return $this->hasMany(Daret::class, 'creator_id');
+    }
+
+    public function beneficiaryDaretCycles(): HasMany
+    {
+        return $this->hasMany(DaretCycle::class, 'beneficiary_user_id');
+    }
+
+    public function daretPayments(): HasMany
+    {
+        return $this->hasMany(DaretPayment::class);
+    }
+
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
@@ -67,6 +82,11 @@ class User extends Authenticatable
     public function assignedTickets(): HasMany
     {
         return $this->hasMany(Ticket::class, 'assigned_to');
+    }
+
+    public function aiConversations(): HasMany
+    {
+        return $this->hasMany(AiConversation::class);
     }
 
     public function kycVerification(): HasOne

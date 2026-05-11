@@ -3,13 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'daret_id',
     'daret_cycle_id',
-    'daret_member_id',
+    'daret_id',
     'user_id',
     'amount',
     'status',
@@ -17,7 +17,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class DaretPayment extends Model
 {
+    use HasFactory;
+
     public const STATUS_PAID = 'paid';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_LATE = 'late';
 
     protected function casts(): array
     {
@@ -35,11 +39,6 @@ class DaretPayment extends Model
     public function cycle(): BelongsTo
     {
         return $this->belongsTo(DaretCycle::class, 'daret_cycle_id');
-    }
-
-    public function member(): BelongsTo
-    {
-        return $this->belongsTo(DaretMember::class, 'daret_member_id');
     }
 
     public function user(): BelongsTo

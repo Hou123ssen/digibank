@@ -12,6 +12,7 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import daretService from '../../services/daretService';
+import { safeNumber, formatAmount, getErrorMessage } from '../../utils/apiResponse';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const Pulse = ({ className }) => (
@@ -42,7 +43,7 @@ const STATUS_MAP = {
 const getStatus = s => STATUS_MAP[s] || STATUS_MAP.open;
 
 const freqLabel = f => ({ monthly: 'Mensuel', weekly: 'Hebdomadaire' }[f] || 'Mensuel');
-const orderLabel = o => ({ sequential: 'Séquentiel', random: 'Aléatoire', auto: 'Auto-rotation' }[o] || o || '—');
+const orderLabel = o => ({ sequential: 'Séquentiel', random: 'Aléatoire', auto: 'Auto-rotation', auto_rotation: 'Auto-rotation' }[o] || o || '—');
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const TABS = [
@@ -60,9 +61,9 @@ const OverviewTab = ({ daret, user }) => {
   const isMember  = daret.is_member;
 
   const details = [
-    { label: 'Contribution / cycle',  value: `${Number(daret.contribution_amount || 0).toLocaleString('fr-MA')} MAD`, mono: true },
+    { label: 'Contribution / cycle',  value: formatAmount(daret.contribution_amount), mono: true },
     { label: 'Capacité',              value: `${daret.capacity ?? '?'} membres`     },
-    { label: 'Pot total estimé',      value: `${(Number(daret.contribution_amount || 0) * (daret.capacity || 0)).toLocaleString('fr-MA')} MAD`, mono: true },
+    { label: 'Pot total estimé',      value: formatAmount(safeNumber(daret.contribution_amount) * safeNumber(daret.capacity)), mono: true },
     { label: 'Fréquence',             value: freqLabel(daret.cycle_frequency)       },
     { label: 'Ordre de versement',    value: orderLabel(daret.payout_order)         },
     { label: 'Créé par',             value: daret.created_by?.name || daret.creator?.name || '—' },
@@ -364,7 +365,7 @@ const PaymentsTab = ({ payments }) => {
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <span className="text-sm font-bold font-mono text-white">
-                      {Number(p.amount || 0).toLocaleString('fr-MA')} MAD
+                      {formatAmount(p.amount)}
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-xs text-slate-400 hidden md:table-cell">
@@ -402,34 +403,53 @@ const DaretDetailsPage = () => {
   const [starting,  setStarting] = useState(false);
   const [paying,    setPaying]   = useState(false);
 
+  const applyDaretData = (data) => {
+    const loadedMembers = Array.isArray(data?.members) ? data.members : [];
+    const loadedCycles = Array.isArray(data?.cycles) ? data.cycles : [];
+    const loadedPayments = Array.isArray(data?.payments) ? data.payments : [];
+    const currentCycle = loadedCycles.find(c => ['pending', 'late', 'active', 'in_progress'].includes(c.status));
+    const hasPaidCurrentCycle = loadedPayments.some(payment =>
+      String(payment.user_id) === String(user?.id) &&
+      (!currentCycle || Number(payment.cycle_number) === Number(currentCycle.cycle_number)) &&
+      payment.status === 'paid'
+    );
+
+    setDaret({
+      ...data,
+      has_paid_current_cycle: data?.has_paid_current_cycle ?? hasPaidCurrentCycle,
+    });
+    setMembers(loadedMembers);
+    setCycles(loadedCycles);
+    setPayments(loadedPayments);
+  };
+
+  const loadDaret = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      const data = await daretService.getDaretById(id);
+      applyDaretData(data);
+    } catch {
+      setDaret(null);
+      setMembers([]);
+      setCycles([]);
+      setPayments([]);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const d = await daretService.getDaretById(id);
-        setDaret(d);
-        setMembers(Array.isArray(d?.members) ? d.members : []);
-        setCycles(Array.isArray(d?.cycles) ? d.cycles : []);
-        setPayments(Array.isArray(d?.payments) ? d.payments : []);
-      } catch {
-        setDaret(null);
-        setMembers([]);
-        setCycles([]);
-        setPayments([]);
-      }
-      setLoading(false);
-    };
-    load();
-  }, [id]);
+    loadDaret();
+  }, [id, user?.id]);
 
   const handleStart = async () => {
     setStarting(true);
     try {
-      const res = await daretService.startDaret(id);
-      setDaret(res || { ...daret, status: 'active' });
+      await daretService.startDaret(id);
+      await loadDaret(false);
       addToast?.('Daret démarré avec succès !', 'success');
     } catch (err) {
-      addToast?.(err?.response?.data?.message || 'Erreur lors du démarrage', 'error');
+      addToast?.(getErrorMessage(err) || 'Erreur lors du demarrage', 'error');
     } finally {
       setStarting(false);
     }
@@ -440,9 +460,9 @@ const DaretDetailsPage = () => {
     try {
       await daretService.payDaret(id, {});
       addToast?.('Contribution payée avec succès !', 'success');
-      setDaret(d => d ? { ...d, has_paid_current_cycle: true } : d);
+      await loadDaret(false);
     } catch (err) {
-      addToast?.(err?.response?.data?.message || 'Erreur lors du paiement', 'error');
+      addToast?.(getErrorMessage(err) || 'Erreur lors du paiement', 'error');
     } finally {
       setPaying(false);
     }
@@ -463,11 +483,36 @@ const DaretDetailsPage = () => {
 
   if (!daret) {
     return (
-      <div className="py-24 text-center space-y-4">
-        <AlertCircle size={36} className="text-slate-600 mx-auto" />
-        <p className="text-white font-semibold">Daret introuvable</p>
+      <div className="py-24 text-center space-y-5 max-w-md mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-sky-500/10 flex items-center justify-center mx-auto">
+          <AlertCircle size={28} className="text-sky-400" />
+        </div>
+        <div className="space-y-2">
+          <p className="text-white font-semibold text-lg">Détails du Daret non disponibles</p>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Ce Daret n'existe pas ou vous n'y avez pas accès.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button
+            variant="primary"
+            size="sm"
+            isLoading={starting}
+            onClick={handleStart}
+          >
+            Démarrer ce Daret
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            isLoading={paying}
+            onClick={handlePay}
+          >
+            Payer la contribution
+          </Button>
+        </div>
         <Link to="/darets">
-          <Button variant="secondary" size="sm">Retour aux Darets</Button>
+          <Button variant="ghost" size="sm">Retour aux Darets</Button>
         </Link>
       </div>
     );
@@ -529,8 +574,8 @@ const DaretDetailsPage = () => {
             <div className="flex flex-wrap gap-4 lg:gap-6 shrink-0">
               {[
                 { label: 'Membres',          value: `${daret.members_count ?? 0}/${daret.capacity ?? '?'}` },
-                { label: 'Contribution',     value: `${Number(daret.contribution_amount || 0).toLocaleString('fr-MA')} MAD`, mono: true },
-                { label: 'Pot total',        value: `${(Number(daret.contribution_amount || 0) * (daret.capacity || 0)).toLocaleString('fr-MA')} MAD`, mono: true },
+                { label: 'Contribution',     value: formatAmount(daret.contribution_amount), mono: true },
+                { label: 'Pot total',        value: formatAmount(safeNumber(daret.contribution_amount) * safeNumber(daret.capacity)), mono: true },
                 { label: 'Fréquence',        value: freqLabel(daret.cycle_frequency) },
               ].map(s => (
                 <div key={s.label} className="text-center">

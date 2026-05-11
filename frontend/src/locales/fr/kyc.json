@@ -1,0 +1,10 @@
+{
+  "title": "Vérification KYC",
+  "subtitle": "Confirmez votre identité pour débloquer toutes les fonctionnalités DigiBank.",
+  "status": "Statut KYC",
+  "approved": "Approuvé",
+  "pending": "En attente",
+  "rejected": "Rejeté",
+  "notSubmitted": "Non soumis",
+  "submit": "Soumettre la vérification"
+}

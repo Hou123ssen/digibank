@@ -23,6 +23,7 @@ class BankingModuleTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'john@example.com',
+            'phone' => '+212 600000000',
             'role' => 'user',
         ]);
 
@@ -45,6 +46,29 @@ class BankingModuleTest extends TestCase
             ->assertJsonStructure(['data' => ['user', 'token']]);
     }
 
+    public function test_authenticated_user_can_update_profile(): void
+    {
+        $token = $this->registerAndGetToken();
+
+        $response = $this->withToken($token)->patchJson('/api/auth/profile', [
+            'name' => 'John Updated',
+            'phone' => '+212 611111111',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.name', 'John Updated')
+            ->assertJsonPath('data.user.phone', '+212 611111111');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'john@example.com',
+            'name' => 'John Updated',
+            'phone' => '+212 611111111',
+        ]);
+    }
+
     public function test_deposit_updates_balance(): void
     {
         $token = $this->registerAndGetToken();
@@ -55,7 +79,9 @@ class BankingModuleTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.account.balance', '150.75');
+            ->assertJsonPath('data.account.balance', '150.75')
+            ->assertJsonPath('data.new_balance', '150.75')
+            ->assertJsonPath('data.transaction.type', Transaction::TYPE_DEPOSIT);
 
         $this->assertDatabaseHas('transactions', [
             'type' => Transaction::TYPE_DEPOSIT,
@@ -305,6 +331,51 @@ class BankingModuleTest extends TestCase
             ->assertJsonCount(3, 'data.transactions');
     }
 
+    public function test_account_summary_uses_current_month_transactions(): void
+    {
+        $fromToken = $this->registerAndGetToken('sender@example.com');
+        $this->registerAndGetToken('receiver@example.com');
+        $receiver = User::where('email', 'receiver@example.com')->first();
+
+        $this->withToken($fromToken)->postJson('/api/accounts/deposit', ['amount' => 500]);
+        $this->withToken($fromToken)->postJson('/api/accounts/withdraw', ['amount' => 100]);
+        $this->withToken($fromToken)->postJson('/api/accounts/transfer', [
+            'account_number' => $receiver->account->account_number,
+            'amount' => 50,
+        ]);
+        $sender = User::where('email', 'sender@example.com')->first();
+        Transaction::forceCreate([
+            'account_id' => $sender->account->id,
+            'user_id' => $sender->id,
+            'type' => Transaction::TYPE_DEPOSIT,
+            'amount' => 999,
+            'balance_before' => 0,
+            'balance_after' => 999,
+            'status' => Transaction::STATUS_SUCCESS,
+            'reference' => 'TXN-OLD-SUMMARY',
+            'description' => 'Previous month deposit',
+            'created_at' => now()->subMonth(),
+            'updated_at' => now()->subMonth(),
+        ]);
+
+        $this->withToken($fromToken)->getJson('/api/accounts/me/summary')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.monthly_inflows', 500)
+            ->assertJsonPath('data.monthly_outflows', 150)
+            ->assertJsonPath('data.net_flow', 350);
+    }
+
+    public function test_account_statement_pdf_downloads_for_empty_account(): void
+    {
+        $token = $this->registerAndGetToken();
+
+        $response = $this->withToken($token)->get('/api/accounts/me/statement-pdf');
+
+        $response->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
     private function registerAndGetToken(string $email = 'john@example.com'): string
     {
         return $this->postJson('/api/auth/register', $this->registerPayload($email))
@@ -316,6 +387,7 @@ class BankingModuleTest extends TestCase
         return [
             'name' => 'John Doe',
             'email' => $email,
+            'phone' => '+212 600000000',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ];

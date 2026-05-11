@@ -12,6 +12,10 @@ const employeeService = {
     const r = await api.get('/employee/performance');
     return unwrap(r);
   },
+  getAnalytics: async () => {
+    const r = await api.get('/employee/analytics');
+    return unwrap(r);
+  },
   getActivityFeed: async () => {
     const r = await api.get('/employee/activity');
     const d = unwrap(r);

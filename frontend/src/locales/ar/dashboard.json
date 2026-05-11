@@ -1,0 +1,8 @@
+{
+  "title": "لوحة التحكم",
+  "welcome": "مرحبا، {{name}}",
+  "balance": "الرصيد الحالي",
+  "recentTransactions": "آخر المعاملات",
+  "monthlySpending": "مصروفات الشهر",
+  "quickActions": "إجراءات سريعة"
+}

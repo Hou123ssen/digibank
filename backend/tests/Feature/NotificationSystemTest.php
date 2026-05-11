@@ -173,7 +173,6 @@ class NotificationSystemTest extends TestCase
             'contribution_amount' => 100,
             'total_members' => 2,
             'status' => Daret::STATUS_ACTIVE,
-            'current_cycle_number' => 1,
             'started_at' => now(),
         ]);
 
@@ -182,7 +181,8 @@ class NotificationSystemTest extends TestCase
         DaretCycle::create([
             'daret_id' => $daret->id,
             'cycle_number' => 1,
-            'payout_user_id' => $creator->id,
+            'beneficiary_user_id' => $creator->id,
+            'due_date' => now()->addMonth()->toDateString(),
             'status' => DaretCycle::STATUS_PENDING,
             'started_at' => now(),
         ]);

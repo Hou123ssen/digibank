@@ -7,9 +7,10 @@ use App\Models\DaretCycle;
 use App\Models\DaretMember;
 use App\Models\DaretPayment;
 use App\Models\KycVerification;
+use App\Models\Transaction;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -90,6 +91,87 @@ class DaretCoreTest extends TestCase
             ->assertJsonPath('data.daret.payments', []);
     }
 
+    public function test_user_can_join_open_daret_by_invite_code(): void
+    {
+        $creator = $this->eligibleUser('creator@example.com');
+        $member = $this->eligibleUser('member@example.com');
+        $daret = Daret::create([
+            'creator_id' => $creator->id,
+            'name' => 'Family Daret',
+            'contribution_amount' => 100,
+            'total_members' => 2,
+            'status' => Daret::STATUS_OPEN,
+        ]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $creator->id,
+            'joined_at' => now(),
+            'is_creator' => true,
+        ]);
+
+        Sanctum::actingAs($member);
+
+        $this->postJson('/api/darets/join-by-code', [
+            'invite_code' => strtolower($daret->invite_code),
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.daret.id', $daret->id)
+            ->assertJsonPath('data.daret.current_members', 2);
+
+        $this->assertDatabaseHas('daret_members', [
+            'daret_id' => $daret->id,
+            'user_id' => $member->id,
+            'status' => DaretMember::STATUS_ACTIVE,
+        ]);
+    }
+
+    public function test_join_by_code_requires_existing_open_available_daret_and_membership_rules(): void
+    {
+        [$creator, $member, $daret] = $this->fullOpenDaret();
+        $third = $this->eligibleUser('third@example.com');
+
+        Sanctum::actingAs($third);
+        $this->postJson('/api/darets/join-by-code', ['invite_code' => 'DRT-NOPE01'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.invite_code.0', 'Daret not found.');
+
+        $this->postJson('/api/darets/join-by-code', ['invite_code' => $daret->invite_code])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.daret.0', 'Daret is full');
+
+        Sanctum::actingAs($member);
+        $this->postJson('/api/darets/join-by-code', ['invite_code' => $daret->invite_code])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.daret.0', 'Already joined this daret');
+
+        $daret->update(['status' => Daret::STATUS_ACTIVE]);
+        Sanctum::actingAs($third);
+        $this->postJson('/api/darets/join-by-code', ['invite_code' => $daret->invite_code])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.daret.0', 'Only open darets can be joined.');
+    }
+
+    public function test_join_by_code_requires_approved_kyc(): void
+    {
+        $creator = $this->eligibleUser('creator@example.com');
+        $daret = Daret::create([
+            'creator_id' => $creator->id,
+            'name' => 'Family Daret',
+            'contribution_amount' => 100,
+            'total_members' => 2,
+            'status' => Daret::STATUS_OPEN,
+        ]);
+        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $creator->id, 'joined_at' => now()]);
+        $user = User::factory()->create(['trust_score' => 70]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/darets/join-by-code', ['invite_code' => $daret->invite_code])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.daret.0', 'KYC approval is required to join Daret.');
+    }
+
     public function test_user_must_be_kyc_approved_and_trusted_to_join(): void
     {
         $creator = $this->eligibleUser('creator@example.com');
@@ -166,6 +248,73 @@ class DaretCoreTest extends TestCase
         $this->assertNotNull($member->daretMemberships()->where('daret_id', $daret->id)->first()->fresh()->payout_order);
     }
 
+    public function test_sequential_payout_order_uses_join_order_on_start(): void
+    {
+        [$creator, $firstMember, $secondMember, $daret] = $this->fullOpenDaretWithThreeMembers(Daret::PAYOUT_ORDER_SEQUENTIAL);
+
+        Sanctum::actingAs($creator);
+        $this->postJson("/api/darets/{$daret->id}/start")->assertOk();
+
+        $this->assertSame(1, $creator->daretMemberships()->where('daret_id', $daret->id)->first()->fresh()->payout_order);
+        $this->assertSame(2, $firstMember->daretMemberships()->where('daret_id', $daret->id)->first()->fresh()->payout_order);
+        $this->assertSame(3, $secondMember->daretMemberships()->where('daret_id', $daret->id)->first()->fresh()->payout_order);
+    }
+
+    public function test_auto_rotation_payout_order_uses_trust_score_then_join_order(): void
+    {
+        [$creator, $firstMember, $secondMember, $daret] = $this->fullOpenDaretWithThreeMembers(Daret::PAYOUT_ORDER_AUTO_ROTATION);
+        $creator->update(['trust_score' => 70]);
+        $firstMember->update(['trust_score' => 90]);
+        $secondMember->update(['trust_score' => 90]);
+
+        Sanctum::actingAs($creator);
+        $this->postJson("/api/darets/{$daret->id}/start")->assertOk();
+
+        $this->assertSame(1, $firstMember->daretMemberships()->where('daret_id', $daret->id)->first()->fresh()->payout_order);
+        $this->assertSame(2, $secondMember->daretMemberships()->where('daret_id', $daret->id)->first()->fresh()->payout_order);
+        $this->assertSame(3, $creator->daretMemberships()->where('daret_id', $daret->id)->first()->fresh()->payout_order);
+    }
+
+    public function test_random_payout_order_is_generated_when_daret_becomes_full_and_not_changed_on_start(): void
+    {
+        $creator = $this->eligibleUser('creator@example.com');
+        $member = $this->eligibleUser('member@example.com');
+        $daret = Daret::create([
+            'creator_id' => $creator->id,
+            'name' => 'Random Daret',
+            'contribution_amount' => 100,
+            'total_members' => 2,
+            'payout_order_type' => Daret::PAYOUT_ORDER_RANDOM,
+            'status' => Daret::STATUS_OPEN,
+        ]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $creator->id,
+            'joined_at' => now()->subMinute(),
+            'is_creator' => true,
+        ]);
+
+        Sanctum::actingAs($member);
+        $this->postJson('/api/darets/join-by-code', ['invite_code' => $daret->invite_code])->assertOk();
+
+        $ordersBeforeStart = DaretMember::where('daret_id', $daret->id)
+            ->orderBy('user_id')
+            ->pluck('payout_order', 'user_id')
+            ->all();
+
+        $this->assertEqualsCanonicalizing([1, 2], array_values($ordersBeforeStart));
+
+        Sanctum::actingAs($creator);
+        $this->postJson("/api/darets/{$daret->id}/start")->assertOk();
+
+        $ordersAfterStart = DaretMember::where('daret_id', $daret->id)
+            ->orderBy('user_id')
+            ->pluck('payout_order', 'user_id')
+            ->all();
+
+        $this->assertSame($ordersBeforeStart, $ordersAfterStart);
+    }
+
     public function test_non_creator_cannot_start_daret(): void
     {
         [, $member, $daret] = $this->fullOpenDaret();
@@ -210,6 +359,33 @@ class DaretCoreTest extends TestCase
             'user_id' => $creator->id,
             'amount' => '100.00',
         ]);
+        $this->assertDatabaseHas('transactions', [
+            'account_id' => $creator->account->id,
+            'user_id' => $creator->id,
+            'type' => Transaction::TYPE_WITHDRAW,
+            'amount' => '100.00',
+            'balance_before' => '300.00',
+            'balance_after' => '200.00',
+            'status' => Transaction::STATUS_SUCCESS,
+        ]);
+    }
+
+    public function test_payment_requires_real_account_balance_without_overdraft(): void
+    {
+        [$creator, , $daret] = $this->startedDaret();
+        $creator->account->update([
+            'balance' => 50,
+            'overdraft_limit' => 500,
+        ]);
+        Sanctum::actingAs($creator);
+
+        $this->postJson("/api/darets/{$daret->id}/pay")
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.amount.0', 'Insufficient account balance.');
+
+        $this->assertEquals('50.00', $creator->account->fresh()->balance);
+        $this->assertDatabaseCount('daret_payments', 0);
+        $this->assertDatabaseCount('transactions', 0);
     }
 
     public function test_non_member_cannot_pay(): void
@@ -258,6 +434,18 @@ class DaretCoreTest extends TestCase
             number_format($payoutBefore + 100, 2, '.', ''),
             $payoutUser->account->fresh()->balance
         );
+        $payoutTransaction = Transaction::where('account_id', $payoutUser->account->id)
+            ->where('user_id', $payoutUser->id)
+            ->where('type', Transaction::TYPE_DEPOSIT)
+            ->where('amount', '200.00')
+            ->first();
+
+        $this->assertNotNull($payoutTransaction);
+        $this->assertSame(Transaction::STATUS_SUCCESS, $payoutTransaction->status);
+        $this->assertSame(
+            number_format((float) $payoutTransaction->balance_before + 200, 2, '.', ''),
+            $payoutTransaction->balance_after
+        );
         $this->assertDatabaseHas('daret_cycles', [
             'id' => $firstCycle->id,
             'status' => DaretCycle::STATUS_COMPLETED,
@@ -269,7 +457,82 @@ class DaretCoreTest extends TestCase
         ]);
     }
 
-    public function test_completed_cycle_cannot_pay_out_twice(): void
+    public function test_monthly_daret_creates_first_cycle_with_monthly_due_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-10 10:00:00'));
+        [$creator, , $daret] = $this->fullOpenDaret(frequency: Daret::FREQUENCY_MONTHLY);
+
+        Sanctum::actingAs($creator);
+        $this->postJson("/api/darets/{$daret->id}/start")->assertOk();
+
+        $cycle = $daret->cycles()->first();
+
+        $this->assertSame(1, $cycle->cycle_number);
+        $this->assertSame(DaretCycle::STATUS_PENDING, $cycle->status);
+        $this->assertSame('2026-06-10', $cycle->due_date->toDateString());
+        $this->assertNotNull($cycle->beneficiary_user_id);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_weekly_daret_creates_first_cycle_with_weekly_due_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-10 10:00:00'));
+        [$creator, , $daret] = $this->fullOpenDaret(frequency: Daret::FREQUENCY_WEEKLY);
+
+        Sanctum::actingAs($creator);
+        $this->postJson("/api/darets/{$daret->id}/start")->assertOk();
+
+        $this->assertSame('2026-05-17', $daret->cycles()->first()->due_date->toDateString());
+
+        Carbon::setTestNow();
+    }
+
+    public function test_cycle_completion_creates_next_cycle_with_next_beneficiary_and_due_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-10 10:00:00'));
+        [$creator, $member, $daret] = $this->startedDaret(frequency: Daret::FREQUENCY_WEEKLY);
+        $creator->account->update(['balance' => 300]);
+        $member->account->update(['balance' => 300]);
+        $secondBeneficiaryId = $daret->members()->where('payout_order', 2)->value('user_id');
+
+        Sanctum::actingAs($creator);
+        $this->postJson("/api/darets/{$daret->id}/pay")->assertOk();
+        Sanctum::actingAs($member);
+        $this->postJson("/api/darets/{$daret->id}/pay")->assertOk();
+
+        $nextCycle = $daret->cycles()->where('cycle_number', 2)->first();
+
+        $this->assertSame($secondBeneficiaryId, $nextCycle->beneficiary_user_id);
+        $this->assertSame(DaretCycle::STATUS_PENDING, $nextCycle->status);
+        $this->assertSame('2026-05-24', $nextCycle->due_date->toDateString());
+
+        Carbon::setTestNow();
+    }
+
+    public function test_daret_is_completed_after_all_members_received_payout(): void
+    {
+        [$creator, $member, $daret] = $this->startedDaret();
+        $creator->account->update(['balance' => 500]);
+        $member->account->update(['balance' => 500]);
+
+        Sanctum::actingAs($creator);
+        $this->postJson("/api/darets/{$daret->id}/pay")->assertOk();
+        Sanctum::actingAs($member);
+        $this->postJson("/api/darets/{$daret->id}/pay")->assertOk();
+
+        Sanctum::actingAs($creator);
+        $this->postJson("/api/darets/{$daret->id}/pay")->assertOk();
+        Sanctum::actingAs($member);
+        $this->postJson("/api/darets/{$daret->id}/pay")->assertOk();
+
+        $this->assertSame(Daret::STATUS_COMPLETED, $daret->fresh()->status);
+        $this->assertNotNull($daret->fresh()->completed_at);
+        $this->assertSame(2, $daret->cycles()->count());
+        $this->assertSame(2, $daret->cycles()->where('status', DaretCycle::STATUS_COMPLETED)->count());
+    }
+
+    public function test_completed_cycle_is_not_paid_out_twice_when_next_cycle_receives_payment(): void
     {
         [$creator, $member, $daret] = $this->startedDaret();
         $creator->account->update(['balance' => 300]);
@@ -285,15 +548,11 @@ class DaretCoreTest extends TestCase
         $payoutUser = User::find($completedCycle->payout_user_id);
         $balanceAfterPayout = $payoutUser->account->fresh()->balance;
         $this->assertSame(DaretCycle::STATUS_COMPLETED, $completedCycle->status);
-        DB::table('darets')->where('id', $daret->id)->update(['current_cycle_number' => 1]);
-        $this->assertSame(1, $daret->fresh()->current_cycle_number);
 
-        $this->postJson("/api/darets/{$daret->id}/pay")
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.cycle.0', 'Payout already completed');
+        $this->postJson("/api/darets/{$daret->id}/pay")->assertOk();
 
         $this->assertEquals($balanceAfterPayout, $payoutUser->account->fresh()->balance);
-        $this->assertDatabaseCount('daret_payments', 2);
+        $this->assertDatabaseCount('daret_payments', 3);
     }
 
     private function eligibleUser(string $email): User
@@ -323,7 +582,7 @@ class DaretCoreTest extends TestCase
         return $user->fresh(['account', 'kycVerification']);
     }
 
-    private function fullOpenDaret(): array
+    private function fullOpenDaret(string $frequency = Daret::FREQUENCY_MONTHLY): array
     {
         $creator = $this->eligibleUser('creator@example.com');
         $member = $this->eligibleUser('member@example.com');
@@ -332,6 +591,8 @@ class DaretCoreTest extends TestCase
             'name' => 'Family Daret',
             'contribution_amount' => 100,
             'total_members' => 2,
+            'frequency' => $frequency,
+            'payout_order_type' => Daret::PAYOUT_ORDER_SEQUENTIAL,
             'status' => Daret::STATUS_OPEN,
         ]);
 
@@ -341,9 +602,44 @@ class DaretCoreTest extends TestCase
         return [$creator, $member, $daret];
     }
 
-    private function startedDaret(): array
+    private function fullOpenDaretWithThreeMembers(string $payoutOrderType): array
     {
-        [$creator, $member, $daret] = $this->fullOpenDaret();
+        $creator = $this->eligibleUser('creator@example.com');
+        $firstMember = $this->eligibleUser('first@example.com');
+        $secondMember = $this->eligibleUser('second@example.com');
+        $daret = Daret::create([
+            'creator_id' => $creator->id,
+            'name' => 'Three Member Daret',
+            'contribution_amount' => 100,
+            'total_members' => 3,
+            'current_members' => 3,
+            'payout_order_type' => $payoutOrderType,
+            'status' => Daret::STATUS_OPEN,
+        ]);
+
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $creator->id,
+            'joined_at' => now()->subMinutes(3),
+            'is_creator' => true,
+        ]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $firstMember->id,
+            'joined_at' => now()->subMinutes(2),
+        ]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $secondMember->id,
+            'joined_at' => now()->subMinute(),
+        ]);
+
+        return [$creator, $firstMember, $secondMember, $daret];
+    }
+
+    private function startedDaret(string $frequency = Daret::FREQUENCY_MONTHLY): array
+    {
+        [$creator, $member, $daret] = $this->fullOpenDaret($frequency);
         Sanctum::actingAs($creator);
         $this->postJson("/api/darets/{$daret->id}/start")->assertOk();
 

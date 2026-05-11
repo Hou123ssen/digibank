@@ -15,28 +15,32 @@ const kycService = {
   getPendingKyc: async () => {
     const response = await api.get('/admin/kyc/pending');
     const d = unwrap(response);
-    return arr(Array.isArray(d) ? d : d?.submissions ?? d?.kyc);
+    return arr(Array.isArray(d) ? d : d?.kyc_verifications ?? d?.submissions ?? d?.kyc);
   },
   getAllKyc: async (params = {}) => {
-    const response = await api.get('/admin/kyc', { params });
-    const d = unwrap(response);
-    return arr(Array.isArray(d) ? d : d?.submissions ?? d?.kyc);
+    return kycService.getPendingKyc(params);
   },
   approveKyc: async (id) => {
     const response = await api.post(`/admin/kyc/${id}/approve`);
     return unwrap(response);
   },
   rejectKyc: async (id, data) => {
-    const response = await api.post(`/admin/kyc/${id}/reject`, data);
+    const response = await api.post(`/admin/kyc/${id}/reject`, {
+      rejection_reason: data?.rejection_reason ?? data?.reason ?? '',
+    });
     return unwrap(response);
+  },
+  downloadKycPdf: async (id) => {
+    const response = await api.get(`/employee/kyc/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
   },
   bulkApprove: async (ids) => {
-    const response = await api.post('/admin/kyc/bulk-approve', { ids });
-    return unwrap(response);
+    return Promise.all(arr(ids).map(id => kycService.approveKyc(id)));
   },
   bulkReject: async (ids, reason) => {
-    const response = await api.post('/admin/kyc/bulk-reject', { ids, reason });
-    return unwrap(response);
+    return Promise.all(arr(ids).map(id => kycService.rejectKyc(id, { rejection_reason: reason })));
   },
 };
 

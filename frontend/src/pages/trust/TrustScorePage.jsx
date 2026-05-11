@@ -300,9 +300,9 @@ const TrustScorePage = () => {
                 log.change_type === 'increase' ? 'text-emerald-500' : 'text-rose-500'
               }`}>
                 {log.change_type === 'increase' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                {log.change_type === 'increase' ? '+' : '-'}{log.points * 10}
+                {log.change_type === 'increase' ? '+' : '-'}{(log.points ?? 0) * 10}
               </span>,
-              <span className="font-mono text-slate-300">{(log.new_score * 10)}</span>
+              <span className="font-mono text-slate-300">{((log.new_score ?? 0) * 10)}</span>
             ])}
           />
         ) : (

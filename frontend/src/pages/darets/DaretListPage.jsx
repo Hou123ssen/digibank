@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Search, Calendar, Banknote, ChevronRight,
   CheckCircle2, AlertCircle, Star, Clock, ArrowRight,
+  KeyRound,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +13,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import daretService from '../../services/daretService';
+import { safeNumber, formatAmount, getErrorMessage } from '../../utils/apiResponse';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_MAP = {
@@ -109,12 +111,12 @@ const DaretCard = ({ daret, onJoin, onPay }) => {
         <div className="flex items-center gap-2 bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5">
           <Banknote size={15} className="text-emerald-400 shrink-0" />
           <span className="text-sm font-bold text-white font-mono">
-            {Number(daret.contribution_amount || 0).toLocaleString('fr-MA')} MAD
+            {formatAmount(daret.contribution_amount)}
           </span>
           <span className="text-[10px] text-slate-500">/ cycle</span>
           {daret.capacity && (
             <span className="ml-auto text-[10px] text-slate-500 font-mono shrink-0">
-              Pot: {(Number(daret.contribution_amount || 0) * (daret.capacity || 1)).toLocaleString('fr-MA')} MAD
+              Pot: {formatAmount(safeNumber(daret.contribution_amount) * safeNumber(daret.capacity, 1))}
             </span>
           )}
         </div>
@@ -239,7 +241,7 @@ const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           {[
-            { label: 'Contribution', value: `${Number(daret.contribution_amount || 0).toLocaleString('fr-MA')} MAD` },
+            { label: 'Contribution', value: formatAmount(daret.contribution_amount) },
             { label: 'Membres',      value: `${daret.members_count ?? 0}/${daret.capacity ?? '?'}` },
             { label: 'Fréquence',    value: freqLabel },
           ].map(item => (
@@ -304,6 +306,51 @@ const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
   );
 };
 
+const JoinByCodeModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
+  const [inviteCode, setInviteCode] = useState('');
+
+  const submit = (event) => {
+    event.preventDefault();
+    if (!inviteCode.trim()) return;
+    onConfirm(inviteCode.trim());
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Rejoindre par code">
+      <form onSubmit={submit} className="space-y-5">
+        <div className="p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <KeyRound size={18} className="text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white">Code d'invitation</p>
+            <p className="text-xs text-slate-400 mt-1">Saisissez le code partage par le createur du Daret.</p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-slate-300">Code</label>
+          <input
+            value={inviteCode}
+            onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
+            placeholder="DRT-XXXXXX"
+            className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white font-mono tracking-widest transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-600"
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button type="submit" variant="primary" className="flex-1" isLoading={isLoading} disabled={!inviteCode.trim() || isLoading}>
+            Rejoindre
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'my',        label: 'Mes Darets'  },
@@ -341,14 +388,23 @@ const DaretListPage = () => {
   const [loading,      setLoading]      = useState(true);
   const [joining,      setJoining]      = useState(false);
   const [joinModal,    setJoinModal]    = useState(null);
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    await Promise.allSettled([
-      daretService.getMyDarets().then(d  => setMyDarets(Array.isArray(d)  ? d  : [])).catch(() => {}),
-      daretService.getAllDarets().then(d  => setAllDarets(Array.isArray(d) ? d  : [])).catch(() => {}),
-    ]);
-    setLoading(false);
+    try {
+      const [mine, all] = await Promise.allSettled([
+        daretService.getMyDarets(),
+        daretService.getAllDarets(),
+      ]);
+
+      setMyDarets(mine.status === 'fulfilled' && Array.isArray(mine.value) ? mine.value : []);
+      setAllDarets(all.status === 'fulfilled' && Array.isArray(all.value) ? all.value : []);
+    } catch {
+      addToast?.('Impossible de charger les Darets', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -367,21 +423,41 @@ const DaretListPage = () => {
     }
   };
 
-  const handlePay = (daret) => {
-    addToast?.('Paiement de la contribution initié', 'info');
+  const handleJoinByCode = async (inviteCode) => {
+    setJoining(true);
+    try {
+      await daretService.joinByCode(inviteCode);
+      addToast?.('Vous avez rejoint le Daret avec succes !', 'success');
+      setCodeModalOpen(false);
+      await load();
+    } catch (err) {
+      addToast?.(getErrorMessage(err) || 'Erreur lors de l\'adhesion', 'error');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handlePay = async (daret) => {
+    try {
+      await daretService.payDaret(daret.id, {});
+      addToast?.('Contribution payee avec succes !', 'success');
+      await load();
+    } catch (err) {
+      addToast?.(getErrorMessage(err) || 'Erreur lors du paiement', 'error');
+    }
   };
 
   const applyFilters = (list) =>
     list.filter(d => {
       if (search && !d.name?.toLowerCase().includes(search.toLowerCase())) return false;
       if (amountFilter !== 'all') {
-        const amt = Number(d.contribution_amount || 0);
+        const amt = safeNumber(d.contribution_amount);
         if (amountFilter === '100-500'  && !(amt >= 100  && amt <=  500)) return false;
         if (amountFilter === '500-1000' && !(amt >= 500  && amt <= 1000)) return false;
         if (amountFilter === '1000+'    &&   amt < 1000)                  return false;
       }
       if (memberFilter !== 'all') {
-        const cap = Number(d.capacity || 0);
+        const cap = safeNumber(d.capacity);
         if (memberFilter === '3-5'   && !(cap >= 3  && cap <=  5)) return false;
         if (memberFilter === '6-10'  && !(cap >= 6  && cap <= 10)) return false;
         if (memberFilter === '11-20' &&   cap < 11)                return false;
@@ -407,9 +483,14 @@ const DaretListPage = () => {
           <h1 className="text-2xl font-bold text-white">Daret Digital</h1>
           <p className="text-sm text-slate-400 mt-1">Tontine collaborative à la marocaine 🇲🇦</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" leftIcon={KeyRound} onClick={() => setCodeModalOpen(true)}>
+            Code invitation
+          </Button>
         <Link to="/darets/create">
           <Button variant="primary" leftIcon={Plus}>Créer un Daret</Button>
         </Link>
+        </div>
       </div>
 
       {/* ── Tabs ────────────────────────────────────────────────────── */}
@@ -525,6 +606,12 @@ const DaretListPage = () => {
         isOpen={!!joinModal}
         onClose={() => setJoinModal(null)}
         onConfirm={handleJoin}
+        isLoading={joining}
+      />
+      <JoinByCodeModal
+        isOpen={codeModalOpen}
+        onClose={() => setCodeModalOpen(false)}
+        onConfirm={handleJoinByCode}
         isLoading={joining}
       />
     </div>

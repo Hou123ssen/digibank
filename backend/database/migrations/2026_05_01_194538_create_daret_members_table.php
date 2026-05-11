@@ -11,20 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasTable('daret_members')) {
-            return;
-        }
-
         Schema::create('daret_members', function (Blueprint $table) {
             $table->id();
             $table->foreignId('daret_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->unsignedInteger('payout_order')->nullable();
             $table->timestamp('joined_at');
+            $table->boolean('is_creator')->default(false);
+            $table->enum('status', ['active', 'left', 'banned'])->default('active');
             $table->timestamps();
 
             $table->unique(['daret_id', 'user_id']);
             $table->unique(['daret_id', 'payout_order']);
+            $table->index(['daret_id', 'status']);
         });
     }
 

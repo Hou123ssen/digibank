@@ -4,6 +4,8 @@ import { cn } from '../../utils/cn';
 const Badge = ({ 
   className, 
   variant = 'neutral', 
+  leftIcon: LeftIcon,
+  rightIcon: RightIcon,
   children, 
   ...props 
 }) => {
@@ -24,7 +26,9 @@ const Badge = ({
       )}
       {...props}
     >
+      {LeftIcon && <LeftIcon size={12} className="mr-1" />}
       {children}
+      {RightIcon && <RightIcon size={12} className="ml-1" />}
     </span>
   );
 };

@@ -1,0 +1,8 @@
+{
+  "title": "Dashboard",
+  "welcome": "Hello, {{name}}",
+  "balance": "Current balance",
+  "recentTransactions": "Recent transactions",
+  "monthlySpending": "Monthly spending",
+  "quickActions": "Quick actions"
+}

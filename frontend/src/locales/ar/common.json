@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "DigiBank",
+    "tagline": "System Bank",
+    "admin": "الإدارة",
+    "employee": "فضاء الموظف"
+  },
+  "language": {
+    "select": "اختيار اللغة",
+    "fr": "الفرنسية",
+    "en": "الإنجليزية",
+    "ar": "العربية"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "account": "الحساب",
+    "transactions": "المعاملات",
+    "transfer": "تحويل",
+    "daret": "دارت",
+    "cagnotte": "الحملات",
+    "kyc": "التحقق KYC",
+    "trustScore": "نقطة الثقة",
+    "tickets": "التذاكر",
+    "notifications": "الإشعارات",
+    "settings": "الإعدادات",
+    "profile": "ملفي",
+    "users": "المستخدمون",
+    "employees": "الموظفون",
+    "kycReviews": "مراجعات KYC",
+    "kycQueue": "طابور KYC",
+    "supportQueue": "طابور الدعم",
+    "employeeSpace": "فضاء الموظف",
+    "clientSpace": "فضاء العميل",
+    "adminPanel": "لوحة الإدارة",
+    "navigation": "التنقل",
+    "staffPanel": "فضاء الفريق",
+    "management": "التسيير"
+  },
+  "actions": {
+    "search": "بحث...",
+    "logout": "تسجيل الخروج",
+    "viewAllNotifications": "عرض كل الإشعارات ←",
+    "close": "إغلاق",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "submit": "إرسال",
+    "continue": "متابعة",
+    "refresh": "تحديث",
+    "new": "جديد"
+  },
+  "roles": {
+    "admin": "مدير",
+    "employee": "موظف",
+    "client": "عميل مميز"
+  },
+  "status": {
+    "online": "متصل",
+    "liveNetwork": "الشبكة نشطة",
+    "adminMode": "وضع الإدارة",
+    "employeeMode": "وضع الموظف"
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "empty": "لا توجد إشعارات",
+    "new_one": "{{count}} جديد",
+    "new_other": "{{count}} جديدة",
+    "fallbackTitle": "إشعار"
+  },
+  "errors": {
+    "generic": "حدث خطأ. يرجى المحاولة مرة أخرى.",
+    "network": "الاتصال غير متوفر. تحقق من الشبكة.",
+    "validation": "يرجى التحقق من المعلومات المدخلة."
+  }
+}

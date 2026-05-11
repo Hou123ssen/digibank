@@ -9,6 +9,7 @@ import { cn } from '../../utils/cn';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import cagnotteService from '../../services/cagnotteService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CAT = {
@@ -67,8 +68,8 @@ const CoverImage = ({ src, category, className }) => {
 const CampaignCard = ({ c }) => {
   const cat    = getCat(c.category);
   const st     = getStatus(c.status);
-  const current = Number(c.current_amount || 0);
-  const target  = Number(c.target_amount  || 1);
+  const current = safeNumber(c.current_amount);
+  const target  = safeNumber(c.target_amount, 1);
   const pct     = Math.min((current / target) * 100, 100);
 
   return (
@@ -108,10 +109,10 @@ const CampaignCard = ({ c }) => {
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-white font-bold font-mono">
-              {current.toLocaleString('fr-MA')} MAD
+              {formatAmount(current)}
             </span>
             <span className="text-slate-500">
-              sur {target.toLocaleString('fr-MA')} MAD
+              sur {formatAmount(target)}
             </span>
           </div>
           <p className="text-[10px] text-emerald-400 font-medium">{Math.round(pct)}% financé</p>
@@ -204,7 +205,7 @@ const CagnotteListPage = () => {
     if (sort === 'newest') {
       list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     } else if (sort === 'funded') {
-      list.sort((a, b) => Number(b.current_amount) - Number(a.current_amount));
+      list.sort((a, b) => safeNumber(b.current_amount) - safeNumber(a.current_amount));
     } else if (sort === 'ending') {
       list.sort((a, b) => new Date(a.expires_at || '9999') - new Date(b.expires_at || '9999'));
     }

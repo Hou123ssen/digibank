@@ -15,13 +15,19 @@ return new class extends Migration
             $table->id();
             $table->foreignId('creator_id')->constrained('users')->cascadeOnDelete();
             $table->string('name');
+            $table->text('description')->nullable();
             $table->decimal('contribution_amount', 15, 2);
             $table->unsignedInteger('total_members');
-            $table->string('status')->default('open');
-            $table->unsignedInteger('current_cycle_number')->nullable();
+            $table->unsignedInteger('current_members')->default(1);
+            $table->enum('frequency', ['monthly', 'weekly']);
+            $table->enum('payout_order_type', ['sequential', 'random', 'auto_rotation']);
+            $table->string('invite_code')->unique();
+            $table->enum('status', ['open', 'active', 'completed', 'cancelled'])->default('open');
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
+
+            $table->index(['status', 'frequency']);
         });
     }
 

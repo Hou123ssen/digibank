@@ -1,0 +1,10 @@
+{
+  "title": "KYC Verification",
+  "subtitle": "Confirm your identity to unlock all DigiBank features.",
+  "status": "KYC status",
+  "approved": "Approved",
+  "pending": "Pending",
+  "rejected": "Rejected",
+  "notSubmitted": "Not submitted",
+  "submit": "Submit verification"
+}

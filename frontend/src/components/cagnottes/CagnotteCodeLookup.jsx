@@ -8,6 +8,7 @@ import { cn } from '../../utils/cn';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import cagnotteService from '../../services/cagnotteService';
+import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 // ── Category label map ────────────────────────────────────────────────────────
 const CAT_LABEL = {
@@ -99,8 +100,8 @@ const ConfirmModal = ({ action, onConfirm, onCancel, loading, rejectReason, setR
 
 // ── Campaign result card ──────────────────────────────────────────────────────
 const CampaignResultCard = ({ cagnotte, onApprove, onReject }) => {
-  const current = Number(cagnotte.current_amount || 0);
-  const target  = Number(cagnotte.target_amount  || 1);
+  const current = safeNumber(cagnotte.current_amount);
+  const target  = safeNumber(cagnotte.target_amount, 1);
   const pct     = Math.min((current / target) * 100, 100);
   const st      = getStatus(cagnotte.status);
 
@@ -144,7 +145,7 @@ const CampaignResultCard = ({ cagnotte, onApprove, onReject }) => {
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center space-y-0.5">
             <TrendingUp size={14} className="text-emerald-400 mx-auto" />
-            <p className="text-xs font-mono font-bold text-white">{current.toLocaleString('fr-MA')}</p>
+            <p className="text-xs font-mono font-bold text-white">{formatAmount(current)}</p>
             <p className="text-[10px] text-slate-500">Collecté MAD</p>
           </div>
           <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center space-y-0.5">
@@ -154,7 +155,7 @@ const CampaignResultCard = ({ cagnotte, onApprove, onReject }) => {
           </div>
           <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center space-y-0.5">
             <Clock size={14} className="text-amber-400 mx-auto" />
-            <p className="text-xs font-mono font-bold text-white">{target.toLocaleString('fr-MA')}</p>
+            <p className="text-xs font-mono font-bold text-white">{formatAmount(target)}</p>
             <p className="text-[10px] text-slate-500">Objectif MAD</p>
           </div>
         </div>

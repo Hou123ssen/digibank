@@ -11,7 +11,7 @@ const Button = React.forwardRef(({
   rightIcon: RightIcon, 
   children, 
   disabled, 
-  ...props 
+  ...buttonProps
 }, ref) => {
   const variants = {
     primary: "text-white shadow-lg font-semibold",
@@ -37,8 +37,8 @@ const Button = React.forwardRef(({
         sizes[size],
         className
       )}
-      style={variant === 'primary' ? { background: 'linear-gradient(135deg,#00C2A8,#00a896)', boxShadow: '0 4px 20px rgba(0,194,168,0.3)', ...props.style } : props.style}
-      {...props}
+      style={variant === 'primary' ? { background: 'linear-gradient(135deg,#00C2A8,#00a896)', boxShadow: '0 4px 20px rgba(0,194,168,0.3)', ...buttonProps.style } : buttonProps.style}
+      {...buttonProps}
     >
       {isLoading ? (
         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -76,11 +76,16 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (formData) => {
     const data = await authService.register(formData);
-    const user = data?.user;
-    const token = data?.token;
-    const account = data?.account;
+    // Do not auto-login after registration; redirect to login page
+    navigate('/login');
+    return data;
+  };
 
-    handleAuthSuccess(user, token, account);
+  const updateProfile = async (profileData) => {
+    const data = await authService.updateProfile(profileData);
+    const userData = data?.user || data;
+    setUser(userData);
+    localStorage.setItem('digibank_user', JSON.stringify(userData));
     return data;
   };
 
@@ -110,6 +115,7 @@ export const AuthProvider = ({ children }) => {
       loading, 
       login, 
       register, 
+      updateProfile,
       logout,
       loadUser 
     }}>
