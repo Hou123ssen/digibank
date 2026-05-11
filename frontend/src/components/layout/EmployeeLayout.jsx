@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import AIBankingAssistant from '../ai/AIBankingAssistant';
 import { NavLink, Outlet, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -66,61 +67,59 @@ const SidebarContent = ({ logout, onNavigate }) => (
           </p>
         </div>
       </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-        <p className="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2.5">
-          Gestion
-        </p>
-        {EMPLOYEE_NAV.map(item => (
-          <SidebarLink key={item.path} item={item} onNavigate={onNavigate} />
-        ))}
-      </nav>
-
-      {/* Bottom */}
-      <div className="p-3 border-t border-white/5 space-y-0.5">
-        <Link
-          to="/dashboard"
-          onClick={onNavigate}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-colors"
-        >
-          <ArrowLeft size={15} className="shrink-0" />
-          <span>Espace client</span>
-        </Link>
-
-        <NavLink
-          to="/employee/settings"
-          onClick={onNavigate}
-          className={({ isActive }) => cn(
-            'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
-            isActive
-              ? 'bg-emerald-500/10 text-emerald-400'
-              : 'text-slate-400 hover:bg-white/5 hover:text-white',
-          )}
-        >
-          {({ isActive }) => (
-            <>
-              <span className={cn(
-                'absolute left-0 w-0.5 h-5 rounded-r-full bg-emerald-400 transition-opacity',
-                isActive ? 'opacity-100' : 'opacity-0',
-              )} />
-              <Settings size={17} className="shrink-0" />
-              <span>Paramètres</span>
-            </>
-          )}
-        </NavLink>
-
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
-        >
-          <LogOut size={17} className="shrink-0" />
-          Déconnexion
-        </button>
-      </div>
     </div>
-  );
-};
+
+    <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+      <p className="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2.5">
+        Gestion
+      </p>
+      {EMPLOYEE_NAV.map(item => (
+        <SidebarLink key={item.path} item={item} onNavigate={onNavigate} />
+      ))}
+    </nav>
+
+    <div className="p-3 border-t border-white/5 space-y-0.5">
+      <Link
+        to="/dashboard"
+        onClick={onNavigate}
+        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-colors"
+      >
+        <ArrowLeft size={15} className="shrink-0" />
+        <span>Espace client</span>
+      </Link>
+
+      <NavLink
+        to="/employee/settings"
+        onClick={onNavigate}
+        className={({ isActive }) => cn(
+          'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+          isActive
+            ? 'bg-emerald-500/10 text-emerald-400'
+            : 'text-slate-400 hover:bg-white/5 hover:text-white',
+        )}
+      >
+        {({ isActive }) => (
+          <>
+            <span className={cn(
+              'absolute left-0 w-0.5 h-5 rounded-r-full bg-emerald-400 transition-opacity',
+              isActive ? 'opacity-100' : 'opacity-0',
+            )} />
+            <Settings size={17} className="shrink-0" />
+            <span>Paramètres</span>
+          </>
+        )}
+      </NavLink>
+
+      <button
+        onClick={logout}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+      >
+        <LogOut size={17} className="shrink-0" />
+        Déconnexion
+      </button>
+    </div>
+  </div>
+);
 
 // ── Main layout ───────────────────────────────────────────────────────────────
 const EmployeeLayout = ({ addToast }) => {
@@ -160,6 +159,7 @@ const EmployeeLayout = ({ addToast }) => {
   const displayName = user?.first_name || user?.name?.split(' ')[0] || 'Employé';
 
   return (
+    <>
     <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden">
 
       {/* Desktop sidebar */}
@@ -341,6 +341,8 @@ const EmployeeLayout = ({ addToast }) => {
         </main>
       </div>
     </div>
+    <AIBankingAssistant />
+    </>
   );
 };
 

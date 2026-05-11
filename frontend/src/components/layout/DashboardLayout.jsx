@@ -10,6 +10,7 @@ import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import notificationService from '../../services/notificationService';
 import Avatar from '../ui/Avatar';
+import AIBankingAssistant from '../ai/AIBankingAssistant';
 
 const USER_NAV_ITEMS = [
   { label: 'Tableau de bord', icon: LayoutDashboard, path: '/dashboard', end: true },
@@ -206,6 +207,7 @@ const DashboardLayout = ({ addToast }) => {
       : '/dashboard/settings';
 
   return (
+    <>
     <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden">
 
       {/* ── Desktop sidebar (fixed, always visible ≥ lg) ───────────────── */}
@@ -447,6 +449,8 @@ const DashboardLayout = ({ addToast }) => {
         </main>
       </div>
     </div>
+    <AIBankingAssistant />
+    </>
   );
 };
 

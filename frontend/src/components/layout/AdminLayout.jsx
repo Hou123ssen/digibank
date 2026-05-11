@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import AIBankingAssistant from '../ai/AIBankingAssistant';
 import { NavLink, Link, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -150,6 +151,7 @@ const AdminLayout = ({ addToast }) => {
   const settingsPath = '/admin/settings';
 
   return (
+    <>
     <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-violet-500/20 overflow-x-hidden">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 z-20 w-[260px] bg-bg-card border-r border-white/5 flex-col">
@@ -276,6 +278,8 @@ const AdminLayout = ({ addToast }) => {
         </main>
       </div>
     </div>
+    <AIBankingAssistant />
+    </>
   );
 };
 
