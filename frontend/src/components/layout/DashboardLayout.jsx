@@ -5,9 +5,12 @@ import {
   ArrowLeftRight, BadgeCheck, Bell, HeartHandshake, LayoutDashboard,
   LifeBuoy, Send, ShieldCheck, Star, UserCog, Users, Wallet,
   Settings, LogOut, Menu, Search, ChevronDown, User, SlidersHorizontal, X,
+  Sun, Moon,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../landing/ThemeContext';
+import logo from '../../images/logo digi.png';
 import notificationService from '../../services/notificationService';
 import Avatar from '../ui/Avatar';
 import AIBankingAssistant from '../ai/AIBankingAssistant';
@@ -90,8 +93,8 @@ const SidebarContent = ({ user, logout, onNavigate }) => {
     {/* Logo */}
     <div className="px-5 pt-6 pb-4">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/50">
-          <Wallet size={19} className="text-white" />
+        <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-emerald-900/40 ring-1 ring-emerald-400/20">
+          <img src={logo} alt="DigiBank logo" className="w-full h-full object-cover" />
         </div>
         <div>
           <p className="text-[15px] font-bold text-white tracking-tight leading-none">DigiBank</p>
@@ -159,6 +162,7 @@ const SidebarContent = ({ user, logout, onNavigate }) => {
 // ── Main layout ───────────────────────────────────────────────────────────────
 const DashboardLayout = ({ addToast }) => {
   const { user, logout } = useAuth();
+  const { dark, toggle: toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [lang, setLang]                 = useState('FR');
   const [notifOpen, setNotifOpen]       = useState(false);
@@ -298,6 +302,15 @@ const DashboardLayout = ({ addToast }) => {
               </button>
             ))}
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            title={dark ? 'Passer en mode clair' : 'Passer en mode sombre'}
+          >
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
 
           {/* Notifications bell */}
           <div ref={notifRef} className="relative">

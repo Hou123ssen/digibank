@@ -162,6 +162,111 @@
 }
 
 @layer utilities {
+  /* ── Global surface overrides ─────────────────────────────────────── */
+  :root[data-theme="light"] body {
+    background-color: #F0F0EE !important;
+    color: #003d35 !important;
+  }
+
+  :root[data-theme="light"] .bg-bg-dark {
+    background-color: #F0F0EE !important;
+  }
+
+  :root[data-theme="light"] .bg-bg-dark\/80 {
+    background-color: rgba(240, 240, 238, 0.94) !important;
+  }
+
+  :root[data-theme="light"] .bg-bg-card {
+    background-color: #ffffff !important;
+  }
+
+  /* ── Border white/* → teal borders ───────────────────────────────── */
+  :root[data-theme="light"] .border-white\/5 {
+    border-color: rgba(74, 158, 143, 0.15) !important;
+  }
+
+  :root[data-theme="light"] .border-white\/8,
+  :root[data-theme="light"] .border-white\/\[0\.08\] {
+    border-color: rgba(74, 158, 143, 0.20) !important;
+  }
+
+  :root[data-theme="light"] .border-white\/10 {
+    border-color: rgba(74, 158, 143, 0.25) !important;
+  }
+
+  :root[data-theme="light"] .border-white\/20 {
+    border-color: rgba(74, 158, 143, 0.35) !important;
+  }
+
+  :root[data-theme="light"] .hover\:border-white\/10:hover,
+  :root[data-theme="light"] .hover\:border-white\/20:hover {
+    border-color: rgba(74, 158, 143, 0.45) !important;
+  }
+
+  /* ── Background white/opacity → teal surfaces ─────────────────────── */
+  :root[data-theme="light"] .bg-white\/5,
+  :root[data-theme="light"] .bg-white\/\[0\.03\],
+  :root[data-theme="light"] .bg-white\/\[0\.04\] {
+    background-color: rgba(74, 158, 143, 0.08) !important;
+  }
+
+  :root[data-theme="light"] .bg-white\/10 {
+    background-color: rgba(74, 158, 143, 0.14) !important;
+  }
+
+  :root[data-theme="light"] .bg-white\/\[0\.01\],
+  :root[data-theme="light"] .bg-white\/\[0\.02\] {
+    background-color: rgba(74, 158, 143, 0.05) !important;
+  }
+
+  /* ── Hover bg white/opacity → teal hover surfaces ─────────────────── */
+  :root[data-theme="light"] .hover\:bg-white\/5:hover,
+  :root[data-theme="light"] .hover\:bg-white\/\[0\.03\]:hover,
+  :root[data-theme="light"] .hover\:bg-white\/\[0\.04\]:hover {
+    background-color: rgba(74, 158, 143, 0.12) !important;
+  }
+
+  :root[data-theme="light"] .hover\:bg-white\/10:hover {
+    background-color: rgba(74, 158, 143, 0.18) !important;
+  }
+
+  :root[data-theme="light"] .hover\:bg-white\/\[0\.02\]:hover {
+    background-color: rgba(74, 158, 143, 0.08) !important;
+  }
+
+  :root[data-theme="light"] .hover\:bg-white\/\[0\.03\]:hover {
+    background-color: rgba(74, 158, 143, 0.10) !important;
+  }
+
+  /* ── Hover text white → dark green ───────────────────────────────── */
+  :root[data-theme="light"] .hover\:text-white:hover {
+    color: #003d35 !important;
+  }
+
+  /* ── Dividers white/* → teal ──────────────────────────────────────── */
+  :root[data-theme="light"] .divide-white\/5 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(74, 158, 143, 0.15) !important;
+  }
+
+  :root[data-theme="light"] .divide-white\/10 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(74, 158, 143, 0.22) !important;
+  }
+
+  /* ── Thin separator bars (w-px bg-white/10) ──────────────────────── */
+  :root[data-theme="light"] .w-px {
+    background-color: rgba(74, 158, 143, 0.25) !important;
+  }
+
+  /* ── Placeholder text ─────────────────────────────────────────────── */
+  :root[data-theme="light"] .placeholder\:text-slate-500::placeholder {
+    color: #64748b !important;
+  }
+
+  /* ── Sidebar bottom border ────────────────────────────────────────── */
+  :root[data-theme="light"] .bg-black\/60 {
+    background-color: rgba(0, 0, 0, 0.45) !important;
+  }
+
   :root[data-theme="light"] .text-white {
     color: #003d35 !important;
   }

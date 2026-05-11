@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   ArrowUpRight,
@@ -30,9 +31,12 @@ import transactionService from '../../services/transactionService';
 
 const AccountOverviewPage = ({ addToast }) => {
   const { dark } = useTheme();
+  const navigate = useNavigate();
   const [account, setAccount] = useState(null);
+  const [summary, setSummary] = useState({ monthly_inflows: 0, monthly_outflows: 0, net_flow: 0 });
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -44,19 +48,44 @@ const AccountOverviewPage = ({ addToast }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [accRes, transRes] = await Promise.all([
+      const [accRes, transRes, summaryRes] = await Promise.all([
         accountService.getMyAccount(),
-        transactionService.getMyTransactions()
+        transactionService.getMyTransactions(),
+        accountService.getMySummary(),
       ]);
       setAccount(accRes);
-      // Backend may return { transactions: [...] } inside data
       const rawTransactions = transRes?.transactions || transRes;
       setTransactions(Array.isArray(rawTransactions) ? rawTransactions : []);
+      setSummary({
+        monthly_inflows:  summaryRes?.monthly_inflows  ?? 0,
+        monthly_outflows: summaryRes?.monthly_outflows ?? 0,
+        net_flow:         summaryRes?.net_flow         ?? 0,
+      });
     } catch (err) {
       console.error('Error fetching account data:', err);
-      // addToast('Impossible de charger les données du compte', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      setPdfLoading(true);
+      const response = await accountService.downloadStatementPdf();
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = 'releve-digibank.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      addToast('Relevé téléchargé avec succès', 'success');
+    } catch {
+      addToast('Impossible de générer le relevé PDF', 'error');
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -81,7 +110,11 @@ const AccountOverviewPage = ({ addToast }) => {
     );
   }
 
-  const isOverdraft = account?.balance < 0;
+  const balance = account?.balance ?? 0;
+  const isOverdraft = balance < 0;
+
+  const formatAmount = (amount) =>
+    (amount ?? 0).toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -175,6 +208,7 @@ const AccountOverviewPage = ({ addToast }) => {
           Retirer
         </Button>
         <Button
+          onClick={() => navigate('/transfer')}
           variant="secondary"
           leftIcon={ArrowLeftRight}
           className={cn("h-14 rounded-2xl", dark ? "bg-white/5 hover:bg-white/10" : "bg-white/80 border-[#00C2A8]/20 text-[#006655] hover:bg-[#00C2A8]/10 hover:border-[#006655]/30")}
@@ -182,11 +216,13 @@ const AccountOverviewPage = ({ addToast }) => {
           Virement
         </Button>
         <Button
+          onClick={handleDownloadPdf}
+          disabled={pdfLoading}
           variant="secondary"
           leftIcon={FileText}
           className={cn("h-14 rounded-2xl", dark ? "bg-white/5 hover:bg-white/10" : "bg-white/80 border-[#00C2A8]/20 text-[#006655] hover:bg-[#00C2A8]/10 hover:border-[#006655]/30")}
         >
-          Relevé PDF
+          {pdfLoading ? 'Génération…' : 'Relevé PDF'}
         </Button>
       </div>
 
@@ -194,14 +230,13 @@ const AccountOverviewPage = ({ addToast }) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
         <StatCard
           label="Entrées ce mois"
-          value={formatAmount(summary.monthly_inflows)}
+          value={`MAD ${formatAmount(summary.monthly_inflows)}`}
           icon={TrendingUp}
           trend="up"
         />
         <StatCard
           label="Sorties ce mois"
-          value="MAD 8,200.00"
-          delta="5%"
+          value={`MAD ${formatAmount(summary.monthly_outflows)}`}
           icon={TrendingDown}
           trend="down"
         />
@@ -211,7 +246,7 @@ const AccountOverviewPage = ({ addToast }) => {
             <Activity size={18} className="text-emerald-500" />
           </div>
           <div className="flex items-end justify-between gap-4">
-            <h3 className="text-2xl font-bold text-white">+ MAD 4,250</h3>
+            <h3 className="text-2xl font-bold text-white">{summary.net_flow >= 0 ? '+' : '-'} MAD {formatAmount(Math.abs(summary.net_flow))}</h3>
             <div className="flex-1 h-12 flex items-end gap-1">
               {[40, 20, 60, 30, 80, 50, 90, 45, 70].map((h, i) => (
                 <div

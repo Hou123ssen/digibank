@@ -7,6 +7,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../landing/ThemeContext';
 import aiService from '../../services/aiService';
 import { cn } from '../../utils/cn';
 
@@ -34,6 +35,7 @@ const initialMessage = {
 
 const AIBankingAssistant = () => {
   const { isAuthenticated, loading } = useAuth();
+  const { dark } = useTheme();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [conversationId, setConversationId] = useState(null);
@@ -188,7 +190,10 @@ const AIBankingAssistant = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ duration: 0.18 }}
-            className="fixed bottom-5 right-5 z-[230] w-[calc(100vw-2rem)] sm:w-[calc(100vw-2rem)] max-w-[430px] overflow-hidden rounded-2xl border border-white/10 bg-[#071411]/95 shadow-2xl shadow-black/40 backdrop-blur-xl"
+            className={cn(
+              'fixed bottom-5 right-5 z-[230] w-[calc(100vw-2rem)] sm:w-[calc(100vw-2rem)] max-w-[430px] overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/40 backdrop-blur-xl',
+              dark ? 'bg-[#071411]/95' : 'bg-white/95'
+            )}
           >
             <div className="border-b border-white/10 bg-white/[0.03] p-4">
               <div className="flex items-start justify-between gap-3">
@@ -232,7 +237,9 @@ const AIBankingAssistant = () => {
                       'max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-relaxed',
                       message.role === 'user'
                         ? 'bg-emerald-500 text-white'
-                        : 'border border-white/8 bg-white/[0.04] text-slate-100'
+                        : dark
+                          ? 'border border-white/8 bg-white/[0.04] text-slate-100'
+                          : 'border border-white/8 bg-white/[0.04] text-slate-700'
                     )}
                   >
                     {message.content || (

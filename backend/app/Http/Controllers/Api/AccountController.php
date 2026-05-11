@@ -31,36 +31,47 @@ class AccountController extends Controller
 
     public function statementPdf(Request $request)
     {
-        $user = $request->user();
-        $account = $user->account()->firstOrFail();
-        $periodStart = now()->startOfMonth();
-        $periodEnd = now();
-        $summary = $this->monthlySummary($request);
+        try {
+            $user    = $request->user();
+            $account = $user->account()->firstOrFail();
 
-        $transactions = $account->transactions()
-            ->where('status', Transaction::STATUS_SUCCESS)
-            ->whereBetween('created_at', [$periodStart, $periodEnd])
-            ->with(['relatedAccount:id,account_number'])
-            ->oldest()
-            ->get();
+            $periodStart = now()->startOfMonth();
+            $periodEnd   = now();
+            $summary     = $this->monthlySummary($request);
 
-        $pdf = Pdf::loadView('pdf.account-statement', [
-            'user' => $user,
-            'account' => $account,
-            'transactions' => $transactions,
-            'summary' => $summary,
-            'periodStart' => $periodStart,
-            'periodEnd' => $periodEnd,
-            'generatedAt' => now(),
-        ])
-            ->setPaper('a4')
-            ->setOptions([
-                'defaultFont' => 'DejaVu Sans',
-                'isHtml5ParserEnabled' => true,
-                'isFontSubsettingEnabled' => true,
-            ]);
+            $transactions = $account->transactions()
+                ->where('status', Transaction::STATUS_SUCCESS)
+                ->whereBetween('created_at', [$periodStart, $periodEnd])
+                ->with(['relatedAccount:id,account_number'])
+                ->oldest()
+                ->get();
 
-        return $pdf->download('releve-digibank.pdf');
+            $pdf = Pdf::loadView('pdf.account-statement', [
+                'user'         => $user,
+                'account'      => $account,
+                'transactions' => $transactions,
+                'summary'      => $summary,
+                'periodStart'  => $periodStart,
+                'periodEnd'    => $periodEnd,
+                'generatedAt'  => now(),
+            ])
+                ->setPaper('a4')
+                ->setOptions([
+                    'defaultFont'           => 'DejaVu Sans',
+                    'isHtml5ParserEnabled'  => true,
+                    'isFontSubsettingEnabled' => true,
+                ]);
+
+            return $pdf->download('releve-digibank.pdf');
+
+        } catch (\Throwable $e) {
+            \Log::error('Statement PDF failed', ['error' => $e->getMessage(), 'userId' => $request->user()?->id]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de générer le relevé PDF. Veuillez réessayer.',
+            ], 500);
+        }
     }
 
     public function deposit(DepositRequest $request)

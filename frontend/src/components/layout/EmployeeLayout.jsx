@@ -5,10 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, BadgeCheck, HeartHandshake, LifeBuoy,
   Bell, Settings, LogOut, Menu, X, Search, ChevronDown,
-  User, SlidersHorizontal, Shield, ArrowLeft,
+  User, SlidersHorizontal, Shield, ArrowLeft, Sun, Moon,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../landing/ThemeContext';
 import Avatar from '../ui/Avatar';
 import notificationService from '../../services/notificationService';
 import logo from '../../images/logo digi.png';
@@ -124,6 +125,7 @@ const SidebarContent = ({ logout, onNavigate }) => (
 // ── Main layout ───────────────────────────────────────────────────────────────
 const EmployeeLayout = ({ addToast }) => {
   const { user, logout } = useAuth();
+  const { dark, toggle: toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [lang,        setLang]        = useState('FR');
   const [notifOpen,   setNotifOpen]   = useState(false);
@@ -240,6 +242,15 @@ const EmployeeLayout = ({ addToast }) => {
               </button>
             ))}
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            title={dark ? 'Passer en mode clair' : 'Passer en mode sombre'}
+          >
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
 
           {/* Notifications */}
           <div ref={notifRef} className="relative">

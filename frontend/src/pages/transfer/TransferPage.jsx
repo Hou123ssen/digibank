@@ -76,30 +76,42 @@ const TransferPage = ({ addToast }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const validateForm = () => {
+    if (!formData.recipient.trim()) {
+      addToast('Veuillez entrer un numéro de compte bénéficiaire.', 'error');
+      return false;
+    }
+    const amt = Number(formData.amount);
+    if (!amt || amt <= 0) {
+      addToast('Le montant doit être supérieur à 0.', 'error');
+      return false;
+    }
+    return true;
+  };
+
   const handleTransfer = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      await accountService.transfer({
+      const result = await accountService.transfer({
         account_number: formData.recipient,
-        amount: Number(formData.amount)
+        amount: Number(formData.amount),
       });
+
+      addToast('Virement effectué avec succès !', 'success');
       setStep('success');
-      addToast('Virement effectué avec succès !');
     } catch (err) {
-      console.error('Transfer validation error:', err.response?.data);
-      const backendError = err.response?.data;
-      
-      if (backendError?.errors) {
-        // Collect all validation errors into a single string for simplicity
-        const messages = Object.values(backendError.errors).flat().join(' ');
-        setError(messages || 'Données invalides.');
-      } else {
-        setError(backendError?.message || 'Une erreur est survenue lors du virement.');
-      }
-      
-      setStep('form');
+      console.log('Transfer backend response:', err.response?.data);
+      const data = err.response?.data;
+      const message =
+        data?.message ||
+        Object.values(data?.errors || {}).flat()?.[0] ||
+        'Une erreur est survenue lors du virement.';
+
+      setError(message);
+      addToast(message, 'error');
+      // Stay on confirm step so user sees the inline error and can retry
     } finally {
       setIsLoading(false);
     }
@@ -266,13 +278,13 @@ const TransferPage = ({ addToast }) => {
                 </div>
               </div>
 
-              <Button 
-                variant="primary" 
-                className="w-full h-14 text-lg font-bold" 
-                disabled={!recipientData || !formData.amount}
-                onClick={() => setStep('confirm')}
+              <Button
+                variant="primary"
+                className="w-full h-14 text-lg font-bold"
+                disabled={!formData.recipient || !formData.amount}
+                onClick={() => { if (validateForm()) { setError(null); setStep('confirm'); } }}
               >
-                Envoyer {formData.amount} MAD
+                Envoyer {formData.amount || '0'} MAD
               </Button>
             </div>
           </Card>
