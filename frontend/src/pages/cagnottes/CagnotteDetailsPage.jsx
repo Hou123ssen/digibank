@@ -207,7 +207,7 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
 
             {/* Balance summary */}
             {balance !== null && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="p-3 bg-white/[0.03] rounded-xl text-center">
                   <p className="text-[10px] text-slate-500 uppercase tracking-wider">Votre solde</p>
                   <p className="text-sm font-bold text-white font-mono mt-0.5">
@@ -556,7 +556,7 @@ const CagnotteDetailsPage = () => {
             </div>
 
             {/* Stats row */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="text-center p-3 bg-white/[0.03] rounded-xl">
                 <p className="text-lg font-bold text-white">{campaign.donors_count ?? donors.length}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">Donateurs</p>

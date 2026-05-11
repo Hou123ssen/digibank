@@ -22,7 +22,7 @@ const STEPS = [
 ];
 
 const StepIndicator = ({ current }) => (
-  <div className="flex items-center gap-0 mb-10">
+  <div className="flex items-center gap-0 mb-6 sm:mb-10 overflow-x-auto pb-1">
     {STEPS.map((s, i) => {
       const done   = i < current;
       const active = i === current;
@@ -313,7 +313,7 @@ const CreateDaretPage = () => {
         <p className="text-sm text-slate-400 mt-1">Configurez votre tontine en quelques étapes</p>
       </div>
 
-      <Card className="p-8 mt-6">
+      <Card className="p-4 sm:p-8 mt-6">
         <StepIndicator current={step} />
 
         <AnimatePresence>

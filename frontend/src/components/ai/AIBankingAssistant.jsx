@@ -188,7 +188,7 @@ const AIBankingAssistant = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ duration: 0.18 }}
-            className="fixed bottom-5 right-5 z-[230] w-[calc(100vw-2rem)] max-w-[430px] overflow-hidden rounded-2xl border border-white/10 bg-[#071411]/95 shadow-2xl shadow-black/40 backdrop-blur-xl"
+            className="fixed bottom-5 right-5 z-[230] w-[calc(100vw-2rem)] sm:w-[calc(100vw-2rem)] max-w-[430px] overflow-hidden rounded-2xl border border-white/10 bg-[#071411]/95 shadow-2xl shadow-black/40 backdrop-blur-xl"
           >
             <div className="border-b border-white/10 bg-white/[0.03] p-4">
               <div className="flex items-start justify-between gap-3">
@@ -219,7 +219,7 @@ const AIBankingAssistant = () => {
               </div>
             </div>
 
-            <div className="max-h-[48vh] min-h-[360px] space-y-3 overflow-y-auto px-4 py-4">
+            <div className="max-h-[40vh] sm:max-h-[48vh] min-h-[180px] sm:min-h-[300px] space-y-3 overflow-y-auto px-4 py-4">
               {messages.map((message, index) => (
                 <div key={message.id || index} className={cn('flex gap-2', message.role === 'user' && 'justify-end')}>
                   {message.role !== 'user' && (

@@ -239,7 +239,7 @@ const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
           {[
             { label: 'Contribution', value: formatAmount(daret.contribution_amount) },
             { label: 'Membres',      value: `${daret.members_count ?? 0}/${daret.capacity ?? '?'}` },

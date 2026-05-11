@@ -70,7 +70,7 @@ const RegisterPage = ({ addToast }) => {
     : (dark ? '0 0 0 1px rgba(255,255,255,0.05), 0 30px 60px rgba(0,0,0,0.5)' : '0 8px 32px rgba(0,160,135,0.12), 0 2px 8px rgba(0,160,135,0.08)');
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
+    <div className="min-h-screen flex flex-col lg:flex-row overflow-x-hidden">
 
       {/* LEFT */}
       <AuthBackground hasInput={hasInput} dark={dark}>
@@ -120,7 +120,7 @@ const RegisterPage = ({ addToast }) => {
       <motion.div
         animate={{ background: rightBg }}
         transition={{ duration: 0.7, ease: 'easeInOut' }}
-        className="w-full lg:w-[40%] flex items-center justify-center p-6 lg:p-12"
+        className="w-full lg:w-[40%] flex items-start lg:items-center justify-center min-h-screen lg:min-h-0 p-4 sm:p-6 lg:p-12"
       >
         <div className="w-full max-w-md">
           <motion.div

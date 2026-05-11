@@ -170,7 +170,7 @@ const CreateTicketPage = () => {
           </Field>
 
           {/* Category + Language row */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Catégorie" required error={errors.category}>
               <div className="relative">
                 <select

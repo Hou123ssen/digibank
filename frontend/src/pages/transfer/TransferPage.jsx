@@ -95,7 +95,7 @@ const TransferPage = ({ addToast }) => {
 
   if (step === 'success') {
     return (
-      <div className="p-8 max-w-2xl mx-auto min-h-[80vh] flex items-center justify-center">
+      <div className="max-w-2xl mx-auto min-h-[60vh] flex items-center justify-center px-2 py-6">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -134,17 +134,17 @@ const TransferPage = ({ addToast }) => {
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-6 sm:space-y-8">
       <PageHeader 
         title="Effectuer un virement" 
         subtitle="Envoyez de l'argent instantanément à vos bénéficiaires DigiBank."
         breadcrumbs={["Accueil", "Virement"]}
       />
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Left Column: Transfer Form */}
         <div className="lg:col-span-2">
-          <Card className="p-8 space-y-8 border-white/10 shadow-2xl relative overflow-hidden">
+          <Card className="p-5 sm:p-8 space-y-6 sm:space-y-8 border-white/10 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-5">
               <ArrowLeftRight size={120} className="text-emerald-500" />
             </div>
@@ -307,9 +307,9 @@ const TransferPage = ({ addToast }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-bg-dark/95 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-bg-dark/95 backdrop-blur-sm"
           >
-            <Card className="w-full max-w-lg p-8 space-y-8 border-white/10 shadow-3xl bg-bg-card">
+            <Card className="w-full sm:max-w-lg p-5 sm:p-8 space-y-5 sm:space-y-8 border-white/10 shadow-3xl bg-bg-card rounded-t-2xl sm:rounded-2xl">
               <div className="text-center space-y-2">
                 <h3 className="text-2xl font-bold text-white">Confirmer le virement</h3>
                 <p className="text-slate-400 text-sm">Veuillez vérifier les détails avant de valider.</p>

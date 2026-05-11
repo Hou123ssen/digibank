@@ -102,7 +102,7 @@ const SidebarContent = ({ logout, onNavigate, user }) => {
         </Link>
 
         <NavLink
-          to="/settings"
+          to={settingsPath}
           onClick={onNavigate}
           className={({ isActive }) => cn(
             'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
@@ -132,63 +132,6 @@ const SidebarContent = ({ logout, onNavigate, user }) => {
         </button>
       </div>
     </div>
-<<<<<<< HEAD
-
-    {/* Nav */}
-    <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-      <p className="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2.5">
-        Gestion
-      </p>
-      {navItems.map(item => (
-        <SidebarLink key={item.path} item={item} onNavigate={onNavigate} />
-      ))}
-    </nav>
-
-    {/* Bottom */}
-    <div className="p-3 border-t border-white/5 space-y-0.5">
-      {/* Back to user dashboard */}
-      <Link
-        to="/dashboard"
-        onClick={onNavigate}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-colors"
-      >
-        <ArrowLeft size={15} className="shrink-0" />
-        <span>Espace client</span>
-      </Link>
-
-      <NavLink
-        to={settingsPath}
-        onClick={onNavigate}
-        className={({ isActive }) => cn(
-          'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
-          isActive
-            ? 'bg-emerald-500/10 text-emerald-400'
-            : 'text-slate-400 hover:bg-white/5 hover:text-white',
-        )}
-      >
-        {({ isActive }) => (
-          <>
-            <span className={cn(
-              'absolute left-0 w-0.5 h-5 rounded-r-full bg-emerald-400 transition-opacity',
-              isActive ? 'opacity-100' : 'opacity-0',
-            )} />
-            <Settings size={17} className="shrink-0" />
-            <span>Paramètres</span>
-          </>
-        )}
-      </NavLink>
-
-      <button
-        onClick={logout}
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
-      >
-        <LogOut size={17} className="shrink-0" />
-        Déconnexion
-      </button>
-    </div>
-  </div>
-=======
->>>>>>> 64b4c1eb2f7747c9bc84ef01dfafd23d74376b16
   );
 };
 
@@ -240,7 +183,7 @@ const EmployeeLayout = ({ addToast }) => {
       : '/dashboard/settings';
 
   return (
-    <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden">
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 z-20 w-[260px] bg-bg-card border-r border-white/5 flex-col">

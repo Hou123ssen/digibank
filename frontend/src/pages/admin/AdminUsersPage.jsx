@@ -235,7 +235,7 @@ const TabContent = ({ tab, user, detail, loading }) => {
 
     case 'account': return (
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-1">
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Balance</p>
             <p className="text-xl font-bold text-white font-mono">{formatAmount(user.balance)}</p>
@@ -660,7 +660,7 @@ const AdminUsersPage = ({ addToast }) => {
       </div>
 
       {/* Table */}
-      <Card className="overflow-hidden p-1">
+      <Card className="overflow-x-auto p-1">
         {loading ? (
           <div className="p-6 space-y-3 animate-pulse">
             {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-white/5 rounded-xl" />)}

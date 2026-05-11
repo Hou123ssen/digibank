@@ -473,8 +473,8 @@ const DaretDetailsPage = () => {
       <div className="space-y-6">
         <Pulse className="h-8 w-48" />
         <Pulse className="h-40" />
-        <div className="grid grid-cols-3 gap-6">
-          <Pulse className="col-span-2 h-64" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Pulse className="lg:col-span-2 h-64" />
           <Pulse className="h-64" />
         </div>
       </div>

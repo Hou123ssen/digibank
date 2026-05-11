@@ -161,9 +161,9 @@ const KYCPage = ({ addToast }) => {
 
   if (loading) {
     return (
-      <div className="p-8 space-y-8 animate-pulse">
+      <div className="space-y-6 sm:space-y-8 animate-pulse">
         <div className="h-8 w-64 bg-white/5 rounded-lg" />
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="lg:col-span-2 h-96 bg-white/5 rounded-3xl" />
           <div className="h-96 bg-white/5 rounded-3xl" />
         </div>
@@ -174,7 +174,7 @@ const KYCPage = ({ addToast }) => {
   const isLocked = ['pending', 'pending_review', 'needs_review', 'approved'].includes(status);
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-6 sm:space-y-8">
       <PageHeader 
         title="Vérification d'identité (KYC)" 
         subtitle="Vérifiez votre identité pour débloquer toutes les fonctionnalités de votre compte."
@@ -231,10 +231,10 @@ const KYCPage = ({ addToast }) => {
         </motion.div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Left Column: Upload Form */}
-        <div className="lg:col-span-2 space-y-8">
-          <Card className="p-8 space-y-8">
+        <div className="lg:col-span-2 space-y-6 sm:space-y-8">
+          <Card className="p-5 sm:p-8 space-y-6 sm:space-y-8">
             <div className="flex items-center gap-3">
               <ShieldCheck className="text-emerald-500" />
               <h3 className="text-xl font-bold text-white">Soumettre vos documents</h3>
@@ -374,8 +374,8 @@ const KYCPage = ({ addToast }) => {
         </div>
 
         {/* Right Column: Guidelines */}
-        <div className="space-y-8">
-          <Card className="p-8 space-y-6">
+        <div className="space-y-6 sm:space-y-8">
+          <Card className="p-5 sm:p-8 space-y-5 sm:space-y-6">
             <div className="flex items-center gap-3">
               <ImageIcon className="text-emerald-500" size={20} />
               <h3 className="text-lg font-bold text-white">Conseils photo</h3>

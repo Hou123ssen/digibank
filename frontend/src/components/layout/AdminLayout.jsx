@@ -1,15 +1,25 @@
-import { LayoutDashboard, ShieldCheck, UserCog, Users } from 'lucide-react';
-import AuthenticatedLayout from './AuthenticatedLayout';
+import { useState, useRef, useEffect } from 'react';
+import { NavLink, Link, Outlet } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LayoutDashboard, ShieldCheck, UserCog, Users,
+  ArrowLeft, Settings, LogOut, Menu, Search, Bell, ChevronDown,
+  User, SlidersHorizontal, X,
+} from 'lucide-react';
+import { cn } from '../../utils/cn';
+import { useAuth } from '../../context/AuthContext';
+import notificationService from '../../services/notificationService';
+import Avatar from '../ui/Avatar';
 
 const ADMIN_NAV = [
-  { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/admin/dashboard', end: true },
-  { labelKey: 'nav.users', icon: Users, path: '/admin/users' },
-  { labelKey: 'nav.employees', icon: UserCog, path: '/admin/employees' },
+  { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin/dashboard', end: true },
+  { label: 'Utilisateurs',    icon: Users,           path: '/admin/users' },
+  { label: 'Employés',        icon: UserCog,         path: '/admin/employees' },
 ];
 
-<<<<<<< HEAD
 const LANGS = ['AR', 'FR', 'EN'];
 
+// ── Sidebar nav link ──────────────────────────────────────────────────────────
 const SidebarLink = ({ item, onNavigate }) => {
   const Icon = item.icon;
   return (
@@ -38,6 +48,7 @@ const SidebarLink = ({ item, onNavigate }) => {
   );
 };
 
+// ── Sidebar ───────────────────────────────────────────────────────────────────
 const SidebarContent = ({ logout, onNavigate, settingsPath = '/admin/settings' }) => (
   <div className="flex flex-col h-full">
     <div className="px-5 pt-6 pb-4">
@@ -99,6 +110,7 @@ const SidebarContent = ({ logout, onNavigate, settingsPath = '/admin/settings' }
   </div>
 );
 
+// ── Main layout ───────────────────────────────────────────────────────────────
 const AdminLayout = ({ addToast }) => {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -123,31 +135,27 @@ const AdminLayout = ({ addToast }) => {
     (async () => {
       try {
         const res   = await notificationService.getNotifications();
-        const items = Array.isArray(res?.notifications) ? res.notifications : Array.isArray(res) ? res : [];
+        const items = Array.isArray(res?.notifications) ? res.notifications
+                    : Array.isArray(res?.data)          ? res.data
+                    : Array.isArray(res)                ? res : [];
         setNotifications(items.slice(0, 5));
-        setUnreadCount(items.filter(n => !n.is_read).length);
+        setUnreadCount(items.filter(n => !n.is_read && !n.read_at).length);
       } catch { /* silent */ }
     })();
   }, []);
 
   const displayName = user?.first_name || user?.name?.split(' ')[0] || 'Admin';
-  const profilePath = user?.role === 'admin'
-    ? '/admin/profile'
-    : user?.role === 'employee'
-      ? '/employee/profile'
-      : '/dashboard/profile';
-  const settingsPath = user?.role === 'admin'
-    ? '/admin/settings'
-    : user?.role === 'employee'
-      ? '/employee/settings'
-      : '/dashboard/settings';
+  const profilePath = '/admin/profile';
+  const settingsPath = '/admin/settings';
 
   return (
-    <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-violet-500/20">
+    <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-violet-500/20 overflow-x-hidden">
+      {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 z-20 w-[260px] bg-bg-card border-r border-white/5 flex-col">
         <SidebarContent logout={logout} settingsPath={settingsPath} />
       </aside>
 
+      {/* Mobile drawer */}
       <AnimatePresence>
         {sidebarOpen && (
           <>
@@ -166,6 +174,7 @@ const AdminLayout = ({ addToast }) => {
         )}
       </AnimatePresence>
 
+      {/* Main */}
       <div className="lg:ml-[260px] flex flex-col min-h-screen">
         <header className="sticky top-0 z-30 h-16 bg-bg-dark/80 backdrop-blur-xl border-b border-white/5 flex items-center px-4 lg:px-6 gap-3">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-slate-400 hover:text-white rounded-lg shrink-0">
@@ -184,6 +193,7 @@ const AdminLayout = ({ addToast }) => {
 
           <div className="flex-1" />
 
+          {/* Language switcher */}
           <div className="flex items-center gap-0.5 p-1 bg-white/5 rounded-lg border border-white/10">
             {LANGS.map(l => (
               <button key={l} onClick={() => setLang(l)}
@@ -193,6 +203,7 @@ const AdminLayout = ({ addToast }) => {
             ))}
           </div>
 
+          {/* Notifications */}
           <div ref={notifRef} className="relative">
             <button onClick={() => { setNotifOpen(p => !p); setProfileOpen(false); }}
               className="relative p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
@@ -206,7 +217,7 @@ const AdminLayout = ({ addToast }) => {
                   <div className="px-4 py-3 border-b border-white/5"><span className="text-sm font-semibold text-white">Notifications</span></div>
                   <div className="divide-y divide-white/5 max-h-60 overflow-y-auto">
                     {notifications.length > 0 ? notifications.map((n, i) => (
-                      <div key={i} className={cn('px-4 py-3 text-xs', !n.is_read && 'bg-violet-500/[0.03]')}>
+                      <div key={i} className={cn('px-4 py-3 text-xs', (!n.is_read && !n.read_at) && 'bg-violet-500/[0.03]')}>
                         <p className="text-slate-200 truncate">{n.title || n.message}</p>
                       </div>
                     )) : <div className="py-8 text-center text-sm text-slate-500">Aucune notification</div>}
@@ -218,6 +229,7 @@ const AdminLayout = ({ addToast }) => {
 
           <div className="w-px h-6 bg-white/10" />
 
+          {/* Profile */}
           <div ref={profileRef} className="relative">
             <button onClick={() => { setProfileOpen(p => !p); setNotifOpen(false); }}
               className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-colors">
@@ -266,18 +278,4 @@ const AdminLayout = ({ addToast }) => {
   );
 };
 
-=======
-const AdminLayout = ({ addToast }) => (
-  <AuthenticatedLayout
-    addToast={addToast}
-    navItems={ADMIN_NAV}
-    variant="violet"
-    mode="admin"
-    brandIcon={ShieldCheck}
-    brandLabelKey="app.admin"
-    backLink={{ to: '/employee/dashboard', labelKey: 'nav.employeeSpace' }}
-  />
-);
-
->>>>>>> 64b4c1eb2f7747c9bc84ef01dfafd23d74376b16
 export default AdminLayout;

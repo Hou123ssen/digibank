@@ -167,7 +167,7 @@ const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, onDownl
             <div className="px-4 pb-5 space-y-5 border-t border-white/5">
 
               {/* CIN images */}
-              <div className="grid grid-cols-2 gap-3 pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
                 {[
                   { label: 'CIN Recto', key: 'cin_front', src: sub.cin_front_url },
                   { label: 'CIN Verso', key: 'cin_back',  src: sub.cin_back_url  },
@@ -194,7 +194,7 @@ const KYCCard = ({ sub, selected, onSelect, onApprove, onReject, onZoom, onDownl
               </div>
 
               {/* Profile info */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { icon: User,      label: 'Prénom',      value: user.first_name },
                   { icon: User,      label: 'Nom',         value: user.last_name  },

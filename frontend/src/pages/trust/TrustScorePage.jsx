@@ -135,7 +135,7 @@ const TrustScorePage = () => {
 
   if (loading) {
     return (
-      <div className="p-8 space-y-12 animate-pulse">
+      <div className="space-y-8 sm:space-y-12 animate-pulse">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-60 h-60 rounded-full bg-white/5" />
           <div className="h-8 w-32 bg-white/5 rounded-lg" />
@@ -150,7 +150,7 @@ const TrustScorePage = () => {
   }
 
   return (
-    <div className="p-8 space-y-12 max-w-7xl mx-auto">
+    <div className="space-y-8 sm:space-y-12">
       <PageHeader 
         title="Trust Score" 
         subtitle="Votre score de confiance détermine vos limites de crédit et vos privilèges DigiBank."
@@ -167,11 +167,11 @@ const TrustScorePage = () => {
       </section>
 
       {/* Tier Benefits */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
         {tiers.map((tier) => (
-          <Card 
-            key={tier.id} 
-            className={`p-8 space-y-6 transition-all duration-500 ${
+          <Card
+            key={tier.id}
+            className={`p-5 sm:p-8 space-y-4 sm:space-y-6 transition-all duration-500 ${
               tier.active 
                 ? 'border-emerald-500/30 bg-emerald-500/5 shadow-[0_0_40px_rgba(16,185,129,0.1)] scale-105 z-10' 
                 : 'opacity-60 grayscale-[0.5]'
@@ -211,9 +211,9 @@ const TrustScorePage = () => {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Score History Chart Placeholder */}
-        <Card className="lg:col-span-2 p-8 space-y-8">
+        <Card className="lg:col-span-2 p-5 sm:p-8 space-y-6 sm:space-y-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <TrendingUp className="text-emerald-500" />
@@ -250,7 +250,7 @@ const TrustScorePage = () => {
         </Card>
 
         {/* Tips Card */}
-        <Card className="p-8 space-y-8 bg-gradient-to-br from-bg-card to-emerald-900/10">
+        <Card className="p-5 sm:p-8 space-y-6 sm:space-y-8 bg-gradient-to-br from-bg-card to-emerald-900/10">
           <div className="flex items-center gap-3">
             <Star className="text-emerald-500" />
             <h3 className="text-xl font-bold text-white">Améliorer votre score</h3>

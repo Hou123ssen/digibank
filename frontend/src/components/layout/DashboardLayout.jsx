@@ -1,40 +1,46 @@
+import { useState, useRef, useEffect } from 'react';
+import { NavLink, Outlet } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeftRight, BadgeCheck, Bell, HeartHandshake, LayoutDashboard,
-  LifeBuoy, Send, ShieldCheck, Star, UserCog, Users, Wallet
+  LifeBuoy, Send, ShieldCheck, Star, UserCog, Users, Wallet,
+  Settings, LogOut, Menu, Search, ChevronDown, User, SlidersHorizontal, X,
 } from 'lucide-react';
-import AuthenticatedLayout from './AuthenticatedLayout';
+import { cn } from '../../utils/cn';
+import { useAuth } from '../../context/AuthContext';
+import notificationService from '../../services/notificationService';
+import Avatar from '../ui/Avatar';
 
 const USER_NAV_ITEMS = [
-  { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/dashboard', end: true },
-  { labelKey: 'nav.account', icon: Wallet, path: '/accounts' },
-  { labelKey: 'nav.transactions', icon: ArrowLeftRight, path: '/transactions' },
-  { labelKey: 'nav.transfer', icon: Send, path: '/transfer' },
-  { labelKey: 'nav.daret', icon: Users, path: '/darets' },
-  { labelKey: 'nav.cagnotte', icon: HeartHandshake, path: '/cagnottes' },
-  { labelKey: 'nav.kyc', icon: BadgeCheck, path: '/kyc' },
-  { labelKey: 'nav.trustScore', icon: Star, path: '/trust-score' },
-  { labelKey: 'nav.tickets', icon: LifeBuoy, path: '/tickets' },
-  { labelKey: 'nav.notifications', icon: Bell, path: '/notifications' },
+  { label: 'Tableau de bord', icon: LayoutDashboard, path: '/dashboard', end: true },
+  { label: 'Mon compte',      icon: Wallet,          path: '/accounts' },
+  { label: 'Transactions',    icon: ArrowLeftRight,  path: '/transactions' },
+  { label: 'Virement',        icon: Send,            path: '/transfer' },
+  { label: 'Darets',          icon: Users,           path: '/darets' },
+  { label: 'Cagnottes',       icon: HeartHandshake,  path: '/cagnottes' },
+  { label: 'KYC',             icon: BadgeCheck,      path: '/kyc' },
+  { label: 'Score de confiance', icon: Star,         path: '/trust-score' },
+  { label: 'Tickets',         icon: LifeBuoy,        path: '/tickets' },
+  { label: 'Notifications',   icon: Bell,            path: '/notifications' },
 ];
 
 const ADMIN_NAV_ITEMS = [
-  { labelKey: 'nav.adminPanel', icon: ShieldCheck, path: '/admin/dashboard', end: true },
-  { labelKey: 'nav.users', icon: Users, path: '/admin/users' },
-  { labelKey: 'nav.employees', icon: UserCog, path: '/admin/employees' },
-  { labelKey: 'nav.kycReviews', icon: BadgeCheck, path: '/admin/kyc' },
-  { labelKey: 'nav.tickets', icon: LifeBuoy, path: '/tickets' },
-  { labelKey: 'nav.notifications', icon: Bell, path: '/notifications' },
+  { label: 'Tableau de bord', icon: ShieldCheck,  path: '/admin/dashboard', end: true },
+  { label: 'Utilisateurs',    icon: Users,        path: '/admin/users' },
+  { label: 'Employés',        icon: UserCog,      path: '/admin/employees' },
+  { label: 'Révisions KYC',   icon: BadgeCheck,   path: '/admin/kyc' },
+  { label: 'Tickets',         icon: LifeBuoy,     path: '/tickets' },
+  { label: 'Notifications',   icon: Bell,         path: '/notifications' },
 ];
 
 const EMPLOYEE_NAV_ITEMS = [
-  { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/dashboard', end: true },
-  { labelKey: 'nav.kycQueue', icon: BadgeCheck, path: '/admin/kyc' },
-  { labelKey: 'nav.supportQueue', icon: LifeBuoy, path: '/tickets' },
-  { labelKey: 'nav.cagnotte', icon: HeartHandshake, path: '/cagnottes' },
-  { labelKey: 'nav.notifications', icon: Bell, path: '/notifications' },
+  { label: 'Tableau de bord', icon: LayoutDashboard, path: '/dashboard', end: true },
+  { label: 'File KYC',        icon: BadgeCheck,      path: '/admin/kyc' },
+  { label: 'File support',    icon: LifeBuoy,        path: '/tickets' },
+  { label: 'Cagnottes',       icon: HeartHandshake,  path: '/cagnottes' },
+  { label: 'Notifications',   icon: Bell,            path: '/notifications' },
 ];
 
-<<<<<<< HEAD
 const LANGS = ['AR', 'FR', 'EN'];
 
 // ── Sidebar nav link ──────────────────────────────────────────────────────────
@@ -200,7 +206,7 @@ const DashboardLayout = ({ addToast }) => {
       : '/dashboard/settings';
 
   return (
-    <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden">
 
       {/* ── Desktop sidebar (fixed, always visible ≥ lg) ───────────────── */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 z-20 w-[260px] bg-bg-card border-r border-white/5 flex-col">
@@ -233,9 +239,7 @@ const DashboardLayout = ({ addToast }) => {
               >
                 <X size={18} />
               </button>
-              <div className="p-6">
-                <SidebarContent user={user} logout={logout} onNavigate={() => setSidebarOpen(false)} />
-              </div>
+              <SidebarContent user={user} logout={logout} onNavigate={() => setSidebarOpen(false)} />
             </motion.aside>
           </>
         )}
@@ -443,21 +447,6 @@ const DashboardLayout = ({ addToast }) => {
         </main>
       </div>
     </div>
-=======
-const DashboardLayout = ({ addToast }) => {
-  const role = JSON.parse(localStorage.getItem('digibank_user') || '{}')?.role;
-  const navItems = role === 'admin' ? ADMIN_NAV_ITEMS : role === 'employee' ? EMPLOYEE_NAV_ITEMS : USER_NAV_ITEMS;
-
-  return (
-    <AuthenticatedLayout
-      addToast={addToast}
-      navItems={navItems}
-      variant="emerald"
-      mode="client"
-      brandIcon={Wallet}
-      brandLabelKey="app.tagline"
-    />
->>>>>>> 64b4c1eb2f7747c9bc84ef01dfafd23d74376b16
   );
 };
 

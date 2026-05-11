@@ -75,7 +75,7 @@ const LoginPage = ({ addToast }) => {
            : '0 4px 40px rgba(0,194,168,0.18), 0 1px 0 rgba(0,194,168,0.25)';
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
+    <div className="min-h-screen flex flex-col lg:flex-row overflow-x-hidden">
 
       {/* LEFT — animated background */}
       <AuthBackground hasInput={hasInput} dark={dark}>
@@ -151,7 +151,7 @@ const LoginPage = ({ addToast }) => {
       <motion.div
         animate={{ background: rightBg }}
         transition={{ duration: 0.7, ease: 'easeInOut' }}
-        className="w-full lg:w-[40%] flex items-center justify-center p-6 lg:p-12"
+        className="w-full lg:w-[40%] flex items-start lg:items-center justify-center min-h-screen lg:min-h-0 p-4 sm:p-6 lg:p-12"
       >
         <div className="w-full max-w-md">
           <motion.div

@@ -120,7 +120,7 @@ const AuthBackground = ({ hasInput, dark, children }) => (
   <motion.div
     animate={{ opacity: hasInput ? 0.12 : 1 }}
     transition={{ duration: 0.7, ease: 'easeInOut' }}
-    className="relative w-full lg:w-[60%] flex flex-col justify-between p-8 lg:p-16 overflow-hidden"
+    className="relative hidden lg:flex w-full lg:w-[60%] flex-col justify-between p-8 lg:p-16 overflow-hidden"
     style={{
       background: dark
         ? 'linear-gradient(135deg,#001a17 0%,#002920 55%,#000e0c 100%)'

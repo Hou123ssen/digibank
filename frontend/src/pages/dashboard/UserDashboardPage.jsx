@@ -385,14 +385,14 @@ const UserDashboardPage = () => {
               </Link>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto -mx-0">
+              <table className="w-full min-w-[480px]">
                 <thead>
                   <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">
-                    <th className="px-6 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Type</th>
-                    <th className="px-4 py-3 text-left">Description</th>
-                    <th className="px-6 py-3 text-right">Montant</th>
+                    <th className="px-4 sm:px-6 py-3 text-left">Date</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Type</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden sm:table-cell">Description</th>
+                    <th className="px-4 sm:px-6 py-3 text-right">Montant</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -400,7 +400,7 @@ const UserDashboardPage = () => {
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i}>
                         {Array.from({ length: 4 }).map((_, j) => (
-                          <td key={j} className="px-6 py-4">
+                          <td key={j} className="px-4 sm:px-6 py-4">
                             <Pulse className="h-4" />
                           </td>
                         ))}
@@ -412,21 +412,21 @@ const UserDashboardPage = () => {
                       const isCredit = amount >= 0;
                       return (
                         <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-6 py-4 text-xs text-slate-400 whitespace-nowrap">
+                          <td className="px-4 sm:px-6 py-4 text-xs text-slate-400 whitespace-nowrap">
                             {tx.created_at
                               ? new Date(tx.created_at).toLocaleDateString('fr-MA')
                               : tx.date || '—'}
                           </td>
-                          <td className="px-4 py-4">
+                          <td className="px-3 sm:px-4 py-4">
                             <Badge variant={txBadge(tx.type)}>
                               {txLabel(tx.type)}
                             </Badge>
                           </td>
-                          <td className="px-4 py-4 text-xs text-slate-300 max-w-[160px] truncate">
+                          <td className="px-3 sm:px-4 py-4 text-xs text-slate-300 max-w-[120px] sm:max-w-[160px] truncate hidden sm:table-cell">
                             {tx.description || tx.label || tx.type || 'Transaction'}
                           </td>
                           <td className={cn(
-                            'px-6 py-4 text-right text-sm font-bold font-mono whitespace-nowrap',
+                            'px-4 sm:px-6 py-4 text-right text-sm font-bold font-mono whitespace-nowrap',
                             isCredit ? 'text-emerald-400' : 'text-rose-400',
                           )}>
                             {isCredit ? '+' : ''}{amount.toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD
@@ -436,7 +436,7 @@ const UserDashboardPage = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-sm text-slate-500">
+                      <td colSpan={4} className="px-4 sm:px-6 py-12 text-center text-sm text-slate-500">
                         Aucune transaction récente
                       </td>
                     </tr>

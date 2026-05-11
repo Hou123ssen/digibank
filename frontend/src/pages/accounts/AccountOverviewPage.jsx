@@ -109,10 +109,10 @@ const AccountOverviewPage = ({ addToast }) => {
 
   if (loading) {
     return (
-      <div className="p-8 space-y-8 animate-pulse">
+      <div className="space-y-6 sm:space-y-8 animate-pulse">
         <div className="h-8 w-64 bg-white/5 rounded-lg" />
         <div className="h-48 w-full bg-white/5 rounded-3xl" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           <div className="h-32 bg-white/5 rounded-2xl" />
           <div className="h-32 bg-white/5 rounded-2xl" />
           <div className="h-32 bg-white/5 rounded-2xl" />
@@ -126,7 +126,7 @@ const AccountOverviewPage = ({ addToast }) => {
   const isOverdraft = balance < 0;
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-6 sm:space-y-8">
       <PageHeader 
         title="Mon Compte" 
         subtitle="Gérez vos fonds, effectuez des dépôts et suivez vos activités bancaires."
@@ -148,7 +148,7 @@ const AccountOverviewPage = ({ addToast }) => {
       {/* Hero Account Card */}
       <Card className="relative overflow-hidden p-0 border-none">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/20 via-transparent to-teal-600/10" />
-        <div className="relative p-8 md:p-10 space-y-8">
+        <div className="relative p-5 sm:p-8 md:p-10 space-y-6 sm:space-y-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="space-y-1">
               <div className="flex items-center gap-3">
@@ -176,9 +176,9 @@ const AccountOverviewPage = ({ addToast }) => {
 
           <div className="space-y-2">
             <p className="text-slate-400 text-sm font-medium">Solde disponible</p>
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-5xl md:text-6xl font-bold text-white tracking-tight">
-                {balance.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-2xl text-emerald-500 font-medium">MAD</span>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight">
+                {balance.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xl sm:text-2xl text-emerald-500 font-medium">MAD</span>
               </h2>
             </div>
             {overdraftLimit > 0 && (
@@ -199,7 +199,7 @@ const AccountOverviewPage = ({ addToast }) => {
       </Card>
 
       {/* Quick Actions Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <Button 
           onClick={() => setIsDepositOpen(true)}
           variant="primary" 
@@ -235,7 +235,7 @@ const AccountOverviewPage = ({ addToast }) => {
       </div>
 
       {/* Insights Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
         <StatCard 
           label="Entrées ce mois" 
           value={formatAmount(summary.monthly_inflows)} 

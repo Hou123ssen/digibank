@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  ArrowLeftRight, 
-  Calendar,
+import {
+  Search,
+  Filter,
+  Download,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ArrowLeftRight,
   X,
   Copy,
   CheckCircle2,
@@ -19,7 +18,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import PageHeader from '../../components/ui/PageHeader';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Table from '../../components/ui/Table';
 import Badge from '../../components/ui/Badge';
@@ -118,7 +116,7 @@ const TransactionsHistoryPage = ({ addToast }) => {
   };
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-6 sm:space-y-8">
       <PageHeader 
         title="Historique des transactions" 
         subtitle="Consultez et filtrez l'historique complet de vos activités financières."
@@ -132,8 +130,8 @@ const TransactionsHistoryPage = ({ addToast }) => {
       />
 
       {/* Filters Bar */}
-      <Card className="p-4 bg-white/5 border-white/10 sticky top-4 z-30 backdrop-blur-xl shadow-2xl">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <Card className="p-3 sm:p-4 bg-white/5 border-white/10 sticky top-0 z-30 backdrop-blur-xl shadow-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
             <input 
@@ -209,7 +207,7 @@ const TransactionsHistoryPage = ({ addToast }) => {
                 </button>
               ])}
             />
-            <div className="p-6 border-t border-white/5 flex items-center justify-between">
+            <div className="p-4 sm:p-6 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <p className="text-sm text-slate-500">Affichage de {filteredTransactions.length} transactions</p>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" disabled>Précédent</Button>
@@ -240,9 +238,9 @@ const TransactionsHistoryPage = ({ addToast }) => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-md bg-bg-card border-l border-white/10 h-full overflow-y-auto"
+              className="relative w-full sm:max-w-md bg-bg-card border-l border-white/10 h-full overflow-y-auto"
             >
-              <div className="p-8 space-y-8">
+              <div className="p-5 sm:p-8 space-y-6 sm:space-y-8">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold text-white">Détails de l'opération</h3>
                   <button onClick={() => setSelectedTransaction(null)} className="p-2 rounded-xl hover:bg-white/5 text-slate-400">

@@ -375,9 +375,9 @@ const EmployeeDashboardPage = () => {
         <EmptyPanel>Aucune donnee de tableau de bord pour ce departement.</EmptyPanel>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
         {department === 'tickets' && (
-          <div className="lg:col-span-8 rounded-2xl bg-bg-card border border-white/5 overflow-hidden">
+          <div className="xl:col-span-8 rounded-2xl bg-bg-card border border-white/5 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <LifeBuoy size={16} className="text-violet-400" />
@@ -457,7 +457,7 @@ const EmployeeDashboardPage = () => {
           </div>
         )}
 
-        <div className={cn(department === 'tickets' ? 'lg:col-span-4' : 'lg:col-span-12', 'rounded-2xl bg-bg-card border border-white/5 p-5 space-y-5')}>
+        <div className={cn(department === 'tickets' ? 'xl:col-span-4' : 'xl:col-span-12', 'rounded-2xl bg-bg-card border border-white/5 p-5 space-y-5')}>
           <div className="flex items-center gap-2">
             <TrendingUp size={16} className="text-emerald-400" />
             <h2 className="text-sm font-semibold text-white">Ma performance</h2>

@@ -234,7 +234,7 @@ const AdminDashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="p-8 space-y-8 animate-pulse">
+      <div className="space-y-6 sm:space-y-8 animate-pulse">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {[...Array(5)].map((_, i) => <div key={i} className="h-32 bg-white/5 rounded-3xl" />)}
         </div>
@@ -355,7 +355,7 @@ const AdminDashboardPage = () => {
       {/* ── Donut Charts Row ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* KYC distribution */}
-        <Card className="p-6 flex items-center gap-8">
+        <Card className="p-6 flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
           <DonutChart
             segments={kycSegs}
             centerLabel={`${kycApprovedPct}%`}
@@ -379,7 +379,7 @@ const AdminDashboardPage = () => {
         </Card>
 
         {/* Trust level distribution */}
-        <Card className="p-6 flex items-center gap-8">
+        <Card className="p-6 flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
           <DonutChart
             segments={trustSegs}
             centerLabel={trustTotal.toLocaleString()}

@@ -339,7 +339,7 @@ const RequestCampaignPage = () => {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Catégorie" required error={errors.category}>
               <select
                 value={form.category}
@@ -409,7 +409,7 @@ const RequestCampaignPage = () => {
         <div className="rounded-2xl bg-bg-card border border-white/5 p-6 space-y-5">
           <h2 className="text-sm font-semibold text-white">Informations sur le bénéficiaire</h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nom complet" required error={errors.beneficiary_name}>
               <input
                 type="text"

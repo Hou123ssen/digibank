@@ -176,7 +176,7 @@ const NotificationsPage = ({ addToast }) => {
   };
 
   return (
-    <div className="p-8 space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-6 sm:space-y-8 max-w-5xl mx-auto">
       <PageHeader 
         title="Notifications" 
         subtitle="Restez informé des activités de votre compte DigiBank."

@@ -108,7 +108,7 @@ const CreateModal = ({ onClose, onCreated, addToast }) => {
 
         <form onSubmit={handleSubmit} className="p-7 space-y-5 max-h-[70vh] overflow-y-auto">
           {/* Name + Email */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-400">Full Name</label>
               <input
@@ -161,7 +161,7 @@ const CreateModal = ({ onClose, onCreated, addToast }) => {
           {/* Departments */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-slate-400">Departments</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {DEPARTMENTS.map(dept => {
                 const meta = DEPT_META[dept];
                 const DeptIcon = meta?.icon || UserCog;
@@ -319,7 +319,7 @@ const EmployeeDrawer = ({ employee, onClose, onUpdated, addToast }) => {
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Department</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {DEPARTMENTS.map(d => {
                     const m = DEPT_META[d] || {};
                     const DI = m.icon || UserCog;
