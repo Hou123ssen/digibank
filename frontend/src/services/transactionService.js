@@ -9,6 +9,20 @@ const transactionService = {
     if (Array.isArray(d?.data)) return d.data;
     return [];
   },
+  exportPdf: async () => {
+    const response = await api.get('/transactions/export/pdf', {
+      responseType: 'blob',
+      headers: { Accept: 'application/pdf' },
+    });
+    return response.data;
+  },
+  exportExcel: async () => {
+    const response = await api.get('/transactions/export/excel', {
+      responseType: 'blob',
+      headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+    });
+    return response.data;
+  },
 };
 
 export default transactionService;

@@ -5,6 +5,12 @@ backend/.env
 backend/.env.*
 !backend/.env.example
 
+# Python
+__pycache__/
+*.pyc
+
+.claude/
+
 backend/vendor/
 backend/node_modules/
 backend/storage/logs/*.log

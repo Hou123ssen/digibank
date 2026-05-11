@@ -44,6 +44,7 @@ const TransactionsHistoryPage = ({ addToast }) => {
     search: '',
     dateRange: 'all'
   });
+  const [exporting, setExporting] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -95,8 +96,53 @@ const TransactionsHistoryPage = ({ addToast }) => {
   const copyReference = (ref) => {
     navigator.clipboard.writeText(ref);
     setIsCopied(true);
-    addToast('Référence copiée !');
+    addToast?.('Référence copiée !');
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const isPositiveTransaction = (type) => ['deposit', 'transfer_in', 'daret_payout'].includes(type);
+
+  const signedAmount = (transaction) => {
+    const amount = Math.abs(Number(transaction.amount || 0));
+    return isPositiveTransaction(transaction.type) ? amount : -amount;
+  };
+
+  const formatTransactionAmount = (transaction) => {
+    const amount = signedAmount(transaction);
+    const formatted = new Intl.NumberFormat('fr-MA', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Math.abs(amount));
+
+    return `${amount >= 0 ? '+' : '-'}${formatted} MAD`;
+  };
+
+  const downloadBlob = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async (type) => {
+    setExporting(type);
+    try {
+      const blob = type === 'pdf'
+        ? await transactionService.exportPdf()
+        : await transactionService.exportExcel();
+
+      downloadBlob(blob, type === 'pdf' ? 'transactions-digibank.pdf' : 'transactions-digibank.xlsx');
+      addToast?.(`Export ${type === 'pdf' ? 'PDF' : 'Excel'} tÃ©lÃ©chargÃ©`, 'success');
+    } catch (err) {
+      console.error('Transaction export error:', err);
+      addToast?.(`Impossible de gÃ©nÃ©rer l'export ${type === 'pdf' ? 'PDF' : 'Excel'}`, 'error');
+    } finally {
+      setExporting(null);
+    }
   };
 
   const getTransactionIcon = (type) => {

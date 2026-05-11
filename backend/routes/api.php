@@ -39,6 +39,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/accounts/withdraw', [AccountController::class, 'withdraw']);
     Route::post('/accounts/transfer', [AccountController::class, 'transfer']);
     Route::get('/transactions/me', [TransactionController::class, 'me']);
+    Route::get('/transactions/export/pdf', [TransactionController::class, 'exportPdf']);
+    Route::get('/transactions/export/excel', [TransactionController::class, 'exportExcel']);
     Route::get('/trust-score/me', [TrustScoreController::class, 'me']);
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
