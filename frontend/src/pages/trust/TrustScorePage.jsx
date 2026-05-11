@@ -158,8 +158,10 @@ const TrustScorePage = () => {
       />
 
       {/* Hero Section */}
-      <section className="flex flex-col items-center justify-center py-12 space-y-8 bg-gradient-to-b from-emerald-500/5 to-transparent rounded-[3rem] border border-white/5">
-        <LargeTrustRing score={score} />
+      <section className="flex flex-col items-center justify-center py-12 space-y-8">
+        <div className="rounded-full border border-emerald-500/25 bg-emerald-500/[0.03] p-6 shadow-lg shadow-emerald-500/10">
+          <LargeTrustRing score={score} />
+        </div>
         <div className="text-center space-y-3">
           <div className="flex justify-center">{getLevelBadge()}</div>
           <p className="text-slate-400 font-medium">Votre indice de confiance en tant que membre DigiBank</p>
@@ -229,7 +231,7 @@ const TrustScorePage = () => {
           <div className="h-64 relative flex items-end justify-between gap-4 px-4 pt-8">
             {/* Simple CSS Line Chart Visual */}
             <div className="absolute inset-0 flex flex-col justify-between py-8 px-4 opacity-10">
-              {[...Array(5)].map((_, i) => <div key={i} className="w-full h-px bg-white" />)}
+              {[...Array(5)].map((_, i) => <div key={i} className="w-full h-px bg-[#003d35]" />)}
             </div>
             {[45, 52, 48, 65, 72, 70].map((h, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-4 group">
@@ -252,8 +254,8 @@ const TrustScorePage = () => {
         {/* Tips Card */}
         <Card className="p-5 sm:p-8 space-y-6 sm:space-y-8 bg-gradient-to-br from-bg-card to-emerald-900/10">
           <div className="flex items-center gap-3">
-            <Star className="text-emerald-500" />
-            <h3 className="text-xl font-bold text-white">Améliorer votre score</h3>
+            <Star className="text-[#00C2A8]" />
+            <h3 className="text-xl font-bold !text-white">Améliorer votre score</h3>
           </div>
           
           <div className="space-y-6">
@@ -264,18 +266,18 @@ const TrustScorePage = () => {
               { label: 'Paiements à temps', desc: 'Éviter les retards de paiement de vos factures.' },
             ].map((tip, i) => (
               <div key={i} className="flex gap-4">
-                <div className="mt-1 w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <CheckCircle2 size={14} className="text-emerald-500" />
+                <div className="mt-1 w-6 h-6 rounded-full bg-[#00C2A8]/15 flex items-center justify-center shrink-0">
+                  <CheckCircle2 size={14} className="text-[#00C2A8]" />
                 </div>
                 <div className="space-y-1">
-                  <h5 className="text-sm font-bold text-white">{tip.label}</h5>
-                  <p className="text-xs text-slate-500 leading-relaxed">{tip.desc}</p>
+                  <h5 className="text-sm font-bold text-emerald-50">{tip.label}</h5>
+                  <p className="text-xs text-emerald-50/70 leading-relaxed">{tip.desc}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <Button variant="secondary" className="w-full bg-white/5 border-white/10">Guide complet</Button>
+          <Button variant="secondary" className="w-full !text-white bg-white/10 border-white/20 hover:bg-white/15">Guide complet</Button>
         </Card>
       </div>
 

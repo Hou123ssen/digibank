@@ -154,10 +154,12 @@ const HeroBg = () => {
     <div style={{ position:'absolute', inset:0, background: dark
       ? 'linear-gradient(135deg,#001a17 0%,#002920 55%,#000e0c 100%)'
       : 'linear-gradient(135deg,#c8f5ee 0%,#e0faf5 40%,#b8f0e8 100%)' }} />
-    <Blob top="-5%"  right="-5%"  width={750} height={750} blur={dark?90:60} color={dark ? 'radial-gradient(circle,rgba(0,194,168,0.14) 0%,transparent 70%)' : 'radial-gradient(circle,rgba(0,194,168,0.45) 0%,transparent 65%)'} anim="aurora1" dur={22} />
-    <Blob bottom="-5%" left="-5%" width={650} height={650} blur={dark?90:60} color={dark ? 'radial-gradient(circle,rgba(0,110,85,0.2) 0%,transparent 70%)'  : 'radial-gradient(circle,rgba(0,210,175,0.5) 0%,transparent 65%)'}  anim="aurora2" dur={18} delay={3} />
-    <Blob top="25%"  left="20%"   width={900} height={600} blur={dark?90:70} color={dark ? 'radial-gradient(ellipse,rgba(0,194,168,0.07) 0%,transparent 70%)' : 'radial-gradient(ellipse,rgba(0,230,200,0.3) 0%,transparent 65%)'} anim="aurora3" dur={28} delay={6} />
-    <Blob top="60%"  right="20%"  width={500} height={500} blur={dark?90:55} color={dark ? 'radial-gradient(circle,rgba(0,150,120,0.06) 0%,transparent 70%)' : 'radial-gradient(circle,rgba(20,255,210,0.35) 0%,transparent 60%)'} anim="aurora2" dur={16} delay={9} />
+     <Blob top="-5%"  right="-5%"  width={750} height={750} blur={dark?90:60} color={dark ? 'radial-gradient(circle,rgba(0,194,168,0.14) 0%,transparent 70%)' : 'radial-gradient(circle,rgba(0,194,168,0.45) 0%,transparent 65%)'} anim="aurora1" dur={22} />
+     <Blob bottom="-5%" left="-5%" width={650} height={650} blur={dark?90:60} color={dark ? 'radial-gradient(circle,rgba(0,110,85,0.2) 0%,transparent 70%)'  : 'radial-gradient(circle,rgba(0,210,175,0.5) 0%,transparent 65%)'}  anim="aurora2" dur={18} delay={3} />
+     <Blob top="25%"  left="20%"   width={900} height={600} blur={dark?90:70} color={dark ? 'radial-gradient(ellipse,rgba(0,194,168,0.07) 0%,transparent 70%)' : 'radial-gradient(ellipse,rgba(0,230,200,0.3) 0%,transparent 65%)'} anim="aurora3" dur={28} delay={6} />
+     <Blob top="60%"  right="20%"  width={500} height={500} blur={dark?90:55} color={dark ? 'radial-gradient(circle,rgba(0,150,120,0.06) 0%,transparent 70%)' : 'radial-gradient(circle,rgba(20,255,210,0.35) 0%,transparent 60%)'} anim="aurora2" dur={16} delay={9} />
+     {/* Dark green accent blob */}
+     <Blob top="10%" left="10%" width={300} height={300} blur={dark?80:50} color={dark ? '#00C2A8' : 'rgba(0,102,85,0.28)'} opacity="0.15" anim="aurora1" dur={20} delay={1} />
     <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', overflow:'visible' }} viewBox="0 0 1700 500" preserveAspectRatio="none">
       <path d="M-100,200 C150,100 350,300 600,180 C850,60 1050,280 1300,160 C1450,100 1550,200 1700,150"
         fill="none" stroke={dark ? 'rgba(0,194,168,0.07)' : 'rgba(0,160,135,0.25)'} strokeWidth={dark?'1.5':'2'}

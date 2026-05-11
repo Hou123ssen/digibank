@@ -1,21 +1,22 @@
-import { useState, useRef, useEffect } from 'react';
-import { NavLink, Link, Outlet } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { NavLink, Outlet, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  BadgeCheck, HeartHandshake, LayoutDashboard, LifeBuoy, Shield,
-  ArrowLeft, Settings, LogOut, Menu, Search, Bell, ChevronDown,
-  User, SlidersHorizontal, X,
+  LayoutDashboard, BadgeCheck, HeartHandshake, LifeBuoy,
+  Bell, Settings, LogOut, Menu, X, Search, ChevronDown,
+  User, SlidersHorizontal, Shield, ArrowLeft,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
-import notificationService from '../../services/notificationService';
 import Avatar from '../ui/Avatar';
+import notificationService from '../../services/notificationService';
+import logo from '../../images/logo digi.png';
 
 const EMPLOYEE_NAV = [
   { label: 'Tableau de bord', icon: LayoutDashboard, path: '/employee/dashboard', end: true },
-  { label: 'File KYC',        icon: BadgeCheck,      path: '/employee/kyc',       departments: ['kyc'] },
-  { label: 'Cagnottes',       icon: HeartHandshake,  path: '/employee/cagnottes', departments: ['cagnotte'] },
-  { label: 'Tickets',         icon: LifeBuoy,        path: '/employee/tickets',   departments: ['tickets'] },
+  { label: 'File KYC',        icon: BadgeCheck,      path: '/employee/kyc'       },
+  { label: 'Cagnottes',       icon: HeartHandshake,  path: '/employee/cagnottes' },
+  { label: 'Tickets',         icon: LifeBuoy,        path: '/employee/tickets'   },
 ];
 
 const LANGS = ['AR', 'FR', 'EN'];
@@ -50,33 +51,19 @@ const SidebarLink = ({ item, onNavigate }) => {
 };
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-const SidebarContent = ({ logout, onNavigate, user }) => {
-  const department = String(user?.department || '').trim().toLowerCase();
-  const settingsPath = user?.role === 'admin'
-    ? '/admin/settings'
-    : user?.role === 'employee'
-      ? '/employee/settings'
-      : '/dashboard/settings';
-  const navItems = EMPLOYEE_NAV.filter(item => (
-    user?.role === 'admin'
-      || !item.departments
-      || item.departments.includes(department)
-  ));
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-5 pt-6 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-900/40">
-            <Shield size={19} className="text-white" />
-          </div>
-          <div>
-            <p className="text-[15px] font-bold text-white tracking-tight leading-none">DigiBank</p>
-            <p className="text-[9px] text-amber-400 font-bold tracking-[0.18em] uppercase mt-0.5">
-              Espace Employé
-            </p>
-          </div>
+const SidebarContent = ({ logout, onNavigate }) => (
+  <div className="flex flex-col h-full">
+    {/* Header */}
+    <div className="px-5 pt-6 pb-4">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-emerald-900/30 ring-1 ring-emerald-400/20">
+          <img src={logo} alt="DigiBank logo" className="w-full h-full object-cover" />
+        </div>
+        <div>
+          <p className="text-[15px] font-bold text-white tracking-tight leading-none">DigiBank</p>
+          <p className="text-[9px] text-amber-400 font-bold tracking-[0.18em] uppercase mt-0.5">
+            Espace Employé
+          </p>
         </div>
       </div>
 
@@ -85,7 +72,7 @@ const SidebarContent = ({ logout, onNavigate, user }) => {
         <p className="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2.5">
           Gestion
         </p>
-        {navItems.map(item => (
+        {EMPLOYEE_NAV.map(item => (
           <SidebarLink key={item.path} item={item} onNavigate={onNavigate} />
         ))}
       </nav>
@@ -102,7 +89,7 @@ const SidebarContent = ({ logout, onNavigate, user }) => {
         </Link>
 
         <NavLink
-          to={settingsPath}
+          to="/employee/settings"
           onClick={onNavigate}
           className={({ isActive }) => cn(
             'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
@@ -165,29 +152,19 @@ const EmployeeLayout = ({ addToast }) => {
                     : Array.isArray(res?.data)          ? res.data
                     : Array.isArray(res)                ? res : [];
         setNotifications(items.slice(0, 5));
-        setUnreadCount(items.filter(n => !n.is_read && !n.read_at).length);
+        setUnreadCount(items.filter(n => !n.is_read).length);
       } catch { /* silent */ }
     })();
   }, []);
 
   const displayName = user?.first_name || user?.name?.split(' ')[0] || 'Employé';
-  const profilePath = user?.role === 'admin'
-    ? '/admin/profile'
-    : user?.role === 'employee'
-      ? '/employee/profile'
-      : '/dashboard/profile';
-  const settingsPath = user?.role === 'admin'
-    ? '/admin/settings'
-    : user?.role === 'employee'
-      ? '/employee/settings'
-      : '/dashboard/settings';
 
   return (
     <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden">
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 z-20 w-[260px] bg-bg-card border-r border-white/5 flex-col">
-        <SidebarContent logout={logout} user={user} />
+        <SidebarContent logout={logout} />
       </aside>
 
       {/* Mobile drawer */}
@@ -212,7 +189,7 @@ const EmployeeLayout = ({ addToast }) => {
               >
                 <X size={18} />
               </button>
-              <SidebarContent logout={logout} user={user} onNavigate={() => setSidebarOpen(false)} />
+              <SidebarContent logout={logout} onNavigate={() => setSidebarOpen(false)} />
             </motion.aside>
           </>
         )}
@@ -289,7 +266,7 @@ const EmployeeLayout = ({ addToast }) => {
                   </div>
                   <div className="divide-y divide-white/5 max-h-60 overflow-y-auto">
                     {notifications.length > 0 ? notifications.map((n, i) => (
-                      <div key={i} className={cn('px-4 py-3 text-xs', (!n.is_read && !n.read_at) && 'bg-emerald-500/[0.04]')}>
+                      <div key={i} className={cn('px-4 py-3 text-xs', !n.is_read && 'bg-emerald-500/[0.04]')}>
                         <p className="text-slate-200 truncate">{n.title || n.message}</p>
                         <p className="text-slate-600 mt-0.5">{new Date(n.created_at).toLocaleDateString('fr-FR')}</p>
                       </div>
@@ -333,8 +310,8 @@ const EmployeeLayout = ({ addToast }) => {
                   </div>
                   <div className="py-1">
                     {[
-                      { to: profilePath, icon: User,              label: 'Mon Profil' },
-                      { to: settingsPath, icon: SlidersHorizontal, label: 'Paramètres' },
+                      { to: '/profile',  icon: User,              label: 'Mon Profil' },
+                      { to: '/settings', icon: SlidersHorizontal, label: 'Paramètres' },
                     ].map(item => (
                       <NavLink key={item.to} to={item.to} onClick={() => setProfileOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">

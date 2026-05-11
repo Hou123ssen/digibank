@@ -375,6 +375,52 @@ const MEMBER_OPTS = [
 const stagger  = { hidden: {}, visible: { transition: { staggerChildren: 0.07 } } };
 const cardAnim = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } } };
 
+const AnalyticsCards = ({ analytics, loading, error }) => {
+  const stats = [
+    { label: 'Darets actifs', value: safeNumber(analytics?.total_active_darets).toLocaleString('fr-MA'), icon: Users },
+    { label: 'Darets termines', value: safeNumber(analytics?.completed_darets).toLocaleString('fr-MA'), icon: CheckCircle2 },
+    { label: 'Paiements Daret', value: formatAmount(analytics?.total_daret_payments), icon: Banknote },
+    { label: 'Pot distribue', value: formatAmount(analytics?.total_pot_distributed), icon: ArrowRight },
+    { label: 'Retards', value: safeNumber(analytics?.late_payments_count).toLocaleString('fr-MA'), icon: AlertCircle },
+    { label: 'Completion', value: `${safeNumber(analytics?.payment_completion_rate).toLocaleString('fr-MA')}%`, icon: Clock },
+    { label: 'Mes actifs', value: safeNumber(analytics?.user_active_darets_count).toLocaleString('fr-MA'), icon: Star },
+  ];
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-2xl bg-white/5 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <AlertCircle size={14} />
+          <span>{error}</span>
+        </div>
+      )}
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+        {stats.map(({ label, value, icon: Icon }) => (
+          <Card key={label} className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <Icon size={15} className="text-emerald-400" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider">{label}</p>
+            <p className="text-sm font-bold text-white mt-1 font-mono">{value}</p>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 const DaretListPage = () => {
   const { addToast } = useOutletContext() || {};
@@ -386,6 +432,9 @@ const DaretListPage = () => {
   const [myDarets,     setMyDarets]     = useState([]);
   const [allDarets,    setAllDarets]    = useState([]);
   const [loading,      setLoading]      = useState(true);
+  const [analytics,    setAnalytics]    = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState('');
   const [joining,      setJoining]      = useState(false);
   const [joinModal,    setJoinModal]    = useState(null);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
@@ -407,7 +456,23 @@ const DaretListPage = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadAnalytics = async () => {
+    setAnalyticsLoading(true);
+    setAnalyticsError('');
+    try {
+      setAnalytics(await daretService.getAnalytics());
+    } catch {
+      setAnalytics(null);
+      setAnalyticsError('Impossible de charger les analytics Daret.');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    loadAnalytics();
+  }, []);
 
   const handleJoin = async (id) => {
     setJoining(true);
@@ -416,6 +481,7 @@ const DaretListPage = () => {
       addToast?.('Vous avez rejoint le Daret avec succès !', 'success');
       setJoinModal(null);
       await load();
+      await loadAnalytics();
     } catch (err) {
       addToast?.(err?.response?.data?.message || 'Erreur lors de l\'adhésion', 'error');
     } finally {
@@ -430,6 +496,7 @@ const DaretListPage = () => {
       addToast?.('Vous avez rejoint le Daret avec succes !', 'success');
       setCodeModalOpen(false);
       await load();
+      await loadAnalytics();
     } catch (err) {
       addToast?.(getErrorMessage(err) || 'Erreur lors de l\'adhesion', 'error');
     } finally {
@@ -442,6 +509,7 @@ const DaretListPage = () => {
       await daretService.payDaret(daret.id, {});
       addToast?.('Contribution payee avec succes !', 'success');
       await load();
+      await loadAnalytics();
     } catch (err) {
       addToast?.(getErrorMessage(err) || 'Erreur lors du paiement', 'error');
     }
@@ -476,7 +544,7 @@ const DaretListPage = () => {
   const myActiveCount = myDarets.filter(d => d.status !== 'completed').length;
 
   return (
-    <div className="space-y-6">
+    <div className="dg-daret-page space-y-6">
       {/* ── Page header ─────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -494,6 +562,8 @@ const DaretListPage = () => {
       </div>
 
       {/* ── Tabs ────────────────────────────────────────────────────── */}
+      <AnalyticsCards analytics={analytics} loading={analyticsLoading} error={analyticsError} />
+
       <div className="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-xl w-fit">
         {TABS.map(tab => (
           <button

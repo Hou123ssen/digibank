@@ -7,6 +7,8 @@ use App\Models\AiConversation;
 use App\Services\AiBankingAssistantService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AiAssistantController extends Controller
 {
@@ -16,14 +18,22 @@ class AiAssistantController extends Controller
 
     public function conversations(Request $request)
     {
-        return ApiResponse::success('AI conversations retrieved successfully.', [
-            'conversations' => $this->assistant->conversations($request->user()),
-        ]);
+        try {
+            return ApiResponse::success('AI conversations retrieved successfully.', [
+                'conversations' => $this->assistant->conversations($request->user()),
+            ]);
+        } catch (Throwable $exception) {
+            return $this->aiError($exception, 'Unable to load AI conversations.');
+        }
     }
 
     public function show(Request $request, AiConversation $conversation)
     {
-        $data = $this->assistant->conversation($request->user(), $conversation);
+        try {
+            $data = $this->assistant->conversation($request->user(), $conversation);
+        } catch (Throwable $exception) {
+            return $this->aiError($exception, 'Unable to load AI conversation.');
+        }
 
         if (! $data) {
             return ApiResponse::error('Conversation not found.', [], 404);
@@ -42,12 +52,16 @@ class AiAssistantController extends Controller
             'page_context' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $result = $this->assistant->answer(
-            $request->user(),
-            $data['message'],
-            $data['conversation_id'] ?? null,
-            $data['page_context'] ?? null
-        );
+        try {
+            $result = $this->assistant->answer(
+                $request->user(),
+                $data['message'],
+                $data['conversation_id'] ?? null,
+                $data['page_context'] ?? null
+            );
+        } catch (Throwable $exception) {
+            return $this->aiError($exception, 'DigiBank AI is temporarily unavailable. Please try again later.');
+        }
 
         return ApiResponse::success('AI response generated successfully.', $result);
     }
@@ -60,12 +74,25 @@ class AiAssistantController extends Controller
             'page_context' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $result = $this->assistant->answer(
-            $request->user(),
-            $data['message'],
-            $data['conversation_id'] ?? null,
-            $data['page_context'] ?? null
-        );
+        try {
+            $result = $this->assistant->answer(
+                $request->user(),
+                $data['message'],
+                $data['conversation_id'] ?? null,
+                $data['page_context'] ?? null
+            );
+        } catch (Throwable $exception) {
+            Log::error('AI stream request failed.', [
+                'user_id' => $request->user()?->id,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'ai_unavailable',
+                'message' => 'DigiBank AI is temporarily unavailable. Please try again later.',
+            ], 503);
+        }
 
         return response()->stream(function () use ($result): void {
             foreach (str_split($result['message']['content'], 28) as $chunk) {
@@ -88,5 +115,18 @@ class AiAssistantController extends Controller
             'Cache-Control' => 'no-cache, no-transform',
             'X-Accel-Buffering' => 'no',
         ]);
+    }
+
+    private function aiError(Throwable $exception, string $message)
+    {
+        Log::error('AI assistant request failed.', [
+            'exception' => $exception,
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'error' => 'ai_unavailable',
+            'message' => $message,
+        ], 503);
     }
 }

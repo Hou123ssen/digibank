@@ -10,6 +10,7 @@ import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import notificationService from '../../services/notificationService';
 import Avatar from '../ui/Avatar';
+import logo from '../../images/logo digi.png';
 
 const ADMIN_NAV = [
   { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin/dashboard', end: true },
@@ -53,8 +54,8 @@ const SidebarContent = ({ logout, onNavigate, settingsPath = '/admin/settings' }
   <div className="flex flex-col h-full">
     <div className="px-5 pt-6 pb-4">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg shadow-violet-900/40">
-          <ShieldCheck size={19} className="text-white" />
+        <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-violet-900/40 ring-1 ring-violet-400/20">
+          <img src={logo} alt="DigiBank logo" className="w-full h-full object-cover" />
         </div>
         <div>
           <p className="text-[15px] font-bold text-white tracking-tight leading-none">DigiBank</p>
@@ -84,7 +85,7 @@ const SidebarContent = ({ logout, onNavigate, settingsPath = '/admin/settings' }
         <span>Espace employé</span>
       </Link>
       <NavLink
-        to={settingsPath}
+        to="/settings"
         onClick={onNavigate}
         className={({ isActive }) => cn(
           'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
@@ -152,7 +153,7 @@ const AdminLayout = ({ addToast }) => {
     <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-violet-500/20 overflow-x-hidden">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 z-20 w-[260px] bg-bg-card border-r border-white/5 flex-col">
-        <SidebarContent logout={logout} settingsPath={settingsPath} />
+        <SidebarContent logout={logout} />
       </aside>
 
       {/* Mobile drawer */}
@@ -168,7 +169,7 @@ const AdminLayout = ({ addToast }) => {
               <button onClick={() => setSidebarOpen(false)} className="absolute top-4 right-3 p-1.5 text-slate-400 hover:text-white rounded-lg">
                 <X size={18} />
               </button>
-              <SidebarContent logout={logout} settingsPath={settingsPath} onNavigate={() => setSidebarOpen(false)} />
+              <SidebarContent logout={logout} onNavigate={() => setSidebarOpen(false)} />
             </motion.aside>
           </>
         )}
@@ -249,7 +250,7 @@ const AdminLayout = ({ addToast }) => {
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">{user?.email}</p>
                   </div>
                   <div className="py-1">
-                    {[{ to: profilePath, icon: User, label: 'Mon Profil' }, { to: settingsPath, icon: SlidersHorizontal, label: 'Paramètres' }].map(item => (
+                    {[{ to: '/profile', icon: User, label: 'Mon Profil' }, { to: '/settings', icon: SlidersHorizontal, label: 'Paramètres' }].map(item => (
                       <NavLink key={item.to} to={item.to} onClick={() => setProfileOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
                         <item.icon size={15} /> {item.label}

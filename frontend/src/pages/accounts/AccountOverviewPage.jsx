@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  ArrowLeftRight, 
-  FileText, 
-  Copy, 
-  CheckCircle2, 
+import {
+  Plus,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ArrowLeftRight,
+  FileText,
+  Copy,
+  CheckCircle2,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
@@ -22,21 +22,17 @@ import Table from '../../components/ui/Table';
 import StatCard from '../../components/ui/StatCard';
 import DepositModal from '../../components/accounts/DepositModal';
 import WithdrawModal from '../../components/accounts/WithdrawModal';
+import { useTheme } from '../../components/landing/ThemeContext';
+import { cn } from '../../utils/cn';
 
 import accountService from '../../services/accountService';
 import transactionService from '../../services/transactionService';
-import { safeNumber, formatAmount } from '../../utils/apiResponse';
 
 const AccountOverviewPage = ({ addToast }) => {
+  const { dark } = useTheme();
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [summary, setSummary] = useState({
-    monthly_inflows: 0,
-    monthly_outflows: 0,
-    net_flow: 0,
-  });
   const [loading, setLoading] = useState(true);
-  const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -45,26 +41,22 @@ const AccountOverviewPage = ({ addToast }) => {
     fetchData();
   }, []);
 
-  const fetchData = async (showLoading = true) => {
+  const fetchData = async () => {
     try {
-      if (showLoading) setLoading(true);
-      const [accRes, transRes, summaryRes] = await Promise.all([
+      setLoading(true);
+      const [accRes, transRes] = await Promise.all([
         accountService.getMyAccount(),
-        transactionService.getMyTransactions(),
-        accountService.getMySummary()
+        transactionService.getMyTransactions()
       ]);
       setAccount(accRes);
-      setTransactions(Array.isArray(transRes) ? transRes : []);
-      setSummary({
-        monthly_inflows: safeNumber(summaryRes?.monthly_inflows),
-        monthly_outflows: safeNumber(summaryRes?.monthly_outflows),
-        net_flow: safeNumber(summaryRes?.net_flow),
-      });
+      // Backend may return { transactions: [...] } inside data
+      const rawTransactions = transRes?.transactions || transRes;
+      setTransactions(Array.isArray(rawTransactions) ? rawTransactions : []);
     } catch (err) {
       console.error('Error fetching account data:', err);
       // addToast('Impossible de charger les données du compte', 'error');
     } finally {
-      if (showLoading) setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -73,38 +65,6 @@ const AccountOverviewPage = ({ addToast }) => {
     setIsCopied(true);
     addToast('Numéro de compte copié !');
     setTimeout(() => setIsCopied(false), 2000);
-  };
-
-  const handleStatementPdf = async () => {
-    try {
-      setIsPdfLoading(true);
-      const response = await accountService.downloadStatementPdf();
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'releve-digibank.pdf';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      addToast('Releve PDF genere avec succes', 'success');
-    } catch (err) {
-      console.error('Error generating statement PDF:', err);
-      addToast('Impossible de generer le releve PDF', 'error');
-    } finally {
-      setIsPdfLoading(false);
-    }
-  };
-
-  const handleDepositSuccess = async (result) => {
-    if (result?.account) {
-      setAccount(result.account);
-    } else if (result?.new_balance !== undefined) {
-      setAccount(prev => prev ? { ...prev, balance: result.new_balance } : prev);
-    }
-
-    await fetchData(false);
   };
 
   if (loading) {
@@ -121,21 +81,19 @@ const AccountOverviewPage = ({ addToast }) => {
     );
   }
 
-  const balance = safeNumber(account?.balance ?? account?.data?.balance ?? 0);
-  const overdraftLimit = safeNumber(account?.overdraft_limit ?? 0);
-  const isOverdraft = balance < 0;
+  const isOverdraft = account?.balance < 0;
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <PageHeader 
-        title="Mon Compte" 
+      <PageHeader
+        title="Mon Compte"
         subtitle="Gérez vos fonds, effectuez des dépôts et suivez vos activités bancaires."
         breadcrumbs={["Accueil", "Mon Compte"]}
       />
 
       {/* Overdraft Warning Banner */}
       {isOverdraft && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 text-amber-500"
@@ -159,7 +117,7 @@ const AccountOverviewPage = ({ addToast }) => {
               </div>
               <div className="flex items-center gap-3">
                 <h3 className="text-xl md:text-2xl font-mono text-white font-bold">{account?.account_number}</h3>
-                <button 
+                <button
                   onClick={() => copyToClipboard(account?.account_number)}
                   className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-emerald-500 transition-all"
                 >
@@ -167,7 +125,7 @@ const AccountOverviewPage = ({ addToast }) => {
                 </button>
               </div>
             </div>
-            
+
             <div className="text-left md:text-right">
               <p className="text-slate-400 text-sm font-medium">Titulaire du compte</p>
               <h4 className="text-lg font-bold text-white">{account?.user?.name}</h4>
@@ -181,15 +139,15 @@ const AccountOverviewPage = ({ addToast }) => {
                 {balance.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xl sm:text-2xl text-emerald-500 font-medium">MAD</span>
               </h2>
             </div>
-            {overdraftLimit > 0 && (
+            {account?.overdraft_limit > 0 && (
               <p className="text-slate-500 text-sm">
-                Limite de découvert : <span className="text-slate-300 font-semibold">{formatAmount(overdraftLimit)}</span>
+                Limite de découvert : <span className="text-slate-300 font-semibold">{account?.overdraft_limit} MAD</span>
               </p>
             )}
           </div>
 
           <div className="pt-4 border-t border-white/5 flex flex-col md:flex-row justify-between gap-4">
-            <p className="text-slate-500 text-xs">Compte ouvert le {account?.created_at ? new Date(account.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
+            <p className="text-slate-500 text-xs">Compte ouvert le {new Date(account?.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             <div className="flex items-center gap-2 text-emerald-500">
               <CheckCircle2 size={14} />
               <span className="text-xs font-semibold uppercase tracking-widest">Compte vérifié par DigiBank</span>
@@ -200,35 +158,33 @@ const AccountOverviewPage = ({ addToast }) => {
 
       {/* Quick Actions Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <Button 
+        <Button
           onClick={() => setIsDepositOpen(true)}
-          variant="primary" 
-          leftIcon={Plus} 
-          className="h-14 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500 border-emerald-500/20 text-emerald-500 hover:text-white"
+          variant="primary"
+          leftIcon={Plus}
+          className="h-14 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500 border-emerald-500/20 text-primary hover:text-white"
         >
           Déposer
         </Button>
-        <Button 
+        <Button
           onClick={() => setIsWithdrawOpen(true)}
-          variant="secondary" 
-          leftIcon={ArrowUpRight} 
-          className="h-14 rounded-2xl bg-white/5 hover:bg-white/10"
+          variant="secondary"
+          leftIcon={ArrowUpRight}
+          className={cn("h-14 rounded-2xl", dark ? "bg-white/5 hover:bg-white/10" : "bg-white/80 border-[#00C2A8]/20 text-[#006655] hover:bg-[#00C2A8]/10 hover:border-[#006655]/30")}
         >
           Retirer
         </Button>
-        <Button 
-          variant="secondary" 
-          leftIcon={ArrowLeftRight} 
-          className="h-14 rounded-2xl bg-white/5 hover:bg-white/10"
+        <Button
+          variant="secondary"
+          leftIcon={ArrowLeftRight}
+          className={cn("h-14 rounded-2xl", dark ? "bg-white/5 hover:bg-white/10" : "bg-white/80 border-[#00C2A8]/20 text-[#006655] hover:bg-[#00C2A8]/10 hover:border-[#006655]/30")}
         >
           Virement
         </Button>
-        <Button 
-          onClick={handleStatementPdf}
-          variant="secondary" 
-          leftIcon={FileText} 
-          isLoading={isPdfLoading}
-          className="h-14 rounded-2xl bg-white/5 hover:bg-white/10"
+        <Button
+          variant="secondary"
+          leftIcon={FileText}
+          className={cn("h-14 rounded-2xl", dark ? "bg-white/5 hover:bg-white/10" : "bg-white/80 border-[#00C2A8]/20 text-[#006655] hover:bg-[#00C2A8]/10 hover:border-[#006655]/30")}
         >
           Relevé PDF
         </Button>
@@ -236,16 +192,17 @@ const AccountOverviewPage = ({ addToast }) => {
 
       {/* Insights Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-        <StatCard 
-          label="Entrées ce mois" 
-          value={formatAmount(summary.monthly_inflows)} 
-          icon={TrendingUp} 
+        <StatCard
+          label="Entrées ce mois"
+          value={formatAmount(summary.monthly_inflows)}
+          icon={TrendingUp}
           trend="up"
         />
-        <StatCard 
-          label="Sorties ce mois" 
-          value={formatAmount(summary.monthly_outflows)} 
-          icon={TrendingDown} 
+        <StatCard
+          label="Sorties ce mois"
+          value="MAD 8,200.00"
+          delta="5%"
+          icon={TrendingDown}
           trend="down"
         />
         <Card className="p-6 flex flex-col justify-between overflow-hidden">
@@ -254,14 +211,12 @@ const AccountOverviewPage = ({ addToast }) => {
             <Activity size={18} className="text-emerald-500" />
           </div>
           <div className="flex items-end justify-between gap-4">
-            <h3 className={`text-2xl font-bold ${summary.net_flow >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-              {summary.net_flow >= 0 ? '+' : ''}{formatAmount(summary.net_flow)}
-            </h3>
+            <h3 className="text-2xl font-bold text-white">+ MAD 4,250</h3>
             <div className="flex-1 h-12 flex items-end gap-1">
               {[40, 20, 60, 30, 80, 50, 90, 45, 70].map((h, i) => (
-                <div 
-                  key={i} 
-                  className="flex-1 bg-emerald-500/20 rounded-t-sm" 
+                <div
+                  key={i}
+                  className="flex-1 bg-emerald-500/20 rounded-t-sm"
                   style={{ height: `${h}%` }}
                 />
               ))}
@@ -274,28 +229,26 @@ const AccountOverviewPage = ({ addToast }) => {
       <Card className="p-1 overflow-hidden">
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
           <h3 className="font-bold text-white">Activité récente</h3>
-          <Button variant="ghost" size="sm" className="text-emerald-500">Voir tout</Button>
+          <Button variant="ghost" size="sm" className="text-emerald-500 hover:text-[#006655] hover:bg-[#00C2A8]/10">Voir tout</Button>
         </div>
-        <Table 
+        <Table
           headers={["Transaction", "Date", "Montant", "Statut", "Compte"]}
           data={transactions.slice(0, 10).map(t => [
             <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                t.type === 'deposit' ? 'bg-emerald-500/10 text-emerald-500' : 
-                t.type === 'withdraw' ? 'bg-rose-500/10 text-rose-500' : 
-                'bg-sky-500/10 text-sky-500'
-              }`}>
-                {t.type === 'deposit' ? <ArrowDownLeft size={14} /> : 
-                 t.type === 'withdraw' ? <ArrowUpRight size={14} /> : 
-                 <ArrowLeftRight size={14} />}
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.type === 'deposit' ? 'bg-emerald-500/10 text-emerald-500' :
+                  t.type === 'withdraw' ? 'bg-rose-500/10 text-rose-500' :
+                    'bg-sky-500/10 text-sky-500'
+                }`}>
+                {t.type === 'deposit' ? <ArrowDownLeft size={14} /> :
+                  t.type === 'withdraw' ? <ArrowUpRight size={14} /> :
+                    <ArrowLeftRight size={14} />}
               </div>
               <span className="font-medium text-slate-200">{t.description || t.type}</span>
             </div>,
             new Date(t.created_at).toLocaleDateString('fr-FR'),
-            <span className={`font-mono font-bold ${
-              t.type === 'deposit' ? 'text-emerald-500' : 'text-rose-500'
-            }`}>
-              {t.type === 'deposit' ? '+' : '-'}{formatAmount(t.amount)}
+            <span className={`font-mono font-bold ${t.type === 'deposit' ? 'text-emerald-500' : 'text-rose-500'
+              }`}>
+              {t.type === 'deposit' ? '+' : '-'}{t.amount} MAD
             </span>,
             <Badge variant="success">Terminé</Badge>,
             <span className="text-slate-400 text-sm">•••• {t.account_number?.slice(-4)}</span>
@@ -304,19 +257,18 @@ const AccountOverviewPage = ({ addToast }) => {
       </Card>
 
       {/* Modals */}
-      <DepositModal 
-        isOpen={isDepositOpen} 
-        onClose={() => setIsDepositOpen(false)} 
-        onSuccess={handleDepositSuccess}
-        addToast={addToast}
-        currentBalance={balance}
-      />
-      <WithdrawModal 
-        isOpen={isWithdrawOpen} 
-        onClose={() => setIsWithdrawOpen(false)} 
+      <DepositModal
+        isOpen={isDepositOpen}
+        onClose={() => setIsDepositOpen(false)}
         onSuccess={fetchData}
-        currentBalance={balance}
-        overdraftLimit={overdraftLimit}
+        currentBalance={account?.balance}
+      />
+      <WithdrawModal
+        isOpen={isWithdrawOpen}
+        onClose={() => setIsWithdrawOpen(false)}
+        onSuccess={fetchData}
+        currentBalance={account?.balance}
+        overdraftLimit={account?.overdraft_limit}
       />
     </div>
   );

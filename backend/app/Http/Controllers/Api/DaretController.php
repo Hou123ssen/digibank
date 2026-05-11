@@ -8,6 +8,7 @@ use App\Http\Requests\StoreDaretRequest;
 use App\Http\Resources\DaretResource;
 use App\Models\Daret;
 use App\Models\DaretCycle;
+use App\Models\DaretMember;
 use App\Models\DaretPayment;
 use App\Models\User;
 use App\Services\DaretService;
@@ -113,6 +114,45 @@ class DaretController extends Controller
         return ApiResponse::success('Daret contribution paid successfully.', $result);
     }
 
+    public function analytics(Request $request)
+    {
+        $paidPayments = DaretPayment::query()->where('status', DaretPayment::STATUS_PAID);
+        $expectedPayments = DaretCycle::query()
+            ->join('darets', 'daret_cycles.daret_id', '=', 'darets.id')
+            ->whereIn('daret_cycles.status', [
+                DaretCycle::STATUS_PENDING,
+                DaretCycle::STATUS_LATE,
+                DaretCycle::STATUS_COMPLETED,
+            ])
+            ->sum('darets.current_members');
+        $paidPaymentsCount = (clone $paidPayments)->count();
+        $paymentCompletionRate = $expectedPayments > 0
+            ? round(($paidPaymentsCount / $expectedPayments) * 100, 2)
+            : 0.0;
+
+        $userActiveDaretsCount = DaretMember::query()
+            ->where('user_id', $request->user()->id)
+            ->where('status', DaretMember::STATUS_ACTIVE)
+            ->whereHas('daret', fn ($query) => $query->where('status', Daret::STATUS_ACTIVE))
+            ->count();
+
+        return ApiResponse::success('Daret analytics retrieved successfully.', [
+            'analytics' => [
+                'total_active_darets' => Daret::where('status', Daret::STATUS_ACTIVE)->count(),
+                'completed_darets' => Daret::where('status', Daret::STATUS_COMPLETED)->count(),
+                'total_daret_payments' => (float) (clone $paidPayments)->sum('amount'),
+                'total_daret_payments_count' => $paidPaymentsCount,
+                'total_pot_distributed' => (float) DaretPayment::query()
+                    ->where('daret_payments.status', DaretPayment::STATUS_PAID)
+                    ->whereHas('cycle', fn ($query) => $query->where('status', DaretCycle::STATUS_COMPLETED))
+                    ->sum('amount'),
+                'late_payments_count' => DaretPayment::where('status', DaretPayment::STATUS_LATE)->count(),
+                'payment_completion_rate' => $paymentCompletionRate,
+                'user_active_darets_count' => $userActiveDaretsCount,
+            ],
+        ]);
+    }
+
     private function formatDaretSummary(Daret $daret, ?User $user): array
     {
         return [
@@ -180,6 +220,7 @@ class DaretController extends Controller
                     'is_creator' => $member->is_creator,
                     'status' => $member->status,
                     'has_paid_current_cycle' => $this->memberHasPaidCurrentCycle($member, $daret),
+                    'payment_status' => $this->memberCurrentPaymentStatus($member, $daret),
                     'user' => $this->basicUser($memberUser),
                 ];
             })
@@ -206,7 +247,9 @@ class DaretController extends Controller
                 'started_at' => $cycle->started_at,
                 'scheduled_date' => $cycle->due_date,
                 'completed_at' => $cycle->completed_at,
-                'paid_count' => $cycle->relationLoaded('payments') ? $cycle->payments->count() : $cycle->payments()->count(),
+                'paid_count' => $cycle->relationLoaded('payments')
+                    ? $cycle->payments->where('status', DaretPayment::STATUS_PAID)->count()
+                    : $cycle->payments()->where('status', DaretPayment::STATUS_PAID)->count(),
                 'total_members' => $daret->members_count ?? $daret->members()->count(),
                 'recipient' => $this->basicUser($cycle->beneficiary),
                 'beneficiary' => $this->basicUser($cycle->beneficiary),
@@ -282,23 +325,26 @@ class DaretController extends Controller
 
     private function memberHasPaidCurrentCycle($member, Daret $daret): bool
     {
+        return $this->memberCurrentPaymentStatus($member, $daret) === DaretPayment::STATUS_PAID;
+    }
+
+    private function memberCurrentPaymentStatus($member, Daret $daret): string
+    {
         $currentCycleNumber = $this->currentCycleNumber($daret);
 
         if (! $currentCycleNumber) {
-            return false;
+            return DaretPayment::STATUS_PENDING;
         }
 
         if ($member->relationLoaded('payments')) {
-            return $member->payments->contains(function ($payment) use ($currentCycleNumber): bool {
-                return $payment->status === DaretPayment::STATUS_PAID
-                    && $payment->cycle?->cycle_number === $currentCycleNumber;
-            });
+            return $member->payments->first(function ($payment) use ($currentCycleNumber): bool {
+                return (int) $payment->cycle?->cycle_number === (int) $currentCycleNumber;
+            })?->status ?? DaretPayment::STATUS_PENDING;
         }
 
         return $member->payments()
-            ->where('status', DaretPayment::STATUS_PAID)
             ->whereHas('cycle', fn ($query) => $query->where('cycle_number', $currentCycleNumber))
-            ->exists();
+            ->value('status') ?? DaretPayment::STATUS_PENDING;
     }
 
     private function currentCycleNumber(Daret $daret): ?int

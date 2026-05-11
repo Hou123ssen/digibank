@@ -309,7 +309,7 @@ const RequestCampaignPage = () => {
   );
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-12">
+    <div className="dg-cagnotte-page max-w-2xl mx-auto space-y-6 pb-12">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button

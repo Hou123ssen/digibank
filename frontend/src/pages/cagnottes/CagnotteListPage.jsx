@@ -213,7 +213,7 @@ const CagnotteListPage = () => {
   }, [cagnottes, category, search, sort]);
 
   return (
-    <div className="space-y-6">
+    <div className="dg-cagnotte-page space-y-6">
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>

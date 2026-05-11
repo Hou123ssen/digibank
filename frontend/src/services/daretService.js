@@ -10,6 +10,10 @@ const unwrapDarets = (response) => {
   const darets = Array.isArray(data) ? data : data?.darets || [];
   return Array.isArray(darets) ? darets : [];
 };
+const unwrapAnalytics = (response) => {
+  const data = unwrapData(response);
+  return data?.analytics || data || {};
+};
 
 const normalizeUser = (user) => {
   if (!user) return null;
@@ -27,7 +31,8 @@ const normalizeMember = (member) => {
     name: member?.name || user?.name,
     email: member?.email || user?.email,
     trust_score: member?.trust_score ?? user?.trust_score,
-    paid: member?.has_paid_current_cycle ?? member?.paid ?? false,
+    payment_status: member?.payment_status || (member?.has_paid_current_cycle || member?.paid ? 'paid' : 'pending'),
+    paid: member?.has_paid_current_cycle ?? member?.paid ?? member?.payment_status === 'paid',
   };
 };
 
@@ -84,6 +89,10 @@ const daretService = {
   getAllDarets: async () => {
     const response = await api.get('/darets');
     return unwrapDarets(response).map(normalizeDaret);
+  },
+  getAnalytics: async () => {
+    const response = await api.get('/darets/analytics');
+    return unwrapAnalytics(response);
   },
   getDaretById: async (id) => {
     const response = await api.get(`/darets/${id}`);

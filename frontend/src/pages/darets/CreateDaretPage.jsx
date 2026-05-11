@@ -12,7 +12,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import daretService from '../../services/daretService';
-import { safeNumber, formatAmount } from '../../utils/apiResponse';
+import { useTheme } from '../../components/landing/ThemeContext';
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 const STEPS = [
@@ -135,6 +135,7 @@ const slideIn = {
 const CreateDaretPage = () => {
   const { addToast } = useOutletContext() || {};
   const navigate     = useNavigate();
+  const { dark }     = useTheme();
 
   const [step,       setStep]    = useState(0);
   const [isLoading,  setIsLoading]  = useState(false);
@@ -162,7 +163,7 @@ const CreateDaretPage = () => {
     const e = {};
     if (step === 0) {
       if (!form.name.trim())                             e.name   = 'Le nom est requis';
-      if (!form.contribution_amount || safeNumber(form.contribution_amount) <= 0)
+      if (!form.contribution_amount || Number(form.contribution_amount) <= 0)
         e.contribution_amount = 'Montant invalide';
     }
     if (step === 2 && !agreed) {
@@ -182,11 +183,8 @@ const CreateDaretPage = () => {
     try {
       const res = await daretService.createDaret({
         name:                form.name.trim(),
-        description:         form.description.trim() || undefined,
-        contribution_amount: safeNumber(form.contribution_amount),
-        total_members:       safeNumber(form.capacity),
-        frequency:           form.cycle_frequency,
-        payout_order_type:   form.payout_order === 'auto' ? 'auto_rotation' : form.payout_order,
+        contribution_amount: Number(form.contribution_amount),
+        total_members:       Number(form.capacity),
       });
       setCreated(res);
       addToast?.('Daret créé avec succès !', 'success');
@@ -199,7 +197,7 @@ const CreateDaretPage = () => {
         const newErrors = {};
         if (backendError.errors.name) newErrors.name = backendError.errors.name[0];
         if (backendError.errors.contribution_amount) newErrors.contribution_amount = backendError.errors.contribution_amount[0];
-        if (backendError.errors.total_members) newErrors.capacity = backendError.errors.total_members[0];
+        if (backendError.errors.total_members) newErrors.agreed = backendError.errors.total_members[0];
         
         // Capture specific eligibility errors
         if (backendError.errors.daret) newErrors.daret = backendError.errors.daret[0];
@@ -227,7 +225,7 @@ const CreateDaretPage = () => {
   };
 
   // ── Derived ─────────────────────────────────────────────────────────────────
-  const totalPot = safeNumber(form.contribution_amount) * safeNumber(form.capacity);
+  const totalPot = Number(form.contribution_amount || 0) * (form.capacity || 0);
   const freqLabel = form.cycle_frequency === 'monthly' ? 'mois' : 'semaines';
   const duration  = `${form.capacity} ${freqLabel}`;
 
@@ -298,7 +296,7 @@ const CreateDaretPage = () => {
 
   // ── Wizard ──────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="dg-daret-page max-w-2xl mx-auto">
       {/* Back link */}
       <button
         onClick={() => step > 0 ? back() : navigate('/darets')}
@@ -316,7 +314,7 @@ const CreateDaretPage = () => {
       <Card className="p-4 sm:p-8 mt-6">
         <StepIndicator current={step} />
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {/* ── Eligibility Error Alert ─────────────────────────── */}
           {errors.daret && (
             <motion.div 
@@ -363,6 +361,7 @@ const CreateDaretPage = () => {
                 value={form.name}
                 onChange={e => set('name', e.target.value)}
                 error={errors.name}
+                light={!dark}
               />
 
               <div className="space-y-1.5">
@@ -374,7 +373,10 @@ const CreateDaretPage = () => {
                   value={form.description}
                   onChange={e => set('description', e.target.value)}
                   rows={3}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-600 resize-none"
+                  className={cn(
+                    "w-full border rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-500 resize-none",
+                    dark ? "bg-white/5 border-white/10 text-slate-200" : "bg-white/85 border-[#00C2A8]/30 text-gray-800",
+                  )}
                 />
               </div>
 
@@ -391,8 +393,9 @@ const CreateDaretPage = () => {
                     value={form.contribution_amount}
                     onChange={e => set('contribution_amount', e.target.value)}
                     className={cn(
-                      'flex-1 bg-white/5 border rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-600',
-                      errors.contribution_amount ? 'border-rose-500' : 'border-white/10',
+                      'flex-1 border rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-500',
+                      dark ? 'bg-white/5 text-slate-200' : 'bg-white/85 text-gray-800',
+                      errors.contribution_amount ? 'border-rose-500' : (dark ? 'border-white/10' : 'border-[#00C2A8]/30'),
                     )}
                   />
                   <div className="flex items-center px-4 bg-white/5 border border-white/10 rounded-lg text-sm font-bold text-emerald-400 shrink-0">
@@ -420,14 +423,11 @@ const CreateDaretPage = () => {
               {/* Capacity slider */}
               <Card className="p-5">
                 <CapacitySlider value={form.capacity} onChange={v => set('capacity', v)} />
-                {errors.capacity && (
-                  <p className="text-xs text-rose-500 mt-3">{errors.capacity}</p>
-                )}
                 {form.contribution_amount && (
                   <p className="text-xs text-slate-500 mt-3 font-mono">
                     Pot total estimé :{' '}
                     <span className="text-emerald-400 font-bold">
-                      {formatAmount(safeNumber(form.contribution_amount) * safeNumber(form.capacity))}
+                      {(Number(form.contribution_amount) * form.capacity).toLocaleString('fr-MA')} MAD
                     </span>
                   </p>
                 )}
@@ -508,9 +508,9 @@ const CreateDaretPage = () => {
                 </div>
 
                 <div className="px-6 py-4">
-                  <ReviewRow label="Contribution / cycle" value={formatAmount(form.contribution_amount)} mono />
+                  <ReviewRow label="Contribution / cycle" value={`${Number(form.contribution_amount || 0).toLocaleString('fr-MA')} MAD`} mono />
                   <ReviewRow label="Capacité"             value={`${form.capacity} membres`} />
-                  <ReviewRow label="Pot total estimé"     value={formatAmount(totalPot)} mono />
+                  <ReviewRow label="Pot total estimé"     value={`${totalPot.toLocaleString('fr-MA')} MAD`} mono />
                   <ReviewRow label="Fréquence"            value={form.cycle_frequency === 'monthly' ? 'Mensuel' : 'Hebdomadaire'} />
                   <ReviewRow label="Durée estimée"        value={duration} />
                   <ReviewRow

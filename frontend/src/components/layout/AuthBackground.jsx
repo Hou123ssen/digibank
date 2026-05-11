@@ -155,11 +155,6 @@ const AuthBackground = ({ hasInput, dark, children }) => (
         style={{ animation: 'waveFlow2 16s ease-in-out infinite' }} />
     </svg>
 
-    {/* rings */}
-    <Ring cx="65%" cy="45%" size={280} delay={0} dark={dark} />
-    <Ring cx="65%" cy="45%" size={280} delay={2} dark={dark} />
-    <Ring cx="65%" cy="45%" size={280} delay={4} dark={dark} />
-
     {/* particles + streaks */}
     <Particles dark={dark} />
     <Streaks dark={dark} />

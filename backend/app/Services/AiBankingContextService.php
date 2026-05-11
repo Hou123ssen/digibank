@@ -146,7 +146,7 @@ class AiBankingContextService
             ],
             'darets' => [
                 'participation' => $user->daretMemberships()
-                    ->with('daret:id,name,contribution_amount,total_members,status,current_cycle_number')
+                    ->with('daret:id,name,contribution_amount,total_members,status')
                     ->latest()
                     ->limit(8)
                     ->get()
@@ -156,7 +156,10 @@ class AiBankingContextService
                         'contribution_amount' => (float) ($member->daret?->contribution_amount ?? 0),
                         'total_members' => $member->daret?->total_members,
                         'status' => $member->daret?->status,
-                        'current_cycle' => $member->daret?->current_cycle_number,
+                        'current_cycle' => $member->daret?->cycles()
+                            ->whereIn('status', ['pending', 'late'])
+                            ->oldest('cycle_number')
+                            ->value('cycle_number'),
                         'payout_order' => $member->payout_order,
                     ])
                     ->all(),

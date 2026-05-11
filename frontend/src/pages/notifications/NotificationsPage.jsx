@@ -45,6 +45,7 @@ const NotificationsPage = ({ addToast }) => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpenId, setMenuOpenId] = useState(null);
@@ -56,12 +57,15 @@ const NotificationsPage = ({ addToast }) => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
+      setError('');
       const res = await notificationService.getNotifications();
       // Backend returns { notifications: [...] }
       const items = res?.notifications || res?.data || res || [];
       setNotifications(Array.isArray(items) ? items : []);
     } catch (err) {
       console.error('Error fetching notifications:', err);
+      setError('Impossible de charger les notifications.');
+      addToast?.('Impossible de charger les notifications', 'error');
     } finally {
       setLoading(false);
     }
@@ -75,6 +79,7 @@ const NotificationsPage = ({ addToast }) => {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true, read_at: n.read_at || new Date().toISOString() } : n));
     } catch (err) {
       console.error('Error marking as read:', err);
+      addToast?.('Impossible de marquer la notification comme lue', 'error');
     }
   };
 
@@ -89,6 +94,7 @@ const NotificationsPage = ({ addToast }) => {
       addToast?.('Toutes les notifications ont été marquées comme lues', 'success');
     } catch (err) {
       console.error('Error marking all as read:', err);
+      addToast?.('Impossible de marquer toutes les notifications comme lues', 'error');
     }
   };
 
@@ -195,6 +201,13 @@ const NotificationsPage = ({ addToast }) => {
       />
 
       <div className="space-y-6">
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            <AlertTriangle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Filters & Search */}
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5 overflow-x-auto no-scrollbar max-w-full">

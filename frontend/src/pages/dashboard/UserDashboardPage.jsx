@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../components/landing/ThemeContext';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
@@ -15,7 +16,6 @@ import transactionService  from '../../services/transactionService';
 import trustService        from '../../services/trustService';
 import notificationService from '../../services/notificationService';
 import daretService        from '../../services/daretService';
-import { safeNumber } from '../../utils/apiResponse';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 const container = {
@@ -28,37 +28,57 @@ const item = {
 };
 
 // ── Trust score SVG ring ──────────────────────────────────────────────────────
-const TrustRing = ({ score = 0, max = 1000 }) => {
+const TrustRing = ({ score = 0, max = 1000, dark = true }) => {
   const r    = 36;
   const circ = 2 * Math.PI * r;
   const pct  = Math.min(score / max, 1);
   return (
-    <svg viewBox="0 0 90 90" className="w-24 h-24">
-      {/* Track */}
-      <circle cx="45" cy="45" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
-      {/* Progress */}
-      <circle
-        cx="45" cy="45" r={r}
-        fill="none"
-        stroke="#10b981"
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeDasharray={`${circ * pct} ${circ}`}
-        transform="rotate(-90 45 45)"
-        style={{ filter: 'drop-shadow(0 0 6px rgba(16,185,129,0.5))' }}
-      />
-      {/* Score label */}
-      <text
-        x="45" y="48"
-        textAnchor="middle"
-        fill="white"
-        fontSize="16"
-        fontWeight="700"
-        fontFamily="JetBrains Mono, monospace"
-      >
-        {score}
-      </text>
-    </svg>
+    <div className="relative flex items-center justify-center w-24 h-24">
+      <svg viewBox="0 0 90 90" className="w-full h-full relative z-10">
+        {/* Track */}
+        <circle cx="45" cy="45" r={r} fill="none" stroke={dark ? "rgba(255,255,255,0.06)" : "rgba(37,99,235,0.1)"} strokeWidth="8" />
+        
+        {/* Rotating dashed ring */}
+        <motion.circle
+          cx="45" cy="45" r={r}
+          fill="none"
+          stroke={dark ? "rgba(0,194,168,0.3)" : "rgba(37,99,235,0.3)"}
+          strokeWidth="2"
+          strokeDasharray="4 16"
+          style={{ transformOrigin: 'center' }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+        />
+
+        {/* Progress with drawing animation */}
+        <motion.circle
+          cx="45" cy="45" r={r}
+          fill="none"
+          stroke={dark ? "#00C2A8" : "#2563EB"}
+          strokeWidth="8"
+          strokeLinecap="round"
+          initial={{ strokeDasharray: `0 ${circ}` }}
+          animate={{ strokeDasharray: `${circ * pct} ${circ}` }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+          transform="rotate(-90 45 45)"
+          style={{ filter: dark ? 'drop-shadow(0 0 6px rgba(0,194,168,0.5))' : 'drop-shadow(0 0 6px rgba(37,99,235,0.3))', transformOrigin: 'center' }}
+        />
+        
+        {/* Score label */}
+        <text
+          x="45" y="48"
+          textAnchor="middle"
+          fill={dark ? "white" : "#020617"}
+          fontSize="16"
+          fontWeight="700"
+          fontFamily="JetBrains Mono, monospace"
+        >
+          {score}
+        </text>
+      </svg>
+      {/* Outer pulsing ring for 'alive' feel */}
+      <div className={cn("absolute inset-0 rounded-full border animate-pulse pointer-events-none", dark ? "border-[#00C2A8]/20" : "border-[#2563EB]/20")} />
+    </div>
   );
 };
 
@@ -133,6 +153,7 @@ const ACTIONS = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 const UserDashboardPage = () => {
+  const { dark } = useTheme();
   const { user }  = useAuth();
   const { addToast } = useOutletContext() || {};
 
@@ -148,19 +169,26 @@ const UserDashboardPage = () => {
     const fetchAll = async () => {
       setLoading(true);
       await Promise.allSettled([
-        // Services already unwrap the envelope — use the value directly
-        accountService.getMyAccount().then(r => setAccount(r)),
-        transactionService.getMyTransactions().then(r => {
-          setTransactions(Array.isArray(r) ? r.slice(0, 5) : []);
+        accountService.getMyAccount().then(r => {
+          const d = r?.data ?? r;
+          setAccount(d);
         }),
-        trustService.getMyTrustScore().then(r => setTrustScore(r)),
+        transactionService.getMyTransactions().then(r => {
+          const raw = r?.transactions || r;
+          const d = Array.isArray(raw) ? raw : [];
+          setTransactions(d.slice(0, 5));
+        }),
+        trustService.getMyTrustScore().then(r => {
+          const d = r?.data ?? r;
+          setTrustScore(d);
+        }),
         notificationService.getNotifications().then(r => {
-          const d = Array.isArray(r) ? r : [];
+          const d = Array.isArray(r?.data) ? r.data : Array.isArray(r) ? r : [];
           setNotifications(d.slice(0, 3));
         }),
         daretService.getMyDarets().then(r => {
-          const darets = Array.isArray(r) ? r : [];
-          setDaret(darets.find(item => item.status !== 'completed') || null);
+          const d = Array.isArray(r?.data) ? r.data : Array.isArray(r) ? r : [];
+          if (d.length > 0) setDaret(d[0]);
         }),
       ]);
       setLoading(false);
@@ -169,25 +197,15 @@ const UserDashboardPage = () => {
   }, []);
 
   const displayName = user?.first_name || user?.name?.split(' ')[0] || 'Utilisateur';
-  const balance = safeNumber(
-    account?.balance ??
-    account?.data?.balance ??
-    0
-  );
-  const formattedBalance = balance.toLocaleString('fr-MA', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const balance     = account?.balance ?? account?.solde ?? '—';
   const accountNo   = account?.account_number ?? account?.numero ?? '4521';
   const maskedNo    = `**** **** ${String(accountNo).slice(-4)}`;
 
   const score       = trustScore?.score ?? trustScore?.trust_score ?? 0;
   const { label: trustLabel, variant: trustVariant } = trustLevel(score);
 
-  const currentCycle = Number(daret?.current_cycle ?? 1);
-  const totalCycles = Number(daret?.total_cycles ?? 1);
-  const daretProgress = daret && Number.isFinite(currentCycle) && Number.isFinite(totalCycles) && totalCycles > 0
-    ? Math.round((currentCycle / totalCycles) * 100)
+  const daretProgress = daret
+    ? Math.round(((daret.current_cycle ?? 1) / (daret.total_cycles ?? 1)) * 100)
     : 0;
 
   const unreadCount = notifications.filter(n => !n.read_at).length;
@@ -197,24 +215,49 @@ const UserDashboardPage = () => {
       variants={container}
       initial="hidden"
       animate="visible"
-      className="space-y-6"
+      className="space-y-6 relative"
     >
+
+
       {/* ── Greeting ─────────────────────────────────────────────────── */}
-      <motion.div variants={item}>
-        <h1 className="text-2xl font-bold text-white">
+      <motion.div variants={item} className="relative z-10">
+        <h1 className={cn("text-2xl font-bold transition-colors", dark ? "text-white" : "text-[#0B1F37]")}>
           Bonjour, {displayName}&nbsp;👋
         </h1>
-        <p className="text-sm text-slate-400 mt-1 capitalize">{frDate()}</p>
+        <p className={cn("text-sm mt-1 capitalize transition-colors", dark ? "text-slate-400" : "text-slate-600")}>{frDate()}</p>
       </motion.div>
 
       {/* ── Row 1: 3 stat cards ──────────────────────────────────────── */}
-      <div className="grid grid-cols-12 gap-5">
+      <div className="grid grid-cols-12 gap-5 relative z-10">
 
         {/* Balance card */}
         <motion.div variants={item} className="col-span-12 md:col-span-4">
-          <div className="relative rounded-2xl overflow-hidden border border-emerald-500/20 shadow-xl shadow-emerald-900/20 h-full">
+          <motion.div
+            animate={{ y: [0, -5, 0] }}
+            whileHover={{
+              y: -12,
+              rotateX: 3,
+              rotateY: -4,
+              scale: 1.025,
+              transition: { type: 'spring', stiffness: 260, damping: 18 },
+            }}
+            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+            className="group relative rounded-2xl overflow-hidden border border-[#00C2A8]/20 shadow-xl shadow-[#00C2A8]/10 h-full will-change-transform"
+            style={{ transformStyle: 'preserve-3d' }}
+          >
             {/* gradient bg */}
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-800/60 via-emerald-900/80 to-bg-card" />
+            <motion.div
+              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+              style={{
+                background:
+                  'radial-gradient(circle at 25% 20%, rgba(220,249,244,0.22), transparent 30%), linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.16) 45%, transparent 70%)',
+              }}
+              animate={{ x: ['-35%', '35%', '-35%'] }}
+              transition={{ duration: 4.2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#00C2A8]/20 blur-2xl transition-all duration-500 group-hover:scale-125 group-hover:bg-[#00C2A8]/30" />
+            <div className="absolute -bottom-14 left-8 h-32 w-32 rounded-full bg-emerald-300/10 blur-3xl transition-all duration-500 group-hover:translate-x-8 group-hover:bg-emerald-300/20" />
             {/* subtle grid */}
             <div
               className="absolute inset-0 opacity-10"
@@ -247,10 +290,10 @@ const UserDashboardPage = () => {
                 <Pulse className="h-10 w-40" />
               ) : (
                 <div>
-                  <p className="text-3xl font-bold text-white font-mono tracking-tight">
+                  <p className={cn("text-3xl font-bold font-mono tracking-tight", dark ? "text-white" : "text-[#020617]")}>
                     {balanceHidden
                       ? '••••••'
-                      : `${formattedBalance} MAD`}
+                      : `${Number(balance).toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD`}
                   </p>
                   <p className="text-xs text-emerald-400/80 mt-1 font-mono">{maskedNo}</p>
                 </div>
@@ -258,19 +301,19 @@ const UserDashboardPage = () => {
 
               <div className="flex items-center justify-between pt-1">
                 <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
-                  <ArrowUpRight size={13} />
+                  <ArrowUpRight size={13} className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                   <span className="font-medium">+2.4% cette semaine</span>
                 </div>
                 <button
                   onClick={() => { navigator.clipboard.writeText(accountNo); addToast?.('Numéro copié', 'info'); }}
-                  className="flex items-center gap-1 text-[10px] text-emerald-400/60 hover:text-emerald-300 transition-colors"
+                  className="flex items-center gap-1 text-[10px] text-[#00C2A8]/60 hover:text-[#00C2A8] transition-colors"
                 >
                   <Copy size={11} />
                   Copier
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
 
         {/* Trust Score card */}
@@ -278,7 +321,7 @@ const UserDashboardPage = () => {
           <Card className="p-6 h-full flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <p className={cn("text-xs font-semibold uppercase tracking-wider", dark ? "text-slate-400" : "text-slate-500")}>
                   Trust Score
                 </p>
                 <div className="flex items-center gap-2 mt-1.5">
@@ -291,20 +334,20 @@ const UserDashboardPage = () => {
               </div>
               <div className="relative">
                 {loading ? (
-                  <div className="w-24 h-24 rounded-full animate-pulse bg-white/5" />
+                  <div className={cn("w-24 h-24 rounded-full animate-pulse", dark ? "bg-white/5" : "bg-blue-600/10")} />
                 ) : (
-                  <TrustRing score={score} />
+                  <TrustRing score={score} dark={dark} />
                 )}
               </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-500">
+              <p className={cn("text-xs", dark ? "text-slate-500" : "text-slate-600")}>
                 {loading ? '' : `${score} / 1000 points`}
               </p>
               <Link
                 to="/trust-score"
-                className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                className={cn("flex items-center gap-1 text-xs font-medium transition-colors", dark ? "text-[#00C2A8] hover:text-[#00A090]" : "text-blue-600 hover:text-blue-700")}
               >
                 Voir détails <ChevronRight size={13} />
               </Link>
@@ -317,10 +360,10 @@ const UserDashboardPage = () => {
           <Card className="p-6 h-full flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center">
-                  <Bell size={16} className="text-rose-400" />
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", dark ? "bg-rose-500/10" : "bg-rose-500/20")}>
+                  <Bell size={16} className={cn(dark ? "text-rose-400" : "text-rose-600")} />
                 </div>
-                <p className="text-sm font-semibold text-white">Notifications</p>
+                <p className={cn("text-sm font-semibold", dark ? "text-white" : "text-[#020617]")}>Notifications</p>
               </div>
               {unreadCount > 0 && (
                 <span className="text-[10px] px-2 py-0.5 bg-rose-500/15 text-rose-400 rounded-full font-bold">
@@ -341,27 +384,25 @@ const UserDashboardPage = () => {
                       !n.read_at ? 'bg-emerald-500/[0.06]' : 'bg-white/[0.02]',
                     )}
                   >
-                    {!n.read_at && (
-                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                    )}
+
                     <div className={cn('flex-1 min-w-0', n.read_at && 'pl-4')}>
-                      <p className="text-xs font-medium text-white truncate">
+                      <p className={cn("text-xs font-medium truncate", dark ? "text-white" : "text-[#020617]")}>
                         {n.title || n.message || 'Notification'}
                       </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
+                      <p className={cn("text-[10px] mt-0.5", dark ? "text-slate-500" : "text-slate-600")}>
                         {n.created_at ? new Date(n.created_at).toLocaleDateString('fr-MA') : ''}
                       </p>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-500 text-center py-6">Aucune notification</p>
+                <p className={cn("text-sm text-center py-6", dark ? "text-slate-500" : "text-slate-600")}>Aucune notification</p>
               )}
             </div>
 
             <Link
               to="/notifications"
-              className="mt-4 flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+              className={cn("mt-4 flex items-center gap-1 text-xs font-medium transition-colors", dark ? "text-[#00C2A8] hover:text-[#00A090]" : "text-blue-600 hover:text-blue-700")}
             >
               Voir toutes <ChevronRight size={13} />
             </Link>
@@ -370,16 +411,16 @@ const UserDashboardPage = () => {
       </div>
 
       {/* ── Row 2: Transactions + Daret ──────────────────────────────── */}
-      <div className="grid grid-cols-12 gap-5">
+      <div className="grid grid-cols-12 gap-5 relative z-10">
 
         {/* Recent Transactions */}
         <motion.div variants={item} className="col-span-12 lg:col-span-8">
           <Card className="overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <h3 className="font-semibold text-white">Transactions récentes</h3>
+            <div className={cn("flex items-center justify-between px-6 py-4 border-b", dark ? "border-white/5" : "border-[#2563EB]/10")}>
+              <h3 className={cn("font-semibold", dark ? "text-white" : "text-[#020617]")}>Transactions récentes</h3>
               <Link
                 to="/transactions"
-                className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors flex items-center gap-1"
+                className={cn("text-xs font-medium transition-colors flex items-center gap-1", dark ? "text-[#00C2A8] hover:text-[#00A090]" : "text-blue-600 hover:text-blue-700")}
               >
                 Voir tout <ChevronRight size={13} />
               </Link>
@@ -395,7 +436,7 @@ const UserDashboardPage = () => {
                     <th className="px-4 sm:px-6 py-3 text-right">Montant</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className={cn("divide-y", dark ? "divide-white/5" : "divide-[#2563EB]/5")}>
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i}>
@@ -408,7 +449,7 @@ const UserDashboardPage = () => {
                     ))
                   ) : transactions.length > 0 ? (
                     transactions.map((tx, i) => {
-                      const amount  = safeNumber(tx.amount ?? tx.montant ?? 0);
+                      const amount  = parseFloat(tx.amount ?? tx.montant ?? 0);
                       const isCredit = amount >= 0;
                       return (
                         <tr key={i} className="hover:bg-white/[0.02] transition-colors">
@@ -451,10 +492,10 @@ const UserDashboardPage = () => {
         <motion.div variants={item} className="col-span-12 lg:col-span-4">
           <Card className="p-6 h-full flex flex-col">
             <div className="flex items-center gap-2 mb-5">
-              <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                <Users size={16} className="text-violet-400" />
+              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", dark ? "bg-violet-500/10" : "bg-violet-500/20")}>
+                <Users size={16} className={cn(dark ? "text-violet-400" : "text-violet-600")} />
               </div>
-              <h3 className="font-semibold text-white">Mon Daret Actif</h3>
+              <h3 className={cn("font-semibold", dark ? "text-white" : "text-[#020617]")}>Mon Daret Actif</h3>
             </div>
 
             {loading ? (
@@ -467,8 +508,8 @@ const UserDashboardPage = () => {
               <>
                 <div className="space-y-3 flex-1">
                   <div>
-                    <p className="text-base font-bold text-white">{daret.name || 'Daret Familial'}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className={cn("text-base font-bold", dark ? "text-white" : "text-[#020617]")}>{daret.name || 'Daret Familial'}</p>
+                    <p className={cn("text-xs mt-0.5", dark ? "text-slate-400" : "text-slate-500")}>
                       Cycle {daret.current_cycle ?? 1} / {daret.total_cycles ?? '?'} &nbsp;·&nbsp;
                       {daret.members_count ?? daret.participants ?? '?'} membres
                     </p>
@@ -476,8 +517,8 @@ const UserDashboardPage = () => {
 
                   {daret.next_payment_date && (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Prochaine contribution</span>
-                      <span className="text-white font-medium">
+                      <span className={cn(dark ? "text-slate-400" : "text-slate-500")}>Prochaine contribution</span>
+                      <span className={cn("font-medium", dark ? "text-white" : "text-[#020617]")}>
                         {new Date(daret.next_payment_date).toLocaleDateString('fr-MA')}
                       </span>
                     </div>
@@ -485,20 +526,20 @@ const UserDashboardPage = () => {
 
                   {daret.contribution_amount && (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Montant</span>
-                      <span className="text-white font-mono font-bold">
-                        {safeNumber(daret.contribution_amount).toLocaleString('fr-MA')} MAD
+                      <span className={cn(dark ? "text-slate-400" : "text-slate-500")}>Montant</span>
+                      <span className={cn("font-mono font-bold", dark ? "text-white" : "text-[#020617]")}>
+                        {Number(daret.contribution_amount).toLocaleString('fr-MA')} MAD
                       </span>
                     </div>
                   )}
 
                   {/* Progress bar */}
                   <div className="space-y-1.5 pt-2">
-                    <div className="flex justify-between text-[10px] text-slate-500">
+                    <div className={cn("flex justify-between text-[10px]", dark ? "text-slate-500" : "text-slate-600")}>
                       <span>Progression</span>
                       <span>{daretProgress}%</span>
                     </div>
-                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div className={cn("h-2 rounded-full overflow-hidden", dark ? "bg-white/5" : "bg-blue-600/10")}>
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${daretProgress}%` }}
@@ -520,12 +561,12 @@ const UserDashboardPage = () => {
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-400">
+                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", dark ? "bg-violet-500/10 text-violet-400" : "bg-violet-500/20 text-violet-600")}>
                   <Users size={22} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">Aucun Daret actif</p>
-                  <p className="text-xs text-slate-500 mt-1">Rejoignez ou créez un Daret</p>
+                  <p className={cn("text-sm font-medium", dark ? "text-white" : "text-[#020617]")}>Aucun Daret actif</p>
+                  <p className={cn("text-xs mt-1", dark ? "text-slate-500" : "text-slate-600")}>Rejoignez ou créez un Daret</p>
                 </div>
                 <Link to="/darets">
                   <Button variant="secondary" size="sm">
@@ -539,10 +580,10 @@ const UserDashboardPage = () => {
       </div>
 
       {/* ── Row 3: Quick Actions ─────────────────────────────────────── */}
-      <motion.div variants={item}>
+      <motion.div variants={item} className="relative z-10">
         <div className="flex items-center gap-2 mb-4">
-          <Zap size={16} className="text-emerald-400" />
-          <h3 className="font-semibold text-white">Actions rapides</h3>
+          <Zap size={16} className={cn(dark ? "text-[#00C2A8]" : "text-[#009682]")} />
+          <h3 className={cn("font-semibold", dark ? "text-white" : "text-[#020617]")}>Actions rapides</h3>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -554,10 +595,11 @@ const UserDashboardPage = () => {
                   whileHover={{ y: -4, scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
                   className={cn(
-                    'relative p-5 rounded-2xl bg-bg-card border border-white/5 cursor-pointer',
-                    'ring-1 shadow-lg transition-shadow duration-300 group',
+                    'relative p-5 rounded-2xl border cursor-pointer',
+                    'ring-1 shadow-lg shadow-[#00C2A8]/10 transition-shadow duration-300 group',
+                    dark ? "bg-bg-card border-[#00C2A8]/20 hover:border-[#00C2A8]/40" : "bg-white border-[#00C2A8]/30 hover:border-[#00C2A8]/50",
                     a.ring, a.glow,
-                    'hover:border-white/10 hover:shadow-xl',
+                    'hover:shadow-xl',
                   )}
                 >
                   <div className={cn(
@@ -566,8 +608,8 @@ const UserDashboardPage = () => {
                   )}>
                     <Icon size={20} className={a.icon_fg} />
                   </div>
-                  <p className="text-sm font-bold text-white">{a.label}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{a.sub}</p>
+                  <p className={cn("text-sm font-bold", dark ? "text-white" : "text-[#020617]")}>{a.label}</p>
+                  <p className={cn("text-[11px] mt-0.5", dark ? "text-slate-500" : "text-slate-600")}>{a.sub}</p>
                   <ChevronRight
                     size={14}
                     className={cn('absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity', a.icon_fg)}

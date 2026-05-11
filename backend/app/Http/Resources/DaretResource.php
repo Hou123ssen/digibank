@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\DaretCycle;
+use App\Models\DaretPayment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,6 +37,8 @@ class DaretResource extends JsonResource
             'created_by' => $this->whenLoaded('creator', fn () => new UserSummaryResource($this->creator)),
             'is_creator' => $request->user() ? (int) $this->creator_id === (int) $request->user()->id : false,
             'is_member' => $request->user() ? $this->isMember($request->user()->id) : false,
+            'has_paid_current_cycle' => $request->user() ? $this->hasPaidCurrentCycle($request->user()->id) : false,
+            'current_payment_status' => $request->user() ? $this->currentPaymentStatus($request->user()->id) : null,
             'members' => $this->whenLoaded('members', fn () => DaretMemberResource::collection($this->members)),
             'cycles' => $this->whenLoaded('cycles', fn () => DaretCycleResource::collection($this->cycles)),
             'payments' => $this->whenLoaded('payments', fn () => DaretPaymentResource::collection($this->payments)),
@@ -74,5 +77,30 @@ class DaretResource extends JsonResource
         }
 
         return false;
+    }
+
+    private function hasPaidCurrentCycle(int $userId): bool
+    {
+        return $this->currentPaymentStatus($userId) === DaretPayment::STATUS_PAID;
+    }
+
+    private function currentPaymentStatus(int $userId): ?string
+    {
+        $cycleNumber = $this->currentCycleNumber();
+
+        if (! $cycleNumber) {
+            return null;
+        }
+
+        if ($this->relationLoaded('payments')) {
+            return $this->payments->first(function ($payment) use ($cycleNumber, $userId): bool {
+                return (int) $payment->user_id === $userId && (int) $payment->cycle?->cycle_number === $cycleNumber;
+            })?->status;
+        }
+
+        return $this->payments()
+            ->where('user_id', $userId)
+            ->whereHas('cycle', fn ($query) => $query->where('cycle_number', $cycleNumber))
+            ->value('status');
     }
 }
