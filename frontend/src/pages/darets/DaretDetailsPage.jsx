@@ -41,6 +41,12 @@ const STATUS_MAP = {
   completed:  { label: 'Terminé',     variant: 'neutral' },
 };
 const getStatus = s => STATUS_MAP[s] || STATUS_MAP.open;
+const paymentStatus = s => ({
+  paid: { label: 'Paye', variant: 'success' },
+  pending: { label: 'En attente', variant: 'warning' },
+  late: { label: 'En retard', variant: 'danger' },
+  failed: { label: 'Echec', variant: 'danger' },
+}[s] || { label: 'En attente', variant: 'warning' });
 
 const freqLabel = f => ({ monthly: 'Mensuel', weekly: 'Hebdomadaire' }[f] || 'Mensuel');
 const orderLabel = o => ({ sequential: 'Séquentiel', random: 'Aléatoire', auto: 'Auto-rotation', auto_rotation: 'Auto-rotation' }[o] || o || '—');
@@ -162,7 +168,7 @@ const MembersTab = ({ members, daret }) => {
         <tbody className="divide-y divide-white/5">
           {members.map((m, i) => {
             const name    = m.name || m.user?.name || `Membre ${i + 1}`;
-            const hasPaid = m.has_paid_current_cycle || m.paid;
+            const status = paymentStatus(m.payment_status || (m.has_paid_current_cycle || m.paid ? 'paid' : 'pending'));
             return (
               <tr key={m.id || i} className="hover:bg-white/[0.02] transition-colors">
                 <td className="px-5 py-3.5">
@@ -184,8 +190,8 @@ const MembersTab = ({ members, daret }) => {
                 </td>
                 <td className="px-4 py-3.5 text-center">
                   {daret.status === 'active' ? (
-                    <Badge variant={hasPaid ? 'success' : 'warning'}>
-                      {hasPaid ? 'Payé' : 'En attente'}
+                    <Badge variant={status.variant}>
+                      {status.label}
                     </Badge>
                   ) : (
                     <Badge variant="neutral">—</Badge>
@@ -349,7 +355,7 @@ const PaymentsTab = ({ payments }) => {
           <tbody className="divide-y divide-white/5">
             {filtered.map((p, i) => {
               const name = p.member?.name || p.user?.name || p.member_name || `Membre`;
-              const paid = p.status === 'paid' || p.status === 'completed';
+              const status = paymentStatus(p.status === 'completed' ? 'paid' : p.status);
               return (
                 <tr key={p.id || i} className="hover:bg-white/[0.02] transition-colors">
                   <td className="px-5 py-3.5">
@@ -374,8 +380,8 @@ const PaymentsTab = ({ payments }) => {
                       : '—'}
                   </td>
                   <td className="px-5 py-3.5 text-center">
-                    <Badge variant={paid ? 'success' : 'warning'}>
-                      {paid ? 'Payé' : 'En attente'}
+                    <Badge variant={status.variant}>
+                      {status.label}
                     </Badge>
                   </td>
                 </tr>
@@ -522,6 +528,8 @@ const DaretDetailsPage = () => {
   const isCreator = daret.is_creator || String(daret.creator_id) === String(user?.id);
   const isMember  = daret.is_member;
   const hasPaid   = daret.has_paid_current_cycle;
+  const currentPaymentStatus = daret.current_payment_status || (hasPaid ? 'paid' : 'pending');
+  const isLatePayment = currentPaymentStatus === 'late' || currentPaymentStatus === 'failed';
   const isFull    = (daret.members_count ?? 0) >= (daret.capacity ?? Infinity);
 
   const canStart  = isCreator && daret.status === 'open' && isFull;
@@ -702,14 +710,16 @@ const DaretDetailsPage = () => {
                 'flex items-center gap-2 p-3 rounded-xl',
                 hasPaid
                   ? 'bg-emerald-500/10 border border-emerald-500/20'
-                  : 'bg-amber-500/10 border border-amber-500/20',
+                  : isLatePayment
+                    ? 'bg-rose-500/10 border border-rose-500/20'
+                    : 'bg-amber-500/10 border border-amber-500/20',
               )}>
                 {hasPaid
                   ? <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-                  : <AlertCircle  size={15} className="text-amber-400 shrink-0"   />
+                  : <AlertCircle  size={15} className={cn('shrink-0', isLatePayment ? 'text-rose-400' : 'text-amber-400')}   />
                 }
-                <p className={cn('text-xs font-medium', hasPaid ? 'text-emerald-300' : 'text-amber-300')}>
-                  {hasPaid ? 'Contribution payée ce cycle' : 'Contribution en attente'}
+                <p className={cn('text-xs font-medium', hasPaid ? 'text-emerald-300' : isLatePayment ? 'text-rose-300' : 'text-amber-300')}>
+                  {hasPaid ? 'Contribution payee ce cycle' : isLatePayment ? 'Solde insuffisant. Veuillez alimenter votre compte pour payer votre contribution.' : 'Contribution en attente'}
                 </p>
               </div>
             )}

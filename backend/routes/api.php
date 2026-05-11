@@ -57,6 +57,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/darets', [DaretController::class, 'index']);
     Route::get('/darets/my', [DaretController::class, 'my']);
+    Route::get('/darets/analytics', [DaretController::class, 'analytics']);
     Route::get('/darets/{daret}', [DaretController::class, 'show']);
     Route::post('/darets', [DaretController::class, 'store']);
     Route::post('/darets/join-by-code', [DaretController::class, 'joinByCode']);

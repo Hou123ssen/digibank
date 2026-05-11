@@ -7,7 +7,6 @@ const ADMIN_NAV = [
   { labelKey: 'nav.employees', icon: UserCog, path: '/admin/employees' },
 ];
 
-<<<<<<< HEAD
 const LANGS = ['AR', 'FR', 'EN'];
 
 const SidebarLink = ({ item, onNavigate }) => {
@@ -266,18 +265,4 @@ const AdminLayout = ({ addToast }) => {
   );
 };
 
-=======
-const AdminLayout = ({ addToast }) => (
-  <AuthenticatedLayout
-    addToast={addToast}
-    navItems={ADMIN_NAV}
-    variant="violet"
-    mode="admin"
-    brandIcon={ShieldCheck}
-    brandLabelKey="app.admin"
-    backLink={{ to: '/employee/dashboard', labelKey: 'nav.employeeSpace' }}
-  />
-);
-
->>>>>>> 64b4c1eb2f7747c9bc84ef01dfafd23d74376b16
 export default AdminLayout;
