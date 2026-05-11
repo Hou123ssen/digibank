@@ -544,7 +544,7 @@ const DaretListPage = () => {
   const myActiveCount = myDarets.filter(d => d.status !== 'completed').length;
 
   return (
-    <div className="space-y-6">
+    <div className="dg-daret-page space-y-6">
       {/* ── Page header ─────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>

@@ -76,7 +76,7 @@ const OverviewTab = ({ daret, user }) => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="dg-daret-page space-y-6">
       {/* Description */}
       {daret.description && (
         <Card className="p-5">

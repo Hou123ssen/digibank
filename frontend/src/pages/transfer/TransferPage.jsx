@@ -20,7 +20,8 @@ import Input from '../../components/ui/Input';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import accountService from '../../services/accountService';
-import { safeNumber, formatAmount } from '../../utils/apiResponse';
+import { useTheme } from '../../components/landing/ThemeContext';
+import { cn } from '../../utils/cn';
 
 const RECENT_RECIPIENTS = [
   { id: 1, name: 'Youssef Alami', account: 'MA64 1234 5678 9012', avatar: null },
@@ -30,6 +31,7 @@ const RECENT_RECIPIENTS = [
 ];
 
 const TransferPage = ({ addToast }) => {
+  const { dark } = useTheme();
   const [step, setStep] = useState('form'); // form, confirm, success
   const [formData, setFormData] = useState({
     recipient: '',
@@ -42,8 +44,6 @@ const TransferPage = ({ addToast }) => {
   const [recipientData, setRecipientData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const amountValue = safeNumber(formData.amount);
-  const formattedAmount = formatAmount(amountValue);
 
   // Mock recipient validation
   useEffect(() => {
@@ -61,6 +61,18 @@ const TransferPage = ({ addToast }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === 'amount') {
+      const normalized = value
+        .replace(',', '.')
+        .replace(/[^\d.]/g, '')
+        .replace(/^(\d*\.)(.*)\./, '$1$2');
+
+      if (!/^\d*(\.\d{0,2})?$/.test(normalized)) return;
+      setFormData(prev => ({ ...prev, amount: normalized.startsWith('.') ? `0${normalized}` : normalized }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -71,7 +83,7 @@ const TransferPage = ({ addToast }) => {
     try {
       await accountService.transfer({
         account_number: formData.recipient,
-        amount: amountValue
+        amount: Number(formData.amount)
       });
       setStep('success');
       addToast('Virement effectué avec succès !');
@@ -106,10 +118,10 @@ const TransferPage = ({ addToast }) => {
           </div>
           <div className="space-y-2">
             <h2 className="text-3xl font-bold text-white">Virement envoyé !</h2>
-            <p className="text-slate-400">Votre transfert de <span className="text-white font-bold">{formattedAmount}</span> vers <span className="text-white font-bold">{recipientData?.name}</span> a été traité avec succès.</p>
+            <p className="text-slate-400">Votre transfert de <span className="text-white font-bold">{formData.amount} MAD</span> vers <span className="text-white font-bold">{recipientData?.name}</span> a été traité avec succès.</p>
           </div>
           
-          <Card className="p-6 bg-white/5 border-white/10 space-y-4">
+          <Card className={cn("p-6 space-y-4", dark ? "bg-white/5 border-white/10" : "bg-white/90 border-[#00C2A8]/20")}>
             <div className="flex justify-between text-sm">
               <span className="text-slate-500">Référence</span>
               <span className="text-white font-mono uppercase">TRX-{Math.random().toString(36).substr(2, 9)}</span>
@@ -120,7 +132,7 @@ const TransferPage = ({ addToast }) => {
             </div>
             <div className="border-t border-white/5 pt-4 flex justify-between font-bold">
               <span className="text-slate-400">Total débité</span>
-              <span className="text-emerald-500">{formattedAmount}</span>
+              <span className="text-emerald-500">{formData.amount} MAD</span>
             </div>
           </Card>
 
@@ -159,6 +171,7 @@ const TransferPage = ({ addToast }) => {
                   onChange={handleInputChange}
                   placeholder="Numéro de compte (MA64...)"
                   leftIcon={Search}
+                  light={!dark}
                   className="bg-white/5 border-white/10"
                 />
 
@@ -186,10 +199,12 @@ const TransferPage = ({ addToast }) => {
                 <Input 
                   label="Montant (MAD)"
                   name="amount"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={formData.amount}
                   onChange={handleInputChange}
                   placeholder="0.00"
+                  light={!dark}
                   className="bg-white/5 border-white/10 text-xl font-bold"
                 />
                 <Input 
@@ -198,26 +213,29 @@ const TransferPage = ({ addToast }) => {
                   value={formData.reason}
                   onChange={handleInputChange}
                   placeholder="Ex: Loyer, Cadeau..."
+                  light={!dark}
                   className="bg-white/5 border-white/10"
                 />
               </div>
 
               {/* Schedule Toggle */}
               <div className="space-y-4">
-                <label className="text-sm font-medium text-slate-400 uppercase tracking-wider">Planification</label>
-                <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl">
+                <label className={cn("text-sm font-medium uppercase tracking-wider", dark ? "text-slate-400" : "text-[#006655]/75")}>Planification</label>
+                <div className={cn("flex p-1 border rounded-xl shadow-inner", dark ? "bg-white/5 border-white/10" : "bg-[#f0fffe] border-[#00C2A8]/25 shadow-[#00C2A8]/5")}>
                   <button 
+                    type="button"
                     onClick={() => setFormData(p => ({ ...p, schedule: 'now' }))}
                     className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
-                      formData.schedule === 'now' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                      formData.schedule === 'now' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 dg-primary-button' : (dark ? 'text-slate-400 hover:bg-[#00C2A8]/10 hover:text-[#00C2A8]' : 'text-[#006655]/70 hover:bg-[#00C2A8]/10 hover:text-[#003d35]')
                     }`}
                   >
                     <Clock size={16} /> Envoyer maintenant
                   </button>
                   <button 
+                    type="button"
                     onClick={() => setFormData(p => ({ ...p, schedule: 'later' }))}
                     className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
-                      formData.schedule === 'later' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                      formData.schedule === 'later' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 dg-primary-button' : (dark ? 'text-slate-400 hover:bg-[#00C2A8]/10 hover:text-[#00C2A8]' : 'text-[#006655]/70 hover:bg-[#00C2A8]/10 hover:text-[#003d35]')
                     }`}
                   >
                     <Calendar size={16} /> Planifier
@@ -230,21 +248,21 @@ const TransferPage = ({ addToast }) => {
                     animate={{ opacity: 1, y: 0 }}
                     className="grid grid-cols-2 gap-4"
                   >
-                    <Input type="date" name="date" value={formData.date} onChange={handleInputChange} className="bg-white/5 border-white/10" />
-                    <Input type="time" name="time" value={formData.time} onChange={handleInputChange} className="bg-white/5 border-white/10" />
+                    <Input type="date" name="date" value={formData.date} onChange={handleInputChange} light={!dark} className="dg-date-input bg-white/5 border-white/10 font-medium" />
+                    <Input type="time" name="time" value={formData.time} onChange={handleInputChange} light={!dark} className="dg-date-input bg-white/5 border-white/10 font-medium" />
                   </motion.div>
                 )}
               </div>
 
               {/* Summary Block */}
-              <div className="p-6 rounded-2xl bg-black/40 border border-white/5 space-y-4">
+              <div className={cn("p-6 rounded-2xl border space-y-4", dark ? "bg-black/40 border-white/5" : "bg-[#f0fffe]/80 border-[#00C2A8]/15")}>
                 <div className="flex justify-between text-sm text-slate-400">
                   <span>Frais de transfert</span>
                   <span className="text-emerald-500 font-bold uppercase">Gratuit</span>
                 </div>
-                <div className="flex justify-between text-lg font-bold text-white pt-4 border-t border-white/5">
+                <div className={cn("flex justify-between text-lg font-bold pt-4 border-t", dark ? "text-white border-white/5" : "text-[#003d35] border-[#00C2A8]/15")}>
                   <span>Total à débiter</span>
-                  <span>{formattedAmount}</span>
+                  <span>{formData.amount || 0} MAD</span>
                 </div>
               </div>
 
@@ -254,7 +272,7 @@ const TransferPage = ({ addToast }) => {
                 disabled={!recipientData || !formData.amount}
                 onClick={() => setStep('confirm')}
               >
-                Envoyer {formattedAmount}
+                Envoyer {formData.amount} MAD
               </Button>
             </div>
           </Card>
@@ -307,16 +325,19 @@ const TransferPage = ({ addToast }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-bg-dark/95 backdrop-blur-sm"
+            className={cn(
+              "fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-sm",
+              dark ? "bg-bg-dark/95" : "bg-[#f0fffe]/85",
+            )}
           >
-            <Card className="w-full max-w-lg p-8 space-y-8 border-white/10 shadow-3xl bg-bg-card">
+            <Card className={cn("w-full max-w-lg p-8 space-y-8 shadow-3xl", dark ? "bg-bg-card border-white/10" : "bg-white/95 border-[#00C2A8]/25")}>
               <div className="text-center space-y-2">
                 <h3 className="text-2xl font-bold text-white">Confirmer le virement</h3>
                 <p className="text-slate-400 text-sm">Veuillez vérifier les détails avant de valider.</p>
               </div>
 
               <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
+                <div className={cn("p-4 rounded-2xl border flex items-center gap-4", dark ? "bg-white/5 border-white/10" : "bg-[#f0fffe] border-[#00C2A8]/20")}>
                   <Avatar name={recipientData?.name} size="lg" className="bg-emerald-500/20 text-emerald-500" />
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-widest">Vers</p>
@@ -325,10 +346,10 @@ const TransferPage = ({ addToast }) => {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-4">
+                <div className={cn("p-4 rounded-2xl border space-y-4", dark ? "bg-white/5 border-white/10" : "bg-[#f0fffe] border-[#00C2A8]/20")}>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Montant</span>
-                    <span className="text-white font-bold">{formattedAmount}</span>
+                    <span className="text-white font-bold">{formData.amount} MAD</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Motif</span>

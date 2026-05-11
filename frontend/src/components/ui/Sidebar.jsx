@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
   LayoutDashboard, 
   CreditCard, 
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
+import logo from '../../images/logo digi.png';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -89,8 +91,8 @@ const Sidebar = ({ activeId = 'dashboard', onNavigate }) => {
         {/* Logo */}
         <div className="p-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-900/40">
-              <Wallet size={24} />
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-emerald-900/40 ring-1 ring-emerald-400/20">
+              <img src={logo} alt="DigiBank logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight">DigiBank</h2>

@@ -23,10 +23,12 @@ import Input from '../../components/ui/Input';
 import Table from '../../components/ui/Table';
 import Badge from '../../components/ui/Badge';
 import kycService from '../../services/kycService';
+import { useTheme } from '../../components/landing/ThemeContext';
 
 const toDateInputValue = (value) => value ? String(value).slice(0, 10) : '';
 
 const KYCPage = ({ addToast }) => {
+  const { dark } = useTheme();
   const [kycData, setKycData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -174,7 +176,7 @@ const KYCPage = ({ addToast }) => {
   const isLocked = ['pending', 'pending_review', 'needs_review', 'approved'].includes(status);
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="dg-kyc-page p-8 space-y-8 max-w-7xl mx-auto">
       <PageHeader 
         title="Vérification d'identité (KYC)" 
         subtitle="Vérifiez votre identité pour débloquer toutes les fonctionnalités de votre compte."
@@ -251,6 +253,7 @@ const KYCPage = ({ addToast }) => {
                   disabled={isLocked}
                   placeholder="Ex: Mohamed Idrissi"
                   className="bg-white/5 border-white/10"
+                  light={!dark}
                   required
                 />
                 <Input 
@@ -261,6 +264,7 @@ const KYCPage = ({ addToast }) => {
                   disabled={isLocked}
                   placeholder="Ex: AB123456"
                   className="bg-white/5 border-white/10"
+                  light={!dark}
                   required
                 />
                 <Input 
@@ -271,6 +275,7 @@ const KYCPage = ({ addToast }) => {
                   onChange={handleInputChange}
                   disabled={isLocked}
                   className="bg-white/5 border-white/10"
+                  light={!dark}
                   required
                 />
               </div>
@@ -405,12 +410,12 @@ const KYCPage = ({ addToast }) => {
             </div>
           </Card>
 
-          <Card className="p-6 bg-gradient-to-br from-bg-card to-emerald-900/10 border-emerald-500/10">
+          <Card className="p-6 bg-gradient-to-br from-[#003d35] via-[#005447] to-[#006655] border-emerald-500/20">
             <div className="space-y-4">
-              <ShieldCheck className="text-emerald-500" size={32} />
+              <ShieldCheck className="text-[#00C2A8]" size={32} />
               <div className="space-y-1">
-                <h4 className="font-bold text-white">Sécurité Maximale</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <h4 className="font-bold !text-white">Sécurité Maximale</h4>
+                <p className="text-xs text-emerald-50/75 leading-relaxed">
                   Notre système de vérification est conforme aux normes bancaires internationales et à la protection des données (Loi 09-08).
                 </p>
               </div>

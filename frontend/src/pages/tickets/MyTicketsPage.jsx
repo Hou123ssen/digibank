@@ -125,7 +125,7 @@ const MyTicketsPage = () => {
   const tabCount = (id) => id === 'all' ? tickets.length : tickets.filter(t => t.status === id).length;
 
   return (
-    <div className="space-y-6">
+    <div className="dg-ticket-page space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -175,15 +175,15 @@ const MyTicketsPage = () => {
             className="bg-transparent outline-none text-sm text-white placeholder:text-slate-500 w-full"
           />
         </div>
-        <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-          <Filter size={13} className="text-slate-500" />
+        <div className="dg-ticket-category-filter flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+          <Filter size={13} className="text-emerald-400" />
           <select
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="bg-transparent text-sm text-slate-300 outline-none appearance-none cursor-pointer"
+            className="dg-ticket-category-select bg-transparent text-sm text-slate-300 outline-none appearance-none cursor-pointer"
           >
             {CATEGORIES_FILTER.map(c => (
-              <option key={c.value} value={c.value} className="bg-[#111817]">{c.label}</option>
+              <option key={c.value} value={c.value}>{c.label}</option>
             ))}
           </select>
         </div>
