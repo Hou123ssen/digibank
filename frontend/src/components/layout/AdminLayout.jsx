@@ -11,6 +11,7 @@ import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
 import notificationService from '../../services/notificationService';
+import logo from '../../images/logo digi.png';
 
 const ADMIN_NAV = [
   { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin/dashboard', end: true },
@@ -52,8 +53,8 @@ const SidebarContent = ({ logout, onNavigate }) => (
   <div className="flex flex-col h-full">
     <div className="px-5 pt-6 pb-4">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg shadow-violet-900/40">
-          <ShieldCheck size={19} className="text-white" />
+        <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-violet-900/40 ring-1 ring-violet-400/20">
+          <img src={logo} alt="DigiBank logo" className="w-full h-full object-cover" />
         </div>
         <div>
           <p className="text-[15px] font-bold text-white tracking-tight leading-none">DigiBank</p>

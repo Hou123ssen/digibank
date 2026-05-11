@@ -360,7 +360,7 @@ const CagnotteDetailsPage = () => {
   const days    = daysLeft(campaign.expires_at);
 
   return (
-    <div className="space-y-6">
+    <div className="dg-cagnotte-page space-y-6">
       {/* Breadcrumb */}
       <Link
         to="/cagnottes"

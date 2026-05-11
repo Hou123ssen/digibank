@@ -12,6 +12,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import daretService from '../../services/daretService';
+import { useTheme } from '../../components/landing/ThemeContext';
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 const STEPS = [
@@ -134,6 +135,7 @@ const slideIn = {
 const CreateDaretPage = () => {
   const { addToast } = useOutletContext() || {};
   const navigate     = useNavigate();
+  const { dark }     = useTheme();
 
   const [step,       setStep]    = useState(0);
   const [isLoading,  setIsLoading]  = useState(false);
@@ -294,7 +296,7 @@ const CreateDaretPage = () => {
 
   // ── Wizard ──────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="dg-daret-page max-w-2xl mx-auto">
       {/* Back link */}
       <button
         onClick={() => step > 0 ? back() : navigate('/darets')}
@@ -359,6 +361,7 @@ const CreateDaretPage = () => {
                 value={form.name}
                 onChange={e => set('name', e.target.value)}
                 error={errors.name}
+                light={!dark}
               />
 
               <div className="space-y-1.5">
@@ -370,7 +373,10 @@ const CreateDaretPage = () => {
                   value={form.description}
                   onChange={e => set('description', e.target.value)}
                   rows={3}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-600 resize-none"
+                  className={cn(
+                    "w-full border rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-500 resize-none",
+                    dark ? "bg-white/5 border-white/10 text-slate-200" : "bg-white/85 border-[#00C2A8]/30 text-gray-800",
+                  )}
                 />
               </div>
 
@@ -387,8 +393,9 @@ const CreateDaretPage = () => {
                     value={form.contribution_amount}
                     onChange={e => set('contribution_amount', e.target.value)}
                     className={cn(
-                      'flex-1 bg-white/5 border rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-600',
-                      errors.contribution_amount ? 'border-rose-500' : 'border-white/10',
+                      'flex-1 border rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-slate-500',
+                      dark ? 'bg-white/5 text-slate-200' : 'bg-white/85 text-gray-800',
+                      errors.contribution_amount ? 'border-rose-500' : (dark ? 'border-white/10' : 'border-[#00C2A8]/30'),
                     )}
                   />
                   <div className="flex items-center px-4 bg-white/5 border border-white/10 rounded-lg text-sm font-bold text-emerald-400 shrink-0">

@@ -32,6 +32,7 @@ const Button = React.forwardRef(({
       disabled={isLoading || disabled}
       className={cn(
         "inline-flex items-center justify-center rounded-xl font-medium transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+        variant === 'primary' && "dg-primary-button",
         variants[variant],
         sizes[size],
         className

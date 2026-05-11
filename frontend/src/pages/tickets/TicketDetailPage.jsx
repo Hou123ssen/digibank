@@ -448,7 +448,7 @@ const TicketDetailPage = () => {
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex flex-col h-[calc(100vh-8rem)] rounded-2xl bg-bg-card border border-white/5 overflow-hidden animate-pulse">
+      <div className="dg-ticket-page flex flex-col h-[calc(100vh-8rem)] rounded-2xl bg-bg-card border border-white/5 overflow-hidden animate-pulse">
         <div className="h-14 border-b border-white/5 bg-white/[0.02]" />
         <div className="flex-1 p-6 space-y-6">
           {[40, 60, 50, 70, 45].map((w, i) => (
@@ -480,7 +480,7 @@ const TicketDetailPage = () => {
   const st = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.open;
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] rounded-2xl bg-bg-card border border-white/5 overflow-hidden">
+    <div className="dg-ticket-page flex h-[calc(100vh-8rem)] rounded-2xl bg-bg-card border border-white/5 overflow-hidden">
 
       {/* ── Main chat column ─────────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-w-0">

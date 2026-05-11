@@ -300,7 +300,7 @@ const CagnotteCodeLookup = ({ addToast }) => {
         )}
       </AnimatePresence>
 
-      <div className="max-w-lg mx-auto space-y-6">
+      <div className="dg-cagnotte-page max-w-lg mx-auto space-y-6">
         {/* Search card */}
         <div className="rounded-2xl bg-bg-card border border-white/8 p-6 space-y-4">
           <div className="flex items-center gap-3">

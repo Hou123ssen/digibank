@@ -23,13 +23,14 @@ const Input = React.forwardRef(({
       <input
         type={type} ref={ref}
         className={cn(
-          'w-full rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#00C2A8]/25 focus:border-[#00C2A8]',
+          'dg-input w-full rounded-lg py-2.5 px-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#00C2A8]/25 focus:border-[#00C2A8]',
           LeftIcon && 'pl-11',
           RightIcon && 'pr-11',
           error && '!border-rose-500 focus:!border-rose-500 focus:!ring-rose-500/20',
           className
         )}
         style={{
+          '--input-bg': light ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.05)',
           background: light ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.05)',
           border: error ? '1px solid rgb(244,63,94)'
                 : light ? '1px solid rgba(0,194,168,0.3)' : '1px solid rgba(255,255,255,0.1)',
