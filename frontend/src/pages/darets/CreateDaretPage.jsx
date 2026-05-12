@@ -183,8 +183,11 @@ const CreateDaretPage = () => {
     try {
       const res = await daretService.createDaret({
         name:                form.name.trim(),
+        description:         form.description?.trim() || null,
         contribution_amount: Number(form.contribution_amount),
         total_members:       Number(form.capacity),
+        frequency:           form.cycle_frequency,
+        payout_order_type:   form.payout_order === 'auto' ? 'auto_rotation' : form.payout_order,
       });
       setCreated(res);
       addToast?.('Daret créé avec succès !', 'success');

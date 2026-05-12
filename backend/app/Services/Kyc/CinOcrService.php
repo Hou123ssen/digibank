@@ -8,7 +8,7 @@ use Throwable;
 
 class CinOcrService
 {
-    private const MIN_TEXT_LENGTH = 20;
+    private const MIN_TEXT_LENGTH = 8;
     private const REVIEW_THRESHOLD = 40;
     private const VERIFIED_THRESHOLD = 70;
 
@@ -45,6 +45,11 @@ class CinOcrService
      * Regex for Moroccan CIN number pattern.
      */
     protected string $cinRegex = '/\b[A-Z]{1,2}\s?[0-9]{4,8}\b/u';
+
+    /**
+     * Tolerant regex that allows OCR substitution errors (e.g. 8→B, O→0).
+     */
+    protected string $cinRegexExtended = '/\b[A-Z0-9]{1,2}\s?[A-Z0-9]{4,8}\b/u';
 
     /**
      * Perform OCR on an image and validate it.
@@ -114,7 +119,7 @@ class CinOcrService
             $score -= 40;
             $reasons[] = 'no_text_detected';
         } elseif ($length < self::MIN_TEXT_LENGTH) {
-            $score -= 30;
+            $score -= 10;
             $reasons[] = 'text_too_short';
         }
 
@@ -145,6 +150,11 @@ class CinOcrService
             $detectedCin = strtoupper(str_replace(' ', '', $matches[0]));
             $score += 30;
             $reasons[] = 'cin_pattern_detected';
+        } elseif (preg_match($this->cinRegexExtended, $normalizedText, $matches)) {
+            $raw = strtoupper(str_replace(' ', '', $matches[0]));
+            $detectedCin = self::normalizeCinValue($raw);
+            $score += 25;
+            $reasons[] = 'cin_pattern_detected_with_ocr_correction';
         }
 
         if ($matchedKeywords === []) {
@@ -245,6 +255,32 @@ class CinOcrService
             ),
             'return_code' => $returnCode,
         ];
+    }
+
+    /**
+     * Correct common OCR substitution errors in a raw CIN match.
+     * Prefix (1-2 chars) should be letters; suffix should be digits.
+     */
+    public static function normalizeCinValue(string $cin): string
+    {
+        $cin = strtoupper(str_replace(' ', '', $cin));
+
+        if (strlen($cin) < 5) {
+            return $cin;
+        }
+
+        // Prefix is 2 chars when char[1] is a letter, otherwise 1 char
+        $prefixLen = ctype_alpha($cin[1] ?? '') ? 2 : 1;
+        $prefix    = substr($cin, 0, $prefixLen);
+        $suffix    = substr($cin, $prefixLen);
+
+        // Fix digit→letter OCR errors in the prefix
+        $prefix = strtr($prefix, ['0' => 'O', '1' => 'I', '8' => 'B', '5' => 'S', '6' => 'G']);
+
+        // Fix letter→digit OCR errors in the suffix
+        $suffix = strtr($suffix, ['O' => '0', 'I' => '1', 'L' => '1', 'S' => '5', 'Z' => '2', 'B' => '8']);
+
+        return $prefix . $suffix;
     }
 
     protected function normalizeText(string $text): string

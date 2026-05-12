@@ -90,10 +90,10 @@ class AiCinVerificationService
             || $barcodeDetected
             || $hasDocumentShape;
 
-        $hardReject = $confidence < 20 || !$hasAnyCinSignal;
+        $hardReject = ($confidence < 20) && !$hasCin;
 
         if ($hardReject) {
-            $decision = ['decision' => 'reject', 'rejected' => true, 'reason' => $confidence < 20 ? 'score_below_20' : 'no_cin_document_signal'];
+            $decision = ['decision' => 'reject', 'rejected' => true, 'reason' => !$hasAnyCinSignal ? 'no_cin_document_signal' : 'score_below_20'];
             $this->logDecision($result, $decision);
 
             return $decision;

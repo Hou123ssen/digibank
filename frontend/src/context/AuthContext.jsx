@@ -107,17 +107,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Returns true if the current user has access to the given department.
+   * Admins pass all checks. Non-employees always fail.
+   */
+  const hasDepartment = (dept) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (user.role !== 'employee') return false;
+    return String(user.department || '').trim().toLowerCase() === String(dept).trim().toLowerCase();
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      token, 
-      isAuthenticated, 
-      loading, 
-      login, 
-      register, 
+    <AuthContext.Provider value={{
+      user,
+      token,
+      isAuthenticated,
+      loading,
+      login,
+      register,
       updateProfile,
       logout,
-      loadUser 
+      loadUser,
+      hasDepartment,
     }}>
       {children}
     </AuthContext.Provider>

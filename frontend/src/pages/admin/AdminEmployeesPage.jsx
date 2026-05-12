@@ -49,29 +49,21 @@ const normalizeEmployee = emp => ({
 /* ── Create Employee Modal ─────────────────────────────────────────── */
 const CreateModal = ({ onClose, onCreated, addToast }) => {
   const [form, setForm] = useState({
-    name: '', email: '', phone: '', password: genPassword(), departments: ['kyc'], sendInvite: true,
+    name: '', email: '', phone: '', password: genPassword(), department: 'kyc', sendInvite: true,
   });
   const [creating, setCreating] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
   const set = patch => setForm(f => ({ ...f, ...patch }));
 
-  const toggleDept = dept => {
-    set({
-      departments: form.departments.includes(dept)
-        ? form.departments.filter(d => d !== dept)
-        : [...form.departments, dept],
-    });
-  };
-
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!form.departments.length) { addToast?.('Select at least one department', 'error'); return; }
+    if (!form.department) { addToast?.('Select a department', 'error'); return; }
     setCreating(true);
     try {
       await adminService.createEmployee({
         name: form.name, email: form.email, phone: form.phone,
-        password: form.password, department: form.departments[0],
+        password: form.password, department: form.department,
         status: 'active',
       });
       addToast?.('Employee created successfully', 'success');
@@ -158,16 +150,16 @@ const CreateModal = ({ onClose, onCreated, addToast }) => {
             </div>
           </div>
 
-          {/* Departments */}
+          {/* Department */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-400">Departments</label>
+            <label className="text-xs font-semibold text-slate-400">Department</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {DEPARTMENTS.map(dept => {
                 const meta = DEPT_META[dept];
                 const DeptIcon = meta?.icon || UserCog;
-                const active = form.departments.includes(dept);
+                const active = form.department === dept;
                 return (
-                  <button key={dept} type="button" onClick={() => toggleDept(dept)}
+                  <button key={dept} type="button" onClick={() => set({ department: dept })}
                     className={cn(
                       'flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all',
                       active ? 'bg-violet-500/10 border-violet-500/30 text-violet-400' : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10 hover:text-slate-300'

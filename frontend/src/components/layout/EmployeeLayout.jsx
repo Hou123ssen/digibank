@@ -14,11 +14,16 @@ import Avatar from '../ui/Avatar';
 import notificationService from '../../services/notificationService';
 import logo from '../../images/logo digi.png';
 
-const EMPLOYEE_NAV = [
+const BASE_NAV = [
   { label: 'Tableau de bord', icon: LayoutDashboard, path: '/employee/dashboard', end: true },
-  { label: 'File KYC',        icon: BadgeCheck,      path: '/employee/kyc'       },
-  { label: 'Cagnottes',       icon: HeartHandshake,  path: '/employee/cagnottes' },
-  { label: 'Tickets',         icon: LifeBuoy,        path: '/employee/tickets'   },
+];
+
+// Each department item declares which `dept` value it requires.
+// Admins see all; employees see only their assigned department.
+const DEPT_NAV = [
+  { label: 'File KYC',   icon: BadgeCheck,      path: '/employee/kyc',       dept: 'kyc'      },
+  { label: 'Cagnottes',  icon: HeartHandshake,  path: '/employee/cagnottes', dept: 'cagnotte' },
+  { label: 'Tickets',    icon: LifeBuoy,        path: '/employee/tickets',   dept: 'tickets'  },
 ];
 
 const LANGS = ['AR', 'FR', 'EN'];
@@ -53,7 +58,16 @@ const SidebarLink = ({ item, onNavigate }) => {
 };
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-const SidebarContent = ({ logout, onNavigate }) => (
+const SidebarContent = ({ logout, onNavigate }) => {
+  const { user, hasDepartment } = useAuth();
+
+  // Build nav: base items + only the department item(s) this user can access
+  const nav = [
+    ...BASE_NAV,
+    ...DEPT_NAV.filter(item => hasDepartment(item.dept)),
+  ];
+
+  return (
   <div className="flex flex-col h-full">
     {/* Header */}
     <div className="px-5 pt-6 pb-4">
@@ -74,7 +88,7 @@ const SidebarContent = ({ logout, onNavigate }) => (
       <p className="px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2.5">
         Gestion
       </p>
-      {EMPLOYEE_NAV.map(item => (
+      {nav.map(item => (
         <SidebarLink key={item.path} item={item} onNavigate={onNavigate} />
       ))}
     </nav>
@@ -120,7 +134,8 @@ const SidebarContent = ({ logout, onNavigate }) => (
       </button>
     </div>
   </div>
-);
+  );
+};
 
 // ── Main layout ───────────────────────────────────────────────────────────────
 const EmployeeLayout = ({ addToast }) => {

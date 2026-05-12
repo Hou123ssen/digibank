@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SubmitKycRequest;
 use App\Models\KycVerification;
 use App\Services\Kyc\AiCinVerificationService;
+use App\Services\Kyc\CinOcrService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -58,6 +59,7 @@ class KycController extends Controller
             ];
 
             $ocrResult = $this->validateImagesBeforeSave($absolutePaths, $aiCinVerificationService, $user->id);
+            $ocrResult = $this->applySubmittedCinMatch($ocrResult, $request->validated('national_id_number'));
         }
 
         $status = KycVerification::STATUS_PENDING_REVIEW;
@@ -66,6 +68,10 @@ class KycController extends Controller
         if (!$isImage) {
             $status = KycVerification::STATUS_NEEDS_REVIEW;
             $message = 'Votre KYC a été soumis et nécessite une vérification manuelle.';
+        } elseif ($isImage && $this->isOcrUnavailable($ocrResult)) {
+            $status = KycVerification::STATUS_PENDING;
+            $message = 'Votre KYC a été soumis avec succès. La vérification automatique est indisponible, un examen manuel sera effectué.';
+            Log::info('KYC submitted without OCR — queued for manual review.', ['user_id' => $user->id]);
         } elseif (($ocrResult['decision'] ?? null) === 'reject') {
             $this->logRejectedOcr($user->id, $ocrResult);
             Storage::disk('public')->delete(array_filter($paths));
@@ -139,6 +145,70 @@ class KycController extends Controller
             'kyc_verification' => $request->user()->kycVerification,
             'is_kyc_approved' => $request->user()->isKycApproved(),
         ]);
+    }
+
+    private function applySubmittedCinMatch(array $ocrResult, ?string $submittedCin): array
+    {
+        if (($ocrResult['decision'] ?? null) !== 'reject') {
+            return $ocrResult;
+        }
+
+        $detectedCin = $ocrResult['detected_cin_number'] ?? null;
+
+        if (blank($submittedCin) || blank($detectedCin)) {
+            return $ocrResult;
+        }
+
+        $normalizedSubmitted = CinOcrService::normalizeCinValue(strtoupper(str_replace(' ', '', $submittedCin)));
+        $normalizedDetected  = CinOcrService::normalizeCinValue(strtoupper(str_replace(' ', '', $detectedCin)));
+
+        if ($normalizedSubmitted === $normalizedDetected) {
+            Log::info('KYC OCR: submitted CIN matches detected CIN, upgrading reject to needs_review.', [
+                'submitted_cin'       => $submittedCin,
+                'detected_cin'        => $detectedCin,
+                'normalized_submitted' => $normalizedSubmitted,
+                'normalized_detected'  => $normalizedDetected,
+            ]);
+
+            return [
+                ...$ocrResult,
+                'decision'               => 'needs_review',
+                'submitted_cin'          => $submittedCin,
+                'normalized_submitted_cin' => $normalizedSubmitted,
+                'normalized_detected_cin'  => $normalizedDetected,
+                'cin_match_upgraded'     => true,
+            ];
+        }
+
+        return [
+            ...$ocrResult,
+            'submitted_cin'          => $submittedCin,
+            'normalized_submitted_cin' => $normalizedSubmitted,
+            'normalized_detected_cin'  => $normalizedDetected,
+        ];
+    }
+
+    private function isOcrUnavailable(array $ocrResult): bool
+    {
+        // Set by validateImagesBeforeSave() when every side result carries an OCR error
+        if (in_array('ocr_unavailable_or_not_configured', $ocrResult['reasons'] ?? [], true)) {
+            return true;
+        }
+
+        // Fallback: all side results contain a Tesseract-unavailable error message
+        $sideResults = $ocrResult['side_results'] ?? [];
+        if ($sideResults === []) {
+            return false;
+        }
+
+        foreach ($sideResults as $side) {
+            $error = (string) ($side['error'] ?? $side['ocr_exception'] ?? '');
+            if (!str_contains($error, 'Tesseract') && !str_contains($error, 'not installed') && !str_contains($error, 'not configured')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function validateImagesBeforeSave(
@@ -448,6 +518,10 @@ class KycController extends Controller
             'ocr_text_back' => $this->sideDebugValue($ocrResult, 'back', 'extracted_text'),
             'detected_keywords' => $ocrResult['matched_keywords'] ?? [],
             'detected_cin' => $ocrResult['detected_cin_number'] ?? null,
+            'submitted_cin' => $ocrResult['submitted_cin'] ?? null,
+            'normalized_submitted_cin' => $ocrResult['normalized_submitted_cin'] ?? null,
+            'normalized_detected_cin' => $ocrResult['normalized_detected_cin'] ?? null,
+            'cin_match_upgraded' => $ocrResult['cin_match_upgraded'] ?? false,
             'detected_signals' => $ocrResult['detected_signals'] ?? [],
             'preprocessed_image_paths' => $ocrResult['preprocessed_image_paths'] ?? [],
             'preprocessed_image_paths_front' => $this->sideDebugValue($ocrResult, 'front', 'preprocessed_image_paths') ?? [],
