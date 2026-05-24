@@ -19,6 +19,8 @@ class DaretMemberResource extends JsonResource
             'joined_at' => $this->joined_at,
             'is_creator' => (bool) $this->is_creator,
             'status' => $this->status,
+            'auto_debit_authorized' => (bool) $this->auto_debit_authorized,
+            'auto_debit_authorized_at' => $this->auto_debit_authorized_at,
             'has_paid_current_cycle' => $this->hasPaidCurrentCycle(),
             'payment_status' => $this->currentPaymentStatus(),
             'user' => $this->whenLoaded('user', fn () => new UserSummaryResource($this->user)),

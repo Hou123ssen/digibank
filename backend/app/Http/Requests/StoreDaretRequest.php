@@ -13,6 +13,7 @@ class StoreDaretRequest extends ApiFormRequest
             'total_members'       => ['required', 'integer', 'min:2', 'max:100'],
             'frequency'           => ['nullable', 'string', 'in:monthly,weekly'],
             'payout_order_type'   => ['nullable', 'string', 'in:sequential,random,auto_rotation'],
+            'auto_debit_consent'  => ['accepted'],
         ];
     }
 }

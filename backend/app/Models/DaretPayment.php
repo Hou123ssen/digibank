@@ -22,6 +22,7 @@ class DaretPayment extends Model
     public const STATUS_PAID = 'paid';
     public const STATUS_PENDING = 'pending';
     public const STATUS_LATE = 'late';
+    public const STATUS_FAILED = 'failed';
 
     protected function casts(): array
     {

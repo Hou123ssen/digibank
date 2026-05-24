@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
     'contribution_amount',
     'total_members',
     'current_members',
+    'current_cycle',
     'frequency',
     'payout_order_type',
     'invite_code',
@@ -55,6 +56,7 @@ class Daret extends Model
             'contribution_amount' => 'decimal:2',
             'total_members' => 'integer',
             'current_members' => 'integer',
+            'current_cycle' => 'integer',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];

@@ -270,20 +270,20 @@ const AccountOverviewPage = ({ addToast }) => {
           headers={["Transaction", "Date", "Montant", "Statut", "Compte"]}
           data={transactions.slice(0, 10).map(t => [
             <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.type === 'deposit' ? 'bg-emerald-500/10 text-emerald-500' :
-                  t.type === 'withdraw' ? 'bg-rose-500/10 text-rose-500' :
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${['deposit', 'transfer_in', 'daret_payout'].includes(t.type) ? 'bg-emerald-500/10 text-emerald-500' :
+                  ['withdraw', 'transfer_out', 'daret_contribution'].includes(t.type) ? 'bg-rose-500/10 text-rose-500' :
                     'bg-sky-500/10 text-sky-500'
                 }`}>
-                {t.type === 'deposit' ? <ArrowDownLeft size={14} /> :
-                  t.type === 'withdraw' ? <ArrowUpRight size={14} /> :
+                {['deposit', 'transfer_in', 'daret_payout'].includes(t.type) ? <ArrowDownLeft size={14} /> :
+                  ['withdraw', 'transfer_out', 'daret_contribution'].includes(t.type) ? <ArrowUpRight size={14} /> :
                     <ArrowLeftRight size={14} />}
               </div>
               <span className="font-medium text-slate-200">{t.description || t.type}</span>
             </div>,
             new Date(t.created_at).toLocaleDateString('fr-FR'),
-            <span className={`font-mono font-bold ${t.type === 'deposit' ? 'text-emerald-500' : 'text-rose-500'
+            <span className={`font-mono font-bold ${['deposit', 'transfer_in', 'daret_payout'].includes(t.type) ? 'text-emerald-500' : 'text-rose-500'
               }`}>
-              {t.type === 'deposit' ? '+' : '-'}{t.amount} MAD
+              {['deposit', 'transfer_in', 'daret_payout'].includes(t.type) ? '+' : '-'}{Math.abs(Number(t.amount || 0)).toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD
             </span>,
             <Badge variant="success">Terminé</Badge>,
             <span className="text-slate-400 text-sm">•••• {t.account_number?.slice(-4)}</span>

@@ -449,8 +449,9 @@ const UserDashboardPage = () => {
                     ))
                   ) : transactions.length > 0 ? (
                     transactions.map((tx, i) => {
-                      const amount  = parseFloat(tx.amount ?? tx.montant ?? 0);
-                      const isCredit = amount >= 0;
+                      const rawAmount = parseFloat(tx.amount ?? tx.montant ?? 0);
+                      const isCredit = ['deposit', 'transfer_in', 'daret_payout'].includes(tx.type);
+                      const amount = Math.abs(rawAmount);
                       return (
                         <tr key={i} className="hover:bg-white/[0.02] transition-colors">
                           <td className="px-4 sm:px-6 py-4 text-xs text-slate-400 whitespace-nowrap">
@@ -470,7 +471,7 @@ const UserDashboardPage = () => {
                             'px-4 sm:px-6 py-4 text-right text-sm font-bold font-mono whitespace-nowrap',
                             isCredit ? 'text-emerald-400' : 'text-rose-400',
                           )}>
-                            {isCredit ? '+' : ''}{amount.toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD
+                            {isCredit ? '+' : '-'}{amount.toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD
                           </td>
                         </tr>
                       );
@@ -550,14 +551,20 @@ const UserDashboardPage = () => {
                   </div>
                 </div>
 
-                <Button
+                {false && <Button
                   variant="primary"
                   size="sm"
                   className="w-full mt-5"
                   onClick={() => addToast?.('Paiement de la contribution initié', 'info')}
                 >
                   Payer la contribution
-                </Button>
+                </Button>}
+                <div className={cn(
+                  "w-full mt-5 rounded-xl px-3 py-2 text-xs font-medium text-center",
+                  dark ? "bg-emerald-500/10 text-emerald-300" : "bg-emerald-50 text-emerald-700",
+                )}>
+                  Debit automatique programme
+                </div>
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center gap-3">

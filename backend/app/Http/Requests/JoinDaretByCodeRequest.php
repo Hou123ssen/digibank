@@ -8,6 +8,7 @@ class JoinDaretByCodeRequest extends ApiFormRequest
     {
         return [
             'invite_code' => ['required', 'string', 'max:32'],
+            'auto_debit_consent' => ['sometimes', 'accepted'],
         ];
     }
 

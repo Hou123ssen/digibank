@@ -54,8 +54,20 @@ class DaretCoreTest extends TestCase
             'total_members' => 3,
             'status' => Daret::STATUS_OPEN,
         ]);
-        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $creator->id, 'joined_at' => now()]);
-        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $member->id, 'joined_at' => now()]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $creator->id,
+            'joined_at' => now(),
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
+        ]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $member->id,
+            'joined_at' => now(),
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
+        ]);
 
         Daret::create([
             'creator_id' => $outsider->id,
@@ -207,8 +219,20 @@ class DaretCoreTest extends TestCase
             'total_members' => 3,
             'status' => Daret::STATUS_OPEN,
         ]);
-        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $creator->id, 'joined_at' => now()]);
-        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $member->id, 'joined_at' => now()]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $creator->id,
+            'joined_at' => now(),
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
+        ]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $member->id,
+            'joined_at' => now(),
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
+        ]);
         Sanctum::actingAs($member);
 
         $this->postJson("/api/darets/{$daret->id}/join")
@@ -238,6 +262,16 @@ class DaretCoreTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.daret.status', Daret::STATUS_ACTIVE);
+
+        $daret->refresh();
+        $cycle = $daret->cycles()->first();
+
+        $this->assertSame(1, $daret->current_cycle);
+        $this->assertNotNull($daret->started_at);
+        $this->assertNotNull($cycle);
+        $this->assertNotNull($cycle->beneficiary_user_id);
+        $this->assertNotNull($cycle->due_date);
+        $this->assertSame(2, $cycle->payments()->count());
 
         $this->assertDatabaseHas('daret_cycles', [
             'daret_id' => $daret->id,
@@ -292,10 +326,15 @@ class DaretCoreTest extends TestCase
             'user_id' => $creator->id,
             'joined_at' => now()->subMinute(),
             'is_creator' => true,
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
         ]);
 
         Sanctum::actingAs($member);
-        $this->postJson('/api/darets/join-by-code', ['invite_code' => $daret->invite_code])->assertOk();
+        $this->postJson('/api/darets/join-by-code', [
+            'invite_code' => $daret->invite_code,
+            'auto_debit_consent' => true,
+        ])->assertOk();
 
         $ordersBeforeStart = DaretMember::where('daret_id', $daret->id)
             ->orderBy('user_id')
@@ -596,8 +635,20 @@ class DaretCoreTest extends TestCase
             'status' => Daret::STATUS_OPEN,
         ]);
 
-        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $creator->id, 'joined_at' => now()]);
-        DaretMember::create(['daret_id' => $daret->id, 'user_id' => $member->id, 'joined_at' => now()]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $creator->id,
+            'joined_at' => now(),
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
+        ]);
+        DaretMember::create([
+            'daret_id' => $daret->id,
+            'user_id' => $member->id,
+            'joined_at' => now(),
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
+        ]);
 
         return [$creator, $member, $daret];
     }
@@ -622,16 +673,22 @@ class DaretCoreTest extends TestCase
             'user_id' => $creator->id,
             'joined_at' => now()->subMinutes(3),
             'is_creator' => true,
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
         ]);
         DaretMember::create([
             'daret_id' => $daret->id,
             'user_id' => $firstMember->id,
             'joined_at' => now()->subMinutes(2),
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
         ]);
         DaretMember::create([
             'daret_id' => $daret->id,
             'user_id' => $secondMember->id,
             'joined_at' => now()->subMinute(),
+            'auto_debit_authorized' => true,
+            'auto_debit_authorized_at' => now(),
         ]);
 
         return [$creator, $firstMember, $secondMember, $daret];

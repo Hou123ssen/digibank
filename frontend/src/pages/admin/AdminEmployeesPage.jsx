@@ -70,9 +70,14 @@ const CreateModal = ({ onClose, onCreated, addToast }) => {
       onCreated();
       onClose();
     } catch (err) {
-      const errors = err.response?.data?.errors;
-      const firstError = errors ? Object.values(errors).flat()[0] : null;
-      addToast?.(firstError || err.response?.data?.message || 'Failed to create employee', 'error');
+      console.log('Create employee backend response:', err.response?.data);
+      const data = err.response?.data;
+      const message =
+        data?.message ||
+        Object.values(data?.errors || {}).flat()?.[0] ||
+        'Employee creation failed';
+
+      addToast?.(message, 'error');
     } finally {
       setCreating(false);
     }

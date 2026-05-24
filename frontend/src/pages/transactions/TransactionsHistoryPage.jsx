@@ -145,8 +145,14 @@ const TransactionsHistoryPage = ({ addToast }) => {
 
   const getTransactionIcon = (type) => {
     switch(type) {
-      case 'deposit': return <ArrowDownLeft className="text-emerald-500" />;
-      case 'withdraw': return <ArrowUpRight className="text-rose-500" />;
+      case 'deposit':
+      case 'transfer_in':
+      case 'daret_payout':
+        return <ArrowDownLeft className="text-emerald-500" />;
+      case 'withdraw':
+      case 'transfer_out':
+      case 'daret_contribution':
+        return <ArrowUpRight className="text-rose-500" />;
       case 'transfer': return <ArrowLeftRight className="text-sky-500" />;
       default: return <ArrowLeftRight className="text-slate-400" />;
     }
@@ -154,8 +160,14 @@ const TransactionsHistoryPage = ({ addToast }) => {
 
   const getTransactionColor = (type) => {
     switch(type) {
-      case 'deposit': return 'bg-emerald-500/10 text-emerald-500';
-      case 'withdraw': return 'bg-rose-500/10 text-rose-500';
+      case 'deposit':
+      case 'transfer_in':
+      case 'daret_payout':
+        return 'bg-emerald-500/10 text-emerald-500';
+      case 'withdraw':
+      case 'transfer_out':
+      case 'daret_contribution':
+        return 'bg-rose-500/10 text-rose-500';
       case 'transfer': return 'bg-sky-500/10 text-sky-500';
       default: return 'bg-slate-500/10 text-slate-500';
     }
@@ -240,9 +252,9 @@ const TransactionsHistoryPage = ({ addToast }) => {
                 </div>,
                 <span className="font-mono text-xs text-slate-400 uppercase tracking-tight">{t.reference?.slice(0, 12)}...</span>,
                 <span className={`font-mono font-bold text-lg ${
-                  t.type === 'deposit' ? 'text-emerald-500' : 'text-rose-500'
+                  signedAmount(t) >= 0 ? 'text-emerald-500' : 'text-rose-500'
                 }`}>
-                  {t.type === 'deposit' ? '+' : '-'}{t.amount}
+                  {formatTransactionAmount(t)}
                 </span>,
                 <Badge variant="success" className="text-[10px]">Terminé</Badge>,
                 <button 
@@ -300,9 +312,9 @@ const TransactionsHistoryPage = ({ addToast }) => {
                   </div>
                   <div className="space-y-1">
                     <h2 className={`text-4xl font-bold ${
-                      selectedTransaction.type === 'deposit' ? 'text-emerald-500' : 'text-rose-500'
+                      signedAmount(selectedTransaction) >= 0 ? 'text-emerald-500' : 'text-rose-500'
                     }`}>
-                      {selectedTransaction.type === 'deposit' ? '+' : '-'}{selectedTransaction.amount} <span className="text-lg">MAD</span>
+                      {formatTransactionAmount(selectedTransaction).replace(' MAD', '')} <span className="text-lg">MAD</span>
                     </h2>
                     <p className="text-slate-400 font-medium uppercase tracking-widest text-xs">{selectedTransaction.type}</p>
                   </div>

@@ -102,12 +102,12 @@ const daretService = {
     const response = await api.post('/darets', data);
     return normalizeDaret(unwrapDaret(response));
   },
-  joinDaret: async (id) => {
-    const response = await api.post(`/darets/${id}/join`);
+  joinDaret: async (id, data = {}) => {
+    const response = await api.post(`/darets/${id}/join`, data);
     return normalizeDaret(unwrapDaret(response));
   },
-  joinByCode: async (inviteCode) => {
-    const response = await api.post('/darets/join-by-code', { invite_code: inviteCode });
+  joinByCode: async (inviteCode, data = {}) => {
+    const response = await api.post('/darets/join-by-code', { invite_code: inviteCode, ...data });
     return normalizeDaret(unwrapDaret(response));
   },
   startDaret: async (id) => {

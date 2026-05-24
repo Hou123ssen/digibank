@@ -10,7 +10,7 @@ class ProcessDueDaretPayments extends Command
 {
     protected $signature = 'daret:process-due-payments';
 
-    protected $description = 'Automatically debit due monthly Daret contributions and process cycle payouts.';
+    protected $description = 'Automatically debit due Daret contributions and process cycle payouts.';
 
     public function handle(DaretService $daretService): int
     {

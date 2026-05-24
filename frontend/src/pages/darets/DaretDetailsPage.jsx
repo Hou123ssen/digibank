@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useOutletContext } from 'react-router-dom';
+import { useParams, Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Users, Banknote, Calendar, Clock, CheckCircle2,
@@ -399,6 +399,7 @@ const DaretDetailsPage = () => {
   const { id }          = useParams();
   const { addToast }    = useOutletContext() || {};
   const { user }        = useAuth();
+  const navigate         = useNavigate();
 
   const [daret,     setDaret]    = useState(null);
   const [members,   setMembers]  = useState([]);
@@ -408,6 +409,7 @@ const DaretDetailsPage = () => {
   const [activeTab, setTab]      = useState('overview');
   const [starting,  setStarting] = useState(false);
   const [paying,    setPaying]   = useState(false);
+  const [accessError, setAccessError] = useState('');
 
   const applyDaretData = (data) => {
     const loadedMembers = Array.isArray(data?.members) ? data.members : [];
@@ -433,8 +435,13 @@ const DaretDetailsPage = () => {
     if (showLoading) setLoading(true);
     try {
       const data = await daretService.getDaretById(id);
+      setAccessError('');
       applyDaretData(data);
-    } catch {
+    } catch (err) {
+      setAccessError(err?.response?.status === 403
+        ? 'Veuillez entrer le code d\'invitation pour rejoindre ce Daret.'
+        : ''
+      );
       setDaret(null);
       setMembers([]);
       setCycles([]);
@@ -496,26 +503,43 @@ const DaretDetailsPage = () => {
         <div className="space-y-2">
           <p className="text-white font-semibold text-lg">Détails du Daret non disponibles</p>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Ce Daret n'existe pas ou vous n'y avez pas accès.
+            {accessError || "Ce Daret n'existe pas ou vous n'y avez pas accès."}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button
+          {false && <Button
             variant="primary"
             size="sm"
             isLoading={starting}
             onClick={handleStart}
           >
             Démarrer ce Daret
-          </Button>
-          <Button
+          </Button>}
+          {accessError ? (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate('/darets?joinCode=1')}
+            >
+              Entrer le code d'invitation
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/darets')}
+            >
+              Retour aux Darets
+            </Button>
+          )}
+          {false && <Button
             variant="secondary"
             size="sm"
             isLoading={paying}
             onClick={handlePay}
           >
             Payer la contribution
-          </Button>
+          </Button>}
         </div>
         <Link to="/darets">
           <Button variant="ghost" size="sm">Retour aux Darets</Button>
@@ -533,7 +557,7 @@ const DaretDetailsPage = () => {
   const isFull    = (daret.members_count ?? 0) >= (daret.capacity ?? Infinity);
 
   const canStart  = isCreator && daret.status === 'open' && isFull;
-  const canPay    = isMember  && daret.status === 'active' && !hasPaid;
+  const canPay    = false;
 
   const cycleProgress = (daret.current_cycle && daret.total_cycles)
     ? Math.min((daret.current_cycle / daret.total_cycles) * 100, 100)
@@ -719,7 +743,7 @@ const DaretDetailsPage = () => {
                   : <AlertCircle  size={15} className={cn('shrink-0', isLatePayment ? 'text-rose-400' : 'text-amber-400')}   />
                 }
                 <p className={cn('text-xs font-medium', hasPaid ? 'text-emerald-300' : isLatePayment ? 'text-rose-300' : 'text-amber-300')}>
-                  {hasPaid ? 'Contribution payee ce cycle' : isLatePayment ? 'Solde insuffisant. Veuillez alimenter votre compte pour payer votre contribution.' : 'Contribution en attente'}
+                  {hasPaid ? 'Debit automatique effectue ce cycle' : isLatePayment ? 'Debit automatique echoue. Veuillez alimenter votre compte.' : 'Debit automatique programme a la date d echeance'}
                 </p>
               </div>
             )}

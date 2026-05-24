@@ -8,7 +8,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['daret_id', 'user_id', 'payout_order', 'joined_at', 'is_creator', 'status', 'has_received_payout'])]
+#[Fillable([
+    'daret_id',
+    'user_id',
+    'payout_order',
+    'joined_at',
+    'is_creator',
+    'status',
+    'has_received_payout',
+    'auto_debit_authorized',
+    'auto_debit_authorized_at',
+])]
 class DaretMember extends Model
 {
     use HasFactory;
@@ -23,6 +33,8 @@ class DaretMember extends Model
             'joined_at' => 'datetime',
             'is_creator' => 'boolean',
             'has_received_payout' => 'boolean',
+            'auto_debit_authorized' => 'boolean',
+            'auto_debit_authorized_at' => 'datetime',
         ];
     }
 

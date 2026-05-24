@@ -188,6 +188,7 @@ const CreateDaretPage = () => {
         total_members:       Number(form.capacity),
         frequency:           form.cycle_frequency,
         payout_order_type:   form.payout_order === 'auto' ? 'auto_rotation' : form.payout_order,
+        auto_debit_consent:  true,
       });
       setCreated(res);
       addToast?.('Daret créé avec succès !', 'success');
@@ -552,6 +553,8 @@ const CreateDaretPage = () => {
                   {agreed && <Check size={12} className="text-white" />}
                 </div>
                 <p className="text-sm text-slate-400">
+                  J'autorise DigiBank a debiter automatiquement chaque contribution depuis mon compte a la date d'echeance.
+                  {' '}
                   Je comprends les règles du Daret et m'engage à honorer chaque contribution dans les délais impartis.
                   Je reconnais que le non-respect de cet engagement pourra impacter mon Trust Score.
                 </p>

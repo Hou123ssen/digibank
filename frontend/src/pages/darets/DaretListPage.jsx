@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Search, Calendar, Banknote, ChevronRight,
@@ -59,25 +59,22 @@ const AvatarStack = ({ members = [], max = 4 }) => {
 };
 
 // ── Daret Card ────────────────────────────────────────────────────────────────
-const DaretCard = ({ daret, onJoin, onPay }) => {
+const DaretCard = ({ daret, onJoin }) => {
   const { user } = useAuth();
   const st = getStatus(daret.status);
 
   const isCreator = daret.is_creator || String(daret.creator_id) === String(user?.id);
   const isMember  = daret.is_member;
   const hasPaid   = daret.has_paid_current_cycle;
+  const currentPaymentStatus = daret.current_payment_status || (hasPaid ? 'paid' : 'pending');
+  const isFailedPayment = ['failed', 'late'].includes(currentPaymentStatus);
 
   const fillPct  = Math.min(((daret.members_count ?? 0) / (daret.capacity || 1)) * 100, 100);
   const cyclePct = (daret.current_cycle && daret.total_cycles)
     ? Math.min((daret.current_cycle / daret.total_cycles) * 100, 100)
     : null;
 
-  const actionLabel = isMember
-    ? (daret.status === 'active' && !hasPaid ? 'Payer la contribution' : 'Voir le Daret')
-    : (daret.status === 'open' ? 'Rejoindre' : 'Voir le Daret');
-
   const canJoin = !isMember && daret.status === 'open';
-  const canPay  = isMember && daret.status === 'active' && !hasPaid;
 
   const freqLabel = { monthly: 'Mensuel', weekly: 'Hebdomadaire' }[daret.cycle_frequency] || 'Mensuel';
 
@@ -181,7 +178,26 @@ const DaretCard = ({ daret, onJoin, onPay }) => {
             <span>Vous êtes le créateur</span>
           </div>
         )}
-        {isMember && hasPaid && daret.status === 'active' && (
+        {isMember && daret.status === 'active' && (
+          <div className={cn(
+            'flex items-center gap-1.5 text-[10px] rounded-lg px-2.5 py-1.5',
+            hasPaid
+              ? 'text-emerald-400 bg-emerald-500/10'
+              : isFailedPayment
+                ? 'text-rose-400 bg-rose-500/10'
+                : 'text-amber-400 bg-amber-500/10',
+          )}>
+            {hasPaid ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+            <span>
+              {hasPaid
+                ? 'Debit automatique effectue'
+                : isFailedPayment
+                  ? 'Debit automatique echoue'
+                  : 'Debit automatique programme'}
+            </span>
+          </div>
+        )}
+        {false && isMember && hasPaid && daret.status === 'active' && (
           <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 rounded-lg px-2.5 py-1.5">
             <CheckCircle2 size={12} />
             <span>Contribution payée ce cycle</span>
@@ -190,13 +206,9 @@ const DaretCard = ({ daret, onJoin, onPay }) => {
 
         {/* Action footer */}
         <div className="mt-auto pt-3 border-t border-white/5">
-          {canJoin ? (
-            <Button variant="secondary" size="sm" className="w-full" onClick={() => onJoin(daret)}>
-              Rejoindre le Daret
-            </Button>
-          ) : canPay ? (
-            <Button variant="primary" size="sm" className="w-full" onClick={() => onPay(daret)}>
-              Payer la contribution
+          {!isMember ? (
+            <Button variant="secondary" size="sm" className="w-full" onClick={onJoin}>
+              Entrer le code
             </Button>
           ) : (
             <Link to={`/darets/${daret.id}`} className="block">
@@ -221,6 +233,12 @@ const JOIN_RULES = [
 ];
 
 const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
+  const [autoDebitConsent, setAutoDebitConsent] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) setAutoDebitConsent(false);
+  }, [isOpen, daret?.id]);
+
   if (!daret) return null;
   const freqLabel = { monthly: 'Mensuel', weekly: 'Hebdomadaire' }[daret.cycle_frequency] || 'Mensuel';
 
@@ -287,6 +305,27 @@ const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
         </div>
       )}
 
+      <button
+        type="button"
+        onClick={() => setAutoDebitConsent(value => !value)}
+        className={cn(
+          'mb-5 w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all',
+          autoDebitConsent
+            ? 'bg-emerald-500/10 border-emerald-500/30'
+            : 'bg-white/[0.02] border-white/10 hover:border-white/20',
+        )}
+      >
+        <span className={cn(
+          'mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0',
+          autoDebitConsent ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600',
+        )}>
+          {autoDebitConsent && <CheckCircle2 size={11} className="text-white" />}
+        </span>
+        <span className="text-xs text-slate-400">
+          J'autorise DigiBank a debiter automatiquement ma contribution depuis mon compte a chaque date d'echeance.
+        </span>
+      </button>
+
       {/* Buttons */}
       <div className="flex gap-3">
         <Button variant="secondary" className="flex-1" onClick={onClose}>
@@ -296,8 +335,8 @@ const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
           variant="primary"
           className="flex-1"
           isLoading={isLoading}
-          disabled={daret.is_member || isLoading}
-          onClick={() => onConfirm(daret.id)}
+          disabled={daret.is_member || isLoading || !autoDebitConsent}
+          onClick={() => onConfirm(daret.id, autoDebitConsent)}
         >
           {daret.is_member ? 'Déjà membre' : 'Confirmer l\'adhésion'}
         </Button>
@@ -308,11 +347,16 @@ const JoinDaretModal = ({ daret, isOpen, onClose, onConfirm, isLoading }) => {
 
 const JoinByCodeModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
   const [inviteCode, setInviteCode] = useState('');
+  const [autoDebitConsent, setAutoDebitConsent] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) setAutoDebitConsent(false);
+  }, [isOpen]);
 
   const submit = (event) => {
     event.preventDefault();
-    if (!inviteCode.trim()) return;
-    onConfirm(inviteCode.trim());
+    if (!inviteCode.trim() || !autoDebitConsent) return;
+    onConfirm(inviteCode.trim(), autoDebitConsent);
   };
 
   return (
@@ -338,11 +382,32 @@ const JoinByCodeModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
           />
         </div>
 
+        <button
+          type="button"
+          onClick={() => setAutoDebitConsent(value => !value)}
+          className={cn(
+            'w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all',
+            autoDebitConsent
+              ? 'bg-emerald-500/10 border-emerald-500/30'
+              : 'bg-white/[0.02] border-white/10 hover:border-white/20',
+          )}
+        >
+          <span className={cn(
+            'mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0',
+            autoDebitConsent ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600',
+          )}>
+            {autoDebitConsent && <CheckCircle2 size={11} className="text-white" />}
+          </span>
+          <span className="text-xs text-slate-400">
+            J'autorise le debit automatique de chaque contribution Daret a la date d'echeance.
+          </span>
+        </button>
+
         <div className="flex gap-3">
           <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
             Annuler
           </Button>
-          <Button type="submit" variant="primary" className="flex-1" isLoading={isLoading} disabled={!inviteCode.trim() || isLoading}>
+          <Button type="submit" variant="primary" className="flex-1" isLoading={isLoading} disabled={!inviteCode.trim() || !autoDebitConsent || isLoading}>
             Rejoindre
           </Button>
         </div>
@@ -424,6 +489,8 @@ const AnalyticsCards = ({ analytics, loading, error }) => {
 // ── Main page ─────────────────────────────────────────────────────────────────
 const DaretListPage = () => {
   const { addToast } = useOutletContext() || {};
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [activeTab,    setActiveTab]    = useState('my');
   const [search,       setSearch]       = useState('');
@@ -474,10 +541,17 @@ const DaretListPage = () => {
     loadAnalytics();
   }, []);
 
-  const handleJoin = async (id) => {
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('joinCode') === '1') {
+      setCodeModalOpen(true);
+    }
+  }, [location.search]);
+
+  const handleJoin = async (id, autoDebitConsent = false) => {
     setJoining(true);
     try {
-      await daretService.joinDaret(id);
+      await daretService.joinDaret(id, { auto_debit_consent: autoDebitConsent });
       addToast?.('Vous avez rejoint le Daret avec succès !', 'success');
       setJoinModal(null);
       await load();
@@ -489,29 +563,21 @@ const DaretListPage = () => {
     }
   };
 
-  const handleJoinByCode = async (inviteCode) => {
+  const handleJoinByCode = async (inviteCode, autoDebitConsent = false) => {
     setJoining(true);
     try {
-      await daretService.joinByCode(inviteCode);
+      const joined = await daretService.joinByCode(inviteCode, { auto_debit_consent: autoDebitConsent });
       addToast?.('Vous avez rejoint le Daret avec succes !', 'success');
       setCodeModalOpen(false);
       await load();
       await loadAnalytics();
+      if (joined?.id) {
+        navigate(`/darets/${joined.id}`);
+      }
     } catch (err) {
       addToast?.(getErrorMessage(err) || 'Erreur lors de l\'adhesion', 'error');
     } finally {
       setJoining(false);
-    }
-  };
-
-  const handlePay = async (daret) => {
-    try {
-      await daretService.payDaret(daret.id, {});
-      addToast?.('Contribution payee avec succes !', 'success');
-      await load();
-      await loadAnalytics();
-    } catch (err) {
-      addToast?.(getErrorMessage(err) || 'Erreur lors du paiement', 'error');
     }
   };
 
@@ -636,7 +702,7 @@ const DaretListPage = () => {
         >
           {tabData.map(d => (
             <motion.div key={d.id} variants={cardAnim}>
-              <DaretCard daret={d} onJoin={setJoinModal} onPay={handlePay} />
+              <DaretCard daret={d} onJoin={() => setCodeModalOpen(true)} />
             </motion.div>
           ))}
         </motion.div>

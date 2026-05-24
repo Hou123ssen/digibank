@@ -28,6 +28,7 @@ class DaretService
     {
         return DB::transaction(function () use ($creator, $data): Daret {
             $this->ensureEligibleToJoin($creator);
+            $this->ensureAutoDebitConsent((bool) ($data['auto_debit_consent'] ?? false));
 
             $daret = Daret::create([
                 'creator_id' => $creator->id,
@@ -40,7 +41,7 @@ class DaretService
                 'status' => Daret::STATUS_OPEN,
             ]);
 
-            $this->addMember($daret, $creator, true);
+            $this->addMember($daret, $creator, true, true);
 
             $this->notificationService->createNotification(
                 $creator->id,
@@ -53,9 +54,9 @@ class DaretService
         });
     }
 
-    public function join(Daret $daret, User $user): Daret
+    public function join(Daret $daret, User $user, bool $autoDebitConsent = false): Daret
     {
-        return DB::transaction(function () use ($daret, $user): Daret {
+        return DB::transaction(function () use ($daret, $user, $autoDebitConsent): Daret {
             $daret = Daret::whereKey($daret->id)->lockForUpdate()->firstOrFail();
 
             if ($daret->status !== Daret::STATUS_OPEN) {
@@ -63,6 +64,7 @@ class DaretService
             }
 
             $this->ensureEligibleToJoin($user);
+            $this->ensureAutoDebitConsent($autoDebitConsent);
 
             if ($daret->members()->where('user_id', $user->id)->exists()) {
                 throw ValidationException::withMessages(['daret' => ['Already joined this daret']]);
@@ -72,7 +74,7 @@ class DaretService
                 throw ValidationException::withMessages(['daret' => ['Daret is full']]);
             }
 
-            $this->addMember($daret, $user);
+            $this->addMember($daret, $user, false, $autoDebitConsent);
             $daret->update(['current_members' => $daret->members()->count()]);
             $this->generatePayoutOrderIfFull($daret);
             $this->notifyMemberJoined($daret, $user);
@@ -81,9 +83,9 @@ class DaretService
         });
     }
 
-    public function joinByCode(string $inviteCode, User $user): Daret
+    public function joinByCode(string $inviteCode, User $user, bool $autoDebitConsent = false): Daret
     {
-        return DB::transaction(function () use ($inviteCode, $user): Daret {
+        return DB::transaction(function () use ($inviteCode, $user, $autoDebitConsent): Daret {
             $daret = Daret::where('invite_code', $inviteCode)->lockForUpdate()->first();
 
             if (! $daret) {
@@ -95,6 +97,7 @@ class DaretService
             }
 
             $this->ensureKycApproved($user);
+            $this->ensureAutoDebitConsent($autoDebitConsent);
 
             if ($daret->members()->where('user_id', $user->id)->exists()) {
                 throw ValidationException::withMessages(['daret' => ['Already joined this daret']]);
@@ -104,7 +107,7 @@ class DaretService
                 throw ValidationException::withMessages(['daret' => ['Daret is full']]);
             }
 
-            $this->addMember($daret, $user);
+            $this->addMember($daret, $user, false, $autoDebitConsent);
             $daret->update(['current_members' => $daret->members()->count()]);
             $this->generatePayoutOrderIfFull($daret);
             $this->notifyMemberJoined($daret, $user);
@@ -126,17 +129,43 @@ class DaretService
                 throw ValidationException::withMessages(['daret' => ['Only open darets can be started.']]);
             }
 
-            $members = $daret->members()->lockForUpdate()->get();
+            $members = $daret->members()
+                ->where('status', DaretMember::STATUS_ACTIVE)
+                ->with('user.account')
+                ->lockForUpdate()
+                ->get();
 
-            if ($members->count() !== $daret->total_members) {
+            if ($members->isEmpty()) {
+                throw ValidationException::withMessages(['daret' => ['Daret must have at least one active member to start.']]);
+            }
+
+            if ($members->count() !== (int) $daret->total_members) {
                 throw ValidationException::withMessages(['daret' => ['Daret can only start when all member slots are full.']]);
+            }
+
+            if ($members->contains(fn (DaretMember $member): bool => ! $member->user)) {
+                throw ValidationException::withMessages(['daret' => ['Every Daret member must have a valid user.']]);
+            }
+
+            if ($members->contains(fn (DaretMember $member): bool => ! $member->user?->account)) {
+                throw ValidationException::withMessages(['daret' => ['Every Daret member must have an account before starting.']]);
+            }
+
+            if ($members->contains(fn (DaretMember $member): bool => ! $member->auto_debit_authorized)) {
+                throw ValidationException::withMessages(['daret' => ['Every Daret member must authorize automatic debits before starting.']]);
             }
 
             $this->assignPayoutOrder($daret, $members);
             $firstPayoutMember = $daret->members()->where('payout_order', 1)->firstOrFail();
 
+            if (! $firstPayoutMember->user()->exists()) {
+                throw ValidationException::withMessages(['daret' => ['First beneficiary must be a valid Daret member.']]);
+            }
+
             $daret->update([
                 'status' => Daret::STATUS_ACTIVE,
+                'current_members' => $members->count(),
+                'current_cycle' => 1,
                 'started_at' => now(),
             ]);
 
@@ -150,75 +179,23 @@ class DaretService
             ]);
 
             $this->createPendingPayments($daret, $cycle);
+
+            if ($cycle->payments()->count() !== $members->count()) {
+                throw ValidationException::withMessages(['payments' => ['Pending payments were not initialized for every Daret member.']]);
+            }
+
             $this->notifyDaretStarted($daret);
             $this->notifyCycleStarted($daret, $cycle);
 
-            return $daret->fresh(['members.user:id,name,email', 'cycles.beneficiary:id,name,email']);
+            return $daret->fresh(['creator:id,name,email', 'members.user:id,name,email', 'cycles.beneficiary:id,name,email', 'cycles.payments']);
         });
     }
 
     public function pay(Daret $daret, User $user): array
     {
-        return DB::transaction(function () use ($daret, $user): array {
-            $daret = Daret::whereKey($daret->id)->lockForUpdate()->firstOrFail();
-
-            if ($daret->status !== Daret::STATUS_ACTIVE) {
-                throw ValidationException::withMessages(['daret' => ['Only active darets can receive payments.']]);
-            }
-
-            $member = $daret->members()->where('user_id', $user->id)->first();
-
-            if (! $member) {
-                throw ValidationException::withMessages(['daret' => ['Not a daret member']]);
-            }
-
-            $cycle = $daret->cycles()
-                ->whereIn('status', [DaretCycle::STATUS_PENDING, DaretCycle::STATUS_LATE])
-                ->lockForUpdate()
-                ->oldest('cycle_number')
-                ->firstOrFail();
-
-            if ($cycle->status === DaretCycle::STATUS_COMPLETED) {
-                throw ValidationException::withMessages(['cycle' => ['Payout already completed']]);
-            }
-
-            if ($cycle->payments()
-                ->where('user_id', $user->id)
-                ->where('status', DaretPayment::STATUS_PAID)
-                ->exists()) {
-                throw ValidationException::withMessages(['payment' => ['Payment already completed']]);
-            }
-
-            $this->deductContribution($user, $daret, $cycle);
-
-            $payment = DaretPayment::updateOrCreate(
-                [
-                    'daret_cycle_id' => $cycle->id,
-                    'user_id' => $user->id,
-                ],
-                [
-                    'daret_id' => $daret->id,
-                    'amount' => $daret->contribution_amount,
-                    'status' => DaretPayment::STATUS_PAID,
-                    'paid_at' => now(),
-                ]
-            );
-
-            $this->notifyContributionPaid($daret, $cycle, $user);
-
-            $cycleCompleted = $cycle->payments()
-                ->where('status', DaretPayment::STATUS_PAID)
-                ->count() === $daret->members()->count();
-
-            if ($cycleCompleted) {
-                $this->completeCycleAndPayout($daret, $cycle);
-            }
-
-            return [
-                'daret' => $daret->fresh(['members.user:id,name,email', 'cycles.beneficiary:id,name,email']),
-                'payment' => $payment,
-            ];
-        });
+        throw ValidationException::withMessages([
+            'payment' => ['Manual Daret payments are disabled. Contributions are debited automatically on the cycle due date.'],
+        ]);
     }
 
     public function processDuePayments(): array
@@ -226,7 +203,7 @@ class DaretService
         $summary = [
             'cycles_checked' => 0,
             'payments_paid' => 0,
-            'payments_late' => 0,
+            'payments_failed' => 0,
             'cycles_completed' => 0,
             'darets_completed' => 0,
         ];
@@ -235,9 +212,7 @@ class DaretService
             ->with(['daret.members.user', 'beneficiary'])
             ->where('status', DaretCycle::STATUS_PENDING)
             ->whereDate('due_date', '<=', now()->toDateString())
-            ->whereHas('daret', fn ($query) => $query
-                ->where('status', Daret::STATUS_ACTIVE)
-                ->where('frequency', Daret::FREQUENCY_MONTHLY))
+            ->whereHas('daret', fn ($query) => $query->where('status', Daret::STATUS_ACTIVE))
             ->oldest('due_date')
             ->get()
             ->each(function (DaretCycle $cycle) use (&$summary): void {
@@ -256,7 +231,7 @@ class DaretService
                         ->with(['members.user'])
                         ->firstOrFail();
 
-                    if ($daret->status !== Daret::STATUS_ACTIVE || $daret->frequency !== Daret::FREQUENCY_MONTHLY) {
+                    if ($daret->status !== Daret::STATUS_ACTIVE) {
                         return;
                     }
 
@@ -289,16 +264,21 @@ class DaretService
                             continue;
                         }
 
-                        if ($payment?->status === DaretPayment::STATUS_LATE) {
-                            $this->notifyStaffIfGraceExpired($daret, $cycle, $payment);
+                        if (in_array($payment?->status, [DaretPayment::STATUS_LATE, DaretPayment::STATUS_FAILED], true)) {
                             continue;
                         }
 
                         $account = Account::where('user_id', $member->user_id)->lockForUpdate()->first();
 
                         if (! $account) {
-                            $this->markContributionLate($daret, $cycle, $member->user, $payment, 'No account found for automatic Daret debit.');
-                            $summary['payments_late']++;
+                            $this->markContributionFailed($daret, $cycle, $member->user, $payment, null, 'No account found for automatic Daret debit.');
+                            $summary['payments_failed']++;
+                            continue;
+                        }
+
+                        if (! $member->auto_debit_authorized) {
+                            $this->markContributionFailed($daret, $cycle, $member->user, $payment, $account, 'Automatic Daret debit consent is missing.');
+                            $summary['payments_failed']++;
                             continue;
                         }
 
@@ -308,13 +288,13 @@ class DaretService
                             if ($this->debitAutomaticContribution($account, $member->user, $daret, $cycle, $payment)) {
                                 $summary['payments_paid']++;
                             } else {
-                                $summary['payments_late']++;
+                                $summary['payments_failed']++;
                             }
                             continue;
                         }
 
-                        $this->markContributionLate($daret, $cycle, $member->user, $payment, 'Insufficient balance for automatic Daret debit.');
-                        $summary['payments_late']++;
+                        $this->markContributionFailed($daret, $cycle, $member->user, $payment, $account, 'Insufficient balance for automatic Daret debit.');
+                        $summary['payments_failed']++;
                     }
 
                     $paidCount = $cycle->payments()
@@ -358,7 +338,16 @@ class DaretService
         }
     }
 
-    private function addMember(Daret $daret, User $user, bool $isCreator = false): DaretMember
+    private function ensureAutoDebitConsent(bool $consent): void
+    {
+        if (! $consent) {
+            throw ValidationException::withMessages([
+                'auto_debit_consent' => ['Automatic debit consent is required for Daret participation.'],
+            ]);
+        }
+    }
+
+    private function addMember(Daret $daret, User $user, bool $isCreator = false, bool $autoDebitConsent = false): DaretMember
     {
         return DaretMember::create([
             'daret_id' => $daret->id,
@@ -366,6 +355,8 @@ class DaretService
             'joined_at' => now(),
             'is_creator' => $isCreator,
             'status' => DaretMember::STATUS_ACTIVE,
+            'auto_debit_authorized' => $autoDebitConsent,
+            'auto_debit_authorized_at' => $autoDebitConsent ? now() : null,
         ]);
     }
 
@@ -424,7 +415,7 @@ class DaretService
     private function deductContribution(User $user, Daret $daret, DaretCycle $cycle): void
     {
         $account = Account::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
-        $amount = (float) $daret->contribution_amount;
+        $amount = abs((float) $daret->contribution_amount);
 
         if ($amount > (float) $account->balance) {
             throw ValidationException::withMessages([
@@ -440,7 +431,7 @@ class DaretService
             $account,
             $user,
             Transaction::TYPE_DARET_CONTRIBUTION,
-            $amount,
+            -$amount,
             $before,
             $after,
             description: "Daret #{$daret->id} cycle {$cycle->cycle_number} contribution"
@@ -449,11 +440,11 @@ class DaretService
 
     private function debitAutomaticContribution(Account $account, User $user, Daret $daret, DaretCycle $cycle, ?DaretPayment $payment): bool
     {
-        $amount = (float) $daret->contribution_amount;
+        $amount = abs((float) $daret->contribution_amount);
         $before = (float) $account->balance;
 
         if ($before < $amount) {
-            $this->markContributionLate($daret, $cycle, $user, $payment, 'Insufficient balance guard prevented automatic Daret debit.');
+            $this->markContributionFailed($daret, $cycle, $user, $payment, $account, 'Insufficient balance guard prevented automatic Daret debit.');
             return false;
         }
 
@@ -465,7 +456,7 @@ class DaretService
             $account,
             $user,
             Transaction::TYPE_DARET_CONTRIBUTION,
-            $amount,
+            -$amount,
             $before,
             $after,
             description: "Automatic Daret #{$daret->id} cycle {$cycle->cycle_number} contribution"
@@ -551,6 +542,69 @@ class DaretService
         ]);
     }
 
+    private function markContributionFailed(Daret $daret, DaretCycle $cycle, ?User $user, ?DaretPayment $payment, ?Account $account, string $reason): void
+    {
+        if (! $user) {
+            Log::warning('Unable to mark Daret contribution failed because user is missing.', [
+                'daret_id' => $daret->id,
+                'cycle_id' => $cycle->id,
+                'payment_id' => $payment?->id,
+                'reason' => $reason,
+            ]);
+
+            return;
+        }
+
+        $failedPayment = DaretPayment::updateOrCreate(
+            [
+                'daret_cycle_id' => $cycle->id,
+                'user_id' => $user->id,
+            ],
+            [
+                'daret_id' => $daret->id,
+                'amount' => $daret->contribution_amount,
+                'status' => DaretPayment::STATUS_FAILED,
+                'paid_at' => null,
+            ]
+        );
+
+        if ($account) {
+            $balance = (float) $account->balance;
+            $this->transactionService->record(
+                $account,
+                $user,
+                Transaction::TYPE_DARET_CONTRIBUTION,
+                -abs((float) $daret->contribution_amount),
+                $balance,
+                $balance,
+                status: Transaction::STATUS_FAILED,
+                description: "Failed automatic Daret #{$daret->id} cycle {$cycle->cycle_number} contribution: {$reason}"
+            );
+        }
+
+        $this->trustScoreService->decrease(
+            $user,
+            5,
+            "Failed Daret contribution for {$daret->name} cycle {$cycle->cycle_number}",
+            $failedPayment
+        );
+
+        $this->notificationService->createNotification(
+            $user->id,
+            'Daret debit failed',
+            'Automatic Daret debit failed. Please fund your account before the next cycle.',
+            Notification::TYPE_WARNING
+        );
+
+        Log::warning('Automatic Daret contribution failed.', [
+            'daret_id' => $daret->id,
+            'cycle_id' => $cycle->id,
+            'payment_id' => $failedPayment->id,
+            'user_id' => $user->id,
+            'reason' => $reason,
+        ]);
+    }
+
     private function notifyStaffIfGraceExpired(Daret $daret, DaretCycle $cycle, DaretPayment $payment): void
     {
         if (! $payment->updated_at || $payment->updated_at->greaterThan(now()->subDays(3))) {
@@ -595,7 +649,7 @@ class DaretService
             throw ValidationException::withMessages(['cycle' => ['Payout already completed']]);
         }
 
-        $amount = (float) $daret->contribution_amount * $daret->members()->count();
+        $amount = abs((float) $daret->contribution_amount) * $daret->members()->count();
         $payoutUser = User::findOrFail($cycle->beneficiary_user_id);
         $account = Account::where('user_id', $payoutUser->id)->lockForUpdate()->firstOrFail();
         $before = (float) $account->balance;
@@ -607,7 +661,7 @@ class DaretService
             $account,
             $payoutUser,
             Transaction::TYPE_DARET_PAYOUT,
-            $amount,
+            abs($amount),
             $before,
             $after,
             description: "Daret #{$daret->id} cycle {$cycle->cycle_number} payout"
@@ -630,6 +684,7 @@ class DaretService
         if ($cycle->cycle_number >= $daret->total_members) {
             $daret->update([
                 'status' => Daret::STATUS_COMPLETED,
+                'current_cycle' => $cycle->cycle_number,
                 'completed_at' => now(),
             ]);
 
@@ -648,6 +703,8 @@ class DaretService
             'started_at' => now(),
         ]);
 
+        $daret->update(['current_cycle' => $nextCycleNumber]);
+
         $this->createPendingPayments($daret, $nextCycle);
         $this->notifyCycleStarted($daret, $nextCycle);
     }
@@ -663,7 +720,7 @@ class DaretService
 
     private function notifyDaretStarted(Daret $daret): void
     {
-        $daret->members()->pluck('user_id')->each(function (int $userId): void {
+        $daret->members()->pluck('user_id')->each(function (int $userId) use ($daret): void {
             $this->notificationService->createNotification(
                 $userId,
                 'Daret Started',
