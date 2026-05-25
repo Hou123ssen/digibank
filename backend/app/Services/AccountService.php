@@ -31,6 +31,7 @@ class AccountService
     public function getBalance(User $user): array
     {
         $account = $this->getUserAccount($user);
+        $ledger = $this->ledgerConsistency($account);
 
         return [
             'account_number' => $account->account_number,
@@ -38,15 +39,22 @@ class AccountService
             'overdraft_limit' => $account->overdraft_limit,
             'available_balance' => number_format((float) $account->balance + (float) $account->overdraft_limit, 2, '.', ''),
             'status' => $account->status,
+            'ledger' => $ledger,
         ];
     }
 
-    public function deposit(User $user, float $amount): array
+    public function deposit(User $user, float $amount, ?string $idempotencyKey = null): array
     {
         $this->ensurePositiveAmount($amount, 'deposit');
 
-        return DB::transaction(function () use ($user, $amount): array {
+        return DB::transaction(function () use ($user, $amount, $idempotencyKey): array {
             $account = $this->lockUserAccount($user);
+            $this->ensureActiveAccount($account);
+
+            if ($existing = $this->existingIdempotentTransaction($account, $idempotencyKey, Transaction::TYPE_DEPOSIT)) {
+                return $this->idempotentAccountResult($account, $existing);
+            }
+
             $before = (float) $account->balance;
             $after = $before + $amount;
 
@@ -59,7 +67,8 @@ class AccountService
                 $amount,
                 $before,
                 $after,
-                description: 'Account deposit'
+                description: 'Account deposit',
+                idempotencyKey: $idempotencyKey
             );
 
             return [
@@ -70,12 +79,18 @@ class AccountService
         });
     }
 
-    public function withdraw(User $user, float $amount): Account
+    public function withdraw(User $user, float $amount, ?string $idempotencyKey = null): array
     {
         $this->ensurePositiveAmount($amount, 'withdraw');
 
-        return DB::transaction(function () use ($user, $amount): Account {
+        return DB::transaction(function () use ($user, $amount, $idempotencyKey): array {
             $account = $this->lockUserAccount($user);
+            $this->ensureActiveAccount($account);
+
+            if ($existing = $this->existingIdempotentTransaction($account, $idempotencyKey, Transaction::TYPE_WITHDRAW)) {
+                return $this->idempotentAccountResult($account, $existing);
+            }
+
             $this->ensureSufficientFunds($account, $amount);
 
             $before = (float) $account->balance;
@@ -90,23 +105,47 @@ class AccountService
                 $amount,
                 $before,
                 $after,
-                description: 'Account withdrawal'
+                description: 'Account withdrawal',
+                idempotencyKey: $idempotencyKey
             );
 
             if ($this->enteredOverdraft($before, $after)) {
                 $this->trustScoreService->decrease($user, 5, 'Overdraft used', $transaction);
             }
 
-            return $account->fresh();
+            return [
+                'account' => $account->fresh(),
+                'transaction' => $transaction,
+                'new_balance' => number_format($after, 2, '.', ''),
+            ];
         });
     }
 
-    public function transfer(User $fromUser, string $toAccountNumber, float $amount): array
+    public function transfer(User $fromUser, string $toAccountNumber, float $amount, ?string $idempotencyKey = null): array
     {
         $this->ensurePositiveAmount($amount, 'transfer');
 
-        return DB::transaction(function () use ($fromUser, $toAccountNumber, $amount): array {
+        return DB::transaction(function () use ($fromUser, $toAccountNumber, $amount, $idempotencyKey): array {
             $fromAccount = $this->lockUserAccount($fromUser);
+            $this->ensureActiveAccount($fromAccount);
+
+            if ($existingOut = $this->existingIdempotentTransaction($fromAccount, $idempotencyKey, Transaction::TYPE_TRANSFER_OUT)) {
+                $existingIn = Transaction::query()
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->where('type', Transaction::TYPE_TRANSFER_IN)
+                    ->where('related_account_id', $fromAccount->id)
+                    ->first();
+
+                return [
+                    'from_account' => $fromAccount->fresh(),
+                    'to_account' => $existingOut->relatedAccount?->fresh(),
+                    'transfer_out_transaction' => $existingOut,
+                    'transfer_in_transaction' => $existingIn,
+                    'new_balance' => number_format((float) $existingOut->balance_after, 2, '.', ''),
+                    'idempotent' => true,
+                ];
+            }
+
             $toAccount = Account::query()
                 ->where('account_number', $toAccountNumber)
                 ->lockForUpdate()
@@ -124,6 +163,7 @@ class AccountService
                 ]);
             }
 
+            $this->ensureActiveAccount($toAccount, 'Destination account is not active.');
             $this->ensureSufficientFunds($fromAccount, $amount);
 
             $fromBefore = (float) $fromAccount->balance;
@@ -142,7 +182,8 @@ class AccountService
                 $fromBefore,
                 $fromAfter,
                 $toAccount,
-                description: 'Outgoing transfer'
+                description: 'Outgoing transfer',
+                idempotencyKey: $idempotencyKey
             );
 
             $in = $this->transactionService->record(
@@ -153,7 +194,8 @@ class AccountService
                 $toBefore,
                 $toAfter,
                 $fromAccount,
-                description: 'Incoming transfer'
+                description: 'Incoming transfer',
+                idempotencyKey: $idempotencyKey
             );
 
             if ($this->enteredOverdraft($fromBefore, $fromAfter)) {
@@ -165,8 +207,27 @@ class AccountService
                 'to_account' => $toAccount->fresh(),
                 'transfer_out_transaction' => $out,
                 'transfer_in_transaction' => $in,
+                'new_balance' => number_format($fromAfter, 2, '.', ''),
             ];
         });
+    }
+
+    public function ledgerConsistency(Account $account): array
+    {
+        $delta = $account->transactions()
+            ->where('status', Transaction::STATUS_SUCCESS)
+            ->get()
+            ->sum(fn (Transaction $transaction): float => $this->signedLedgerAmount($transaction));
+
+        $expected = round((float) $delta, 2);
+        $actual = round((float) $account->balance, 2);
+
+        return [
+            'expected_balance' => number_format($expected, 2, '.', ''),
+            'actual_balance' => number_format($actual, 2, '.', ''),
+            'difference' => number_format(round($actual - $expected, 2), 2, '.', ''),
+            'is_consistent' => abs($actual - $expected) < 0.01,
+        ];
     }
 
     private function getUserAccount(User $user): Account
@@ -177,6 +238,15 @@ class AccountService
     private function lockUserAccount(User $user): Account
     {
         return Account::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+    }
+
+    private function ensureActiveAccount(Account $account, string $message = 'Account is not active.'): void
+    {
+        if ($account->status !== Account::STATUS_ACTIVE) {
+            throw ValidationException::withMessages([
+                'account' => [$message],
+            ]);
+        }
     }
 
     private function ensurePositiveAmount(float $amount, string $operation): void
@@ -202,6 +272,44 @@ class AccountService
     private function enteredOverdraft(float $balanceBefore, float $balanceAfter): bool
     {
         return $balanceBefore >= 0 && $balanceAfter < 0;
+    }
+
+    private function existingIdempotentTransaction(Account $account, ?string $idempotencyKey, string $type): ?Transaction
+    {
+        if (! $idempotencyKey) {
+            return null;
+        }
+
+        return Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('idempotency_key', $idempotencyKey)
+            ->where('type', $type)
+            ->first();
+    }
+
+    private function idempotentAccountResult(Account $account, Transaction $transaction): array
+    {
+        return [
+            'account' => $account->fresh(),
+            'transaction' => $transaction,
+            'new_balance' => number_format((float) $transaction->balance_after, 2, '.', ''),
+            'idempotent' => true,
+        ];
+    }
+
+    private function signedLedgerAmount(Transaction $transaction): float
+    {
+        $amount = abs((float) $transaction->amount);
+
+        return match ($transaction->type) {
+            Transaction::TYPE_DEPOSIT,
+            Transaction::TYPE_TRANSFER_IN,
+            Transaction::TYPE_DARET_PAYOUT => $amount,
+            Transaction::TYPE_WITHDRAW,
+            Transaction::TYPE_TRANSFER_OUT,
+            Transaction::TYPE_DARET_CONTRIBUTION => -$amount,
+            default => (float) $transaction->amount,
+        };
     }
 
     private function generateAccountNumber(): string

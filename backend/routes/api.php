@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CagnotteController;
 use App\Http\Controllers\Api\DaretController;
+use App\Http\Controllers\Api\DepositController;
 use App\Http\Controllers\Api\KycController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\TicketController;
@@ -36,6 +37,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/accounts/me/summary', [AccountController::class, 'summary']);
     Route::get('/accounts/me/statement-pdf', [AccountController::class, 'statementPdf']);
     Route::post('/accounts/deposit', [AccountController::class, 'deposit']);
+    Route::post('/deposits/create-payment-intent', [DepositController::class, 'createPaymentIntent'])
+        ->middleware('throttle:10,1');
+    Route::get('/deposits/{paymentIntent}/status', [DepositController::class, 'status']);
     Route::post('/accounts/withdraw', [AccountController::class, 'withdraw']);
     Route::post('/accounts/transfer', [AccountController::class, 'transfer']);
     Route::get('/transactions/me', [TransactionController::class, 'me']);
@@ -117,3 +121,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/{kyc}/reject', [KycReviewController::class, 'reject']);
     });
 });
+
+Route::post('/webhooks/payment-gateway', [DepositController::class, 'webhook'])
+    ->middleware('throttle:60,1');

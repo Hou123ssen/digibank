@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -15,7 +15,7 @@ import Modal from '../../components/ui/Modal';
 import Avatar from '../../components/ui/Avatar';
 import cagnotteService from '../../services/cagnotteService';
 import accountService   from '../../services/accountService';
-import { safeNumber, formatAmount } from '../../utils/apiResponse';
+import { getErrorMessage, safeNumber, formatAmount } from '../../utils/apiResponse';
 
 // ── Shared helpers (same as list page) ───────────────────────────────────────
 const CAT = {
@@ -69,9 +69,10 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
   const [balance,   setBalance]   = useState(null);
   const [loading,   setLoading]   = useState(false);
   const [success,   setSuccess]   = useState(false);
+  const inFlightKeyRef = useRef(null);
 
   useEffect(() => {
-    if (!isOpen) { setAmount(''); setMessage(''); setAnon(false); setSuccess(false); return; }
+    if (!isOpen) { setAmount(''); setMessage(''); setAnon(false); setSuccess(false); inFlightKeyRef.current = null; return; }
     accountService.getMyAccount().then(r => {
       const d = r?.data ?? r;
       setBalance(safeNumber(d?.balance ?? d?.data?.balance ?? d?.solde ?? 0));
@@ -83,18 +84,22 @@ const DonateModal = ({ campaign, isOpen, onClose, onSuccess }) => {
   const valid  = amt > 0 && (balance === null || amt <= balance);
 
   const handleDonate = async () => {
-    if (!valid) return;
+    if (!valid || loading || inFlightKeyRef.current) return;
+    inFlightKeyRef.current = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     setLoading(true);
     try {
       await cagnotteService.donate(campaign.id, {
         amount:    amt,
         message:   message.trim() || undefined,
         anonymous: anon,
+        idempotency_key: inFlightKeyRef.current,
       });
+      await accountService.getMyAccount();
       setSuccess(true);
       onSuccess?.();
     } catch (err) {
-      addToast?.(err?.response?.data?.message || 'Erreur lors du don', 'error');
+      addToast?.(getErrorMessage(err) || 'Erreur lors du don', 'error');
+      inFlightKeyRef.current = null;
     } finally {
       setLoading(false);
     }

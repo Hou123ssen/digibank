@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   ArrowRight, 
   Search, 
@@ -22,6 +22,7 @@ import Badge from '../../components/ui/Badge';
 import accountService from '../../services/accountService';
 import { useTheme } from '../../components/landing/ThemeContext';
 import { cn } from '../../utils/cn';
+import { getErrorMessage, safeNumber } from '../../utils/apiResponse';
 
 const RECENT_RECIPIENTS = [
   { id: 1, name: 'Youssef Alami', account: 'MA64 1234 5678 9012', avatar: null },
@@ -44,6 +45,8 @@ const TransferPage = ({ addToast }) => {
   const [recipientData, setRecipientData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [transferReceipt, setTransferReceipt] = useState(null);
+  const inFlightKeyRef = useRef(null);
 
   // Mock recipient validation
   useEffect(() => {
@@ -81,7 +84,7 @@ const TransferPage = ({ addToast }) => {
       addToast('Veuillez entrer un numéro de compte bénéficiaire.', 'error');
       return false;
     }
-    const amt = Number(formData.amount);
+    const amt = safeNumber(formData.amount);
     if (!amt || amt <= 0) {
       addToast('Le montant doit être supérieur à 0.', 'error');
       return false;
@@ -90,27 +93,30 @@ const TransferPage = ({ addToast }) => {
   };
 
   const handleTransfer = async () => {
+    if (isLoading || inFlightKeyRef.current) return;
+
+    inFlightKeyRef.current = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     setIsLoading(true);
     setError(null);
 
     try {
       const result = await accountService.transfer({
         account_number: formData.recipient,
-        amount: Number(formData.amount),
+        amount: safeNumber(formData.amount),
+        idempotency_key: inFlightKeyRef.current,
       });
 
       addToast('Virement effectué avec succès !', 'success');
+      setTransferReceipt(result);
+      await accountService.getMyAccount();
       setStep('success');
     } catch (err) {
       console.log('Transfer backend response:', err.response?.data);
-      const data = err.response?.data;
-      const message =
-        data?.message ||
-        Object.values(data?.errors || {}).flat()?.[0] ||
-        'Une erreur est survenue lors du virement.';
+      const message = getErrorMessage(err) || 'Une erreur est survenue lors du virement.';
 
       setError(message);
       addToast(message, 'error');
+      inFlightKeyRef.current = null;
       // Stay on confirm step so user sees the inline error and can retry
     } finally {
       setIsLoading(false);
@@ -136,7 +142,7 @@ const TransferPage = ({ addToast }) => {
           <Card className={cn("p-6 space-y-4", dark ? "bg-white/5 border-white/10" : "bg-white/90 border-[#00C2A8]/20")}>
             <div className="flex justify-between text-sm">
               <span className="text-slate-500">Référence</span>
-              <span className="text-white font-mono uppercase">TRX-{Math.random().toString(36).substr(2, 9)}</span>
+              <span className="text-white font-mono uppercase">{transferReceipt?.transfer_out_transaction?.reference || 'Confirmé'}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-500">Date & Heure</span>
@@ -281,7 +287,7 @@ const TransferPage = ({ addToast }) => {
               <Button
                 variant="primary"
                 className="w-full h-14 text-lg font-bold"
-                disabled={!formData.recipient || !formData.amount}
+                disabled={!formData.recipient || !formData.amount || isLoading}
                 onClick={() => { if (validateForm()) { setError(null); setStep('confirm'); } }}
               >
                 Envoyer {formData.amount || '0'} MAD
@@ -384,7 +390,7 @@ const TransferPage = ({ addToast }) => {
                 <Button variant="secondary" className="flex-1" onClick={() => setStep('form')} disabled={isLoading}>
                   Modifier
                 </Button>
-                <Button variant="primary" className="flex-1" onClick={handleTransfer} isLoading={isLoading}>
+                <Button variant="primary" className="flex-1" onClick={handleTransfer} isLoading={isLoading} disabled={isLoading}>
                   Confirmer & Envoyer
                 </Button>
               </div>

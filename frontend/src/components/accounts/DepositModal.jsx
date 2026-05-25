@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ArrowRight,
-  CheckCircle2,
-  Wallet,
-  CreditCard,
   Banknote,
-  Plus,
+  CheckCircle2,
+  CreditCard,
+  ShieldCheck,
+  Wallet,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,29 +13,27 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import accountService from '../../services/accountService';
-import { safeNumber, formatAmount } from '../../utils/apiResponse';
+import { safeNumber, formatAmount, getErrorMessage } from '../../utils/apiResponse';
 
 const QUICK_AMOUNTS = [100, 500, 1000, 5000];
 
 const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0 }) => {
   const [amount, setAmount] = useState('');
-  const [source, setSource] = useState('card');
+  const [gateway, setGateway] = useState('stripe');
   const [note, setNote] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState(null);
-
-  const toast = (message, type) => {
-    addToast?.(message, type);
-  };
+  const inFlightKeyRef = useRef(null);
 
   const resetState = () => {
     setAmount('');
-    setSource('card');
+    setGateway('stripe');
     setNote('');
     setIsSuccess(false);
     setError(null);
     setIsLoading(false);
+    inFlightKeyRef.current = null;
   };
 
   const handleClose = () => {
@@ -46,45 +44,32 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || safeNumber(amount) <= 0 || isLoading) return;
+    if (!amount || safeNumber(amount) <= 0 || isLoading || inFlightKeyRef.current) return;
 
-    const payload = {
-      amount: safeNumber(amount),
-      source,
-      note,
-    };
-    console.log('Deposit request payload:', payload);
-
+    inFlightKeyRef.current = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await accountService.deposit(payload);
-      console.log('Deposit backend response:', response);
+      const response = await accountService.deposit({
+        amount: safeNumber(amount),
+        gateway,
+        note,
+        idempotency_key: inFlightKeyRef.current,
+      });
 
-      const backendConfirmed = response?.success === true
-        && response?.transaction
-        && (response?.new_balance !== undefined || response?.account?.balance !== undefined);
-
-      if (!backendConfirmed) {
-        throw new Error('Deposit response was not confirmed by backend.');
+      if (!response?.checkout_url || !response?.payment_intent_id) {
+        throw new Error('Payment intent response was not confirmed by backend.');
       }
 
       setIsSuccess(true);
       await onSuccess?.(response);
-
-      const language = localStorage.getItem('digibank_language_preference');
-      toast(language === 'ar' ? 'تم إيداع الأموال بنجاح' : 'Dépôt effectué avec succès', 'success');
-
-      setTimeout(() => {
-        handleClose();
-      }, 650);
+      window.location.href = response.checkout_url;
     } catch (err) {
-      console.error('Deposit error:', err);
-      console.log('Deposit error response:', err.response?.data || err.message);
-      const errorMessage = err.response?.data?.message || 'Une erreur est survenue lors du dépôt.';
+      const errorMessage = getErrorMessage(err) || 'Une erreur est survenue lors de la recharge.';
       setError(errorMessage);
-      toast(errorMessage, 'error');
+      addToast?.(errorMessage, 'error');
+      inFlightKeyRef.current = null;
     } finally {
       setIsLoading(false);
     }
@@ -92,13 +77,12 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
 
   const current = safeNumber(currentBalance);
   const depositAmount = safeNumber(amount);
-  const previewBalance = current + depositAmount;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={!isSuccess ? 'Déposer des fonds' : null}
+      title={!isSuccess ? 'Recharge par paiement sécurisé' : null}
       className="max-w-md"
     >
       <AnimatePresence mode="wait">
@@ -118,7 +102,7 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
             )}
 
             <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-400 uppercase tracking-wider">Montant à déposer</label>
+              <label className="text-sm font-medium text-slate-400 uppercase tracking-wider">Montant à recharger</label>
               <div className="relative">
                 <input
                   type="number"
@@ -148,26 +132,26 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
             </div>
 
             <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-400 uppercase tracking-wider">Source des fonds</label>
+              <label className="text-sm font-medium text-slate-400 uppercase tracking-wider">Passerelle de paiement</label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { id: 'transfer', label: 'Virement', icon: Banknote },
-                  { id: 'cash', label: 'Espèces', icon: Wallet },
-                  { id: 'card', label: 'Carte', icon: CreditCard },
-                ].map((s) => (
+                  { id: 'stripe', label: 'Stripe', icon: CreditCard },
+                  { id: 'cmi', label: 'CMI', icon: Banknote },
+                  { id: 'bank_gateway', label: 'Banque', icon: Wallet },
+                ].map((option) => (
                   <button
-                    key={s.id}
+                    key={option.id}
                     type="button"
-                    onClick={() => setSource(s.id)}
+                    onClick={() => setGateway(option.id)}
                     disabled={isLoading}
                     className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all disabled:opacity-50 ${
-                      source === s.id
+                      gateway === option.id
                         ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500'
                         : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                     }`}
                   >
-                    <s.icon size={20} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">{s.label}</span>
+                    <option.icon size={20} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -175,7 +159,7 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
 
             <Input
               label="Note (optionnel)"
-              placeholder="Ex: Remboursement ami"
+              placeholder="Ex: Recharge mensuelle"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="bg-white/5 border-white/10"
@@ -188,10 +172,10 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
                 <span className="text-slate-300 font-mono">{formatAmount(current)}</span>
               </div>
               <div className="flex justify-between text-sm font-bold">
-                <span className="text-slate-400">Nouveau solde</span>
+                <span className="text-slate-400">Montant à payer</span>
                 <div className="flex items-center gap-2 text-emerald-500">
                   <ArrowRight size={14} />
-                  <span className="font-mono">{formatAmount(previewBalance)}</span>
+                  <span className="font-mono">{formatAmount(depositAmount)}</span>
                 </div>
               </div>
             </div>
@@ -210,11 +194,11 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
                 type="submit"
                 variant="primary"
                 isLoading={isLoading}
-                disabled={isLoading || safeNumber(amount) <= 0}
+                disabled={isLoading || depositAmount <= 0}
                 className="flex-1"
-                leftIcon={Plus}
+                leftIcon={ShieldCheck}
               >
-                Confirmer le dépôt
+                Payer sécurisé
               </Button>
             </div>
           </motion.form>
@@ -230,16 +214,9 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
               <CheckCircle2 size={40} />
             </div>
             <div className="space-y-2">
-              <h3 className="text-2xl font-bold text-white">Dépôt réussi !</h3>
-              <p className="text-slate-400">Vos fonds ont été ajoutés instantanément à votre compte.</p>
+              <h3 className="text-2xl font-bold text-white">Redirection paiement</h3>
+              <p className="text-slate-400">Votre recharge sera créditée uniquement après confirmation sécurisée de la passerelle.</p>
             </div>
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-              <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Nouveau solde</p>
-              <p className="text-3xl font-bold text-white">{formatAmount(previewBalance)}</p>
-            </div>
-            <Button onClick={handleClose} variant="primary" className="w-full">
-              Terminé
-            </Button>
           </motion.div>
         )}
       </AnimatePresence>

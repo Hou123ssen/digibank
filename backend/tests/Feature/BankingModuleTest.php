@@ -69,7 +69,7 @@ class BankingModuleTest extends TestCase
         ]);
     }
 
-    public function test_deposit_updates_balance(): void
+    public function test_direct_deposit_endpoint_is_disabled(): void
     {
         $token = $this->registerAndGetToken();
 
@@ -77,26 +77,18 @@ class BankingModuleTest extends TestCase
             'amount' => 150.75,
         ]);
 
-        $response->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.account.balance', '150.75')
-            ->assertJsonPath('data.new_balance', '150.75')
-            ->assertJsonPath('data.transaction.type', Transaction::TYPE_DEPOSIT);
+        $response->assertStatus(410)
+            ->assertJsonPath('success', false);
 
-        $this->assertDatabaseHas('transactions', [
-            'type' => Transaction::TYPE_DEPOSIT,
-            'amount' => '150.75',
-            'balance_before' => '0.00',
-            'balance_after' => '150.75',
-            'status' => Transaction::STATUS_SUCCESS,
-        ]);
+        $this->assertEquals('0.00', User::where('email', 'john@example.com')->first()->account->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 0);
     }
 
     public function test_withdraw_updates_balance(): void
     {
         $token = $this->registerAndGetToken();
 
-        $this->withToken($token)->postJson('/api/accounts/deposit', ['amount' => 200]);
+        $this->creditAccountForTest('john@example.com', 200);
 
         $response = $this->withToken($token)->postJson('/api/accounts/withdraw', [
             'amount' => 80,
@@ -104,7 +96,9 @@ class BankingModuleTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.account.balance', '120.00');
+            ->assertJsonPath('data.account.balance', '120.00')
+            ->assertJsonPath('data.new_balance', '120.00')
+            ->assertJsonPath('data.transaction.type', Transaction::TYPE_WITHDRAW);
 
         $this->assertDatabaseHas('transactions', [
             'type' => Transaction::TYPE_WITHDRAW,
@@ -121,7 +115,7 @@ class BankingModuleTest extends TestCase
         $receiver = User::where('email', 'receiver@example.com')->first();
         $toAccountNumber = $receiver->account->account_number;
 
-        $this->withToken($fromToken)->postJson('/api/accounts/deposit', ['amount' => 300]);
+        $this->creditAccountForTest('sender@example.com', 300);
 
         $response = $this->withToken($fromToken)->postJson('/api/accounts/transfer', [
             'account_number' => $toAccountNumber,
@@ -131,9 +125,42 @@ class BankingModuleTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.from_account.balance', '175.00')
-            ->assertJsonPath('data.to_account.balance', '125.00');
+            ->assertJsonPath('data.to_account.balance', '125.00')
+            ->assertJsonPath('data.new_balance', '175.00');
 
         $this->assertEquals('125.00', $receiver->account->fresh()->balance);
+        $this->assertDatabaseHas('transactions', [
+            'type' => Transaction::TYPE_TRANSFER_OUT,
+            'amount' => '125.00',
+            'balance_before' => '300.00',
+            'balance_after' => '175.00',
+        ]);
+        $this->assertDatabaseHas('transactions', [
+            'type' => Transaction::TYPE_TRANSFER_IN,
+            'amount' => '125.00',
+            'balance_before' => '0.00',
+            'balance_after' => '125.00',
+        ]);
+    }
+
+    public function test_account_ledger_consistency_matches_successful_transactions(): void
+    {
+        $fromToken = $this->registerAndGetToken('sender@example.com');
+        $this->registerAndGetToken('receiver@example.com');
+        $receiver = User::where('email', 'receiver@example.com')->first();
+
+        $this->creditAccountForTest('sender@example.com', 500);
+        $this->withToken($fromToken)->postJson('/api/accounts/withdraw', ['amount' => 100]);
+        $this->withToken($fromToken)->postJson('/api/accounts/transfer', [
+            'account_number' => $receiver->account->account_number,
+            'amount' => 50,
+        ]);
+
+        $this->withToken($fromToken)->getJson('/api/accounts/me')
+            ->assertOk()
+            ->assertJsonPath('data.balance.ledger.expected_balance', '350.00')
+            ->assertJsonPath('data.balance.ledger.actual_balance', '350.00')
+            ->assertJsonPath('data.balance.ledger.is_consistent', true);
     }
 
     public function test_cannot_withdraw_above_balance_plus_overdraft_limit(): void
@@ -261,31 +288,6 @@ class BankingModuleTest extends TestCase
         $this->assertDatabaseCount('transactions', 0);
     }
 
-    public function test_deposit_reduces_negative_balance(): void
-    {
-        $token = $this->registerAndGetToken();
-        $user = User::where('email', 'john@example.com')->first();
-        $user->account->update([
-            'balance' => -200,
-            'overdraft_limit' => 500,
-        ]);
-
-        $response = $this->withToken($token)->postJson('/api/accounts/deposit', [
-            'amount' => 100,
-        ]);
-
-        $response->assertOk()
-            ->assertJsonPath('data.account.balance', '-100.00');
-
-        $this->assertDatabaseHas('transactions', [
-            'type' => Transaction::TYPE_DEPOSIT,
-            'balance_before' => '-200.00',
-            'balance_after' => '-100.00',
-            'is_overdraft' => true,
-            'overdraft_amount' => '100.00',
-        ]);
-    }
-
     public function test_transaction_history_includes_overdraft_fields(): void
     {
         $token = $this->registerAndGetToken();
@@ -312,7 +314,7 @@ class BankingModuleTest extends TestCase
         $this->registerAndGetToken('receiver@example.com');
         $toAccountNumber = User::where('email', 'receiver@example.com')->first()->account->account_number;
 
-        $this->withToken($fromToken)->postJson('/api/accounts/deposit', ['amount' => 500]);
+        $this->creditAccountForTest('sender@example.com', 500);
         $this->withToken($fromToken)->postJson('/api/accounts/withdraw', ['amount' => 100]);
         $this->withToken($fromToken)->postJson('/api/accounts/transfer', [
             'account_number' => $toAccountNumber,
@@ -337,7 +339,7 @@ class BankingModuleTest extends TestCase
         $this->registerAndGetToken('receiver@example.com');
         $receiver = User::where('email', 'receiver@example.com')->first();
 
-        $this->withToken($fromToken)->postJson('/api/accounts/deposit', ['amount' => 500]);
+        $this->creditAccountForTest('sender@example.com', 500);
         $this->withToken($fromToken)->postJson('/api/accounts/withdraw', ['amount' => 100]);
         $this->withToken($fromToken)->postJson('/api/accounts/transfer', [
             'account_number' => $receiver->account->account_number,
@@ -380,6 +382,28 @@ class BankingModuleTest extends TestCase
     {
         return $this->postJson('/api/auth/register', $this->registerPayload($email))
             ->json('data.token');
+    }
+
+    private function creditAccountForTest(string $email, float $amount): void
+    {
+        $user = User::where('email', $email)->firstOrFail();
+        $account = $user->account()->firstOrFail();
+        $before = (float) $account->balance;
+        $after = $before + $amount;
+
+        $account->update(['balance' => $after]);
+
+        Transaction::forceCreate([
+            'account_id' => $account->id,
+            'user_id' => $user->id,
+            'type' => Transaction::TYPE_DEPOSIT,
+            'amount' => $amount,
+            'balance_before' => $before,
+            'balance_after' => $after,
+            'status' => Transaction::STATUS_SUCCESS,
+            'reference' => 'TXN-TEST-'.uniqid(),
+            'description' => 'Test funding deposit',
+        ]);
     }
 
     private function registerPayload(string $email = 'john@example.com'): array

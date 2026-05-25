@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'balance_after',
     'status',
     'reference',
+    'idempotency_key',
     'description',
     'is_overdraft',
     'overdraft_amount',

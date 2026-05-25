@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\KycVerification;
+use App\Models\PaymentIntent;
 use App\Models\TrustScoreLog;
 use App\Models\User;
 use App\Services\TrustScoreService;
@@ -117,8 +118,10 @@ class TrustScoreTest extends TestCase
         ]);
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/accounts/deposit', ['amount' => 100])
-            ->assertOk();
+        $this->postJson('/api/deposits/create-payment-intent', [
+            'amount' => 100,
+            'gateway' => PaymentIntent::GATEWAY_STRIPE,
+        ])->assertCreated();
 
         $this->assertSame(50, $user->fresh()->trust_score);
         $this->assertDatabaseCount('trust_score_logs', 0);

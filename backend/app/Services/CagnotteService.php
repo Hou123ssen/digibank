@@ -99,9 +99,15 @@ class CagnotteService
         });
     }
 
-    public function donate(Cagnotte $cagnotte, User $user, float $amount): array
+    public function donate(Cagnotte $cagnotte, User $user, float $amount, ?string $idempotencyKey = null): array
     {
-        return DB::transaction(function () use ($cagnotte, $user, $amount): array {
+        if ($amount <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => ['The donation amount must be greater than 0.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($cagnotte, $user, $amount, $idempotencyKey): array {
             $cagnotte = Cagnotte::whereKey($cagnotte->id)->lockForUpdate()->firstOrFail();
 
             if ($cagnotte->status !== Cagnotte::STATUS_ACTIVE) {
@@ -111,6 +117,35 @@ class CagnotteService
             }
 
             $account = Account::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+            if ($account->status !== Account::STATUS_ACTIVE) {
+                throw ValidationException::withMessages([
+                    'account' => ['Account is not active.'],
+                ]);
+            }
+
+            if ($idempotencyKey) {
+                $existingTransaction = Transaction::query()
+                    ->where('account_id', $account->id)
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->where('type', Transaction::TYPE_WITHDRAW)
+                    ->first();
+
+                if ($existingTransaction) {
+                    $existingDonation = CagnotteDonation::query()
+                        ->where('user_id', $user->id)
+                        ->where('idempotency_key', $idempotencyKey)
+                        ->first();
+
+                    return [
+                        'cagnotte' => $cagnotte->fresh(['creator:id,name,email', 'donations.user:id,name,email']),
+                        'donation' => $existingDonation,
+                        'transaction' => $existingTransaction,
+                        'new_balance' => number_format((float) $existingTransaction->balance_after, 2, '.', ''),
+                        'idempotent' => true,
+                    ];
+                }
+            }
+
             $available = (float) $account->balance + (float) $account->overdraft_limit;
 
             if ($amount > $available) {
@@ -123,20 +158,22 @@ class CagnotteService
             $balanceAfter = $balanceBefore - $amount;
             $account->update(['balance' => $balanceAfter]);
 
-            $this->transactionService->record(
+            $transaction = $this->transactionService->record(
                 $account,
                 $user,
                 Transaction::TYPE_WITHDRAW,
                 $amount,
                 $balanceBefore,
                 $balanceAfter,
-                description: "Donation to cagnotte #{$cagnotte->id}"
+                description: "Donation to cagnotte #{$cagnotte->id}",
+                idempotencyKey: $idempotencyKey
             );
 
             $donation = CagnotteDonation::create([
                 'cagnotte_id' => $cagnotte->id,
                 'user_id' => $user->id,
                 'amount' => $amount,
+                'idempotency_key' => $idempotencyKey,
             ]);
 
             $currentAmount = (float) $cagnotte->current_amount + $amount;
@@ -168,6 +205,8 @@ class CagnotteService
             return [
                 'cagnotte' => $cagnotte->fresh(['creator:id,name,email', 'donations.user:id,name,email']),
                 'donation' => $donation,
+                'transaction' => $transaction,
+                'new_balance' => number_format($balanceAfter, 2, '.', ''),
             ];
         });
     }

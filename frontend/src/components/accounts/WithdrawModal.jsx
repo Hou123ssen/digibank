@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   X, 
   ArrowRight, 
@@ -13,6 +13,7 @@ import Button from '../ui/Button';
 import accountService from '../../services/accountService';
 import { useTheme } from '../landing/ThemeContext';
 import { cn } from '../../utils/cn';
+import { safeNumber, formatAmount, getErrorMessage } from '../../utils/apiResponse';
 
 const QUICK_AMOUNTS = [100, 500, 1000, 2000];
 
@@ -22,10 +23,15 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState(null);
+  const [confirmedBalance, setConfirmedBalance] = useState(null);
+  const inFlightKeyRef = useRef(null);
 
-  const availableFunds = Number(currentBalance) + Number(overdraftLimit);
-  const willUseOverdraft = Number(amount) > Number(currentBalance);
-  const isInsufficientFunds = Number(amount) > availableFunds;
+  const current = safeNumber(currentBalance);
+  const overdraft = safeNumber(overdraftLimit);
+  const requested = safeNumber(amount);
+  const availableFunds = current + overdraft;
+  const willUseOverdraft = requested > current;
+  const isInsufficientFunds = requested > availableFunds;
 
   const handleAmountChange = (e) => {
     const normalized = e.target.value
@@ -39,21 +45,25 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0 || isInsufficientFunds) return;
+    if (!amount || requested <= 0 || isInsufficientFunds || isLoading || inFlightKeyRef.current) return;
+    inFlightKeyRef.current = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      await accountService.withdraw({
-        amount: Number(amount),
-        description: 'Retrait de fonds'
+      const response = await accountService.withdraw({
+        amount: requested,
+        description: 'Retrait de fonds',
+        idempotency_key: inFlightKeyRef.current,
       });
+      setConfirmedBalance(safeNumber(response?.new_balance ?? response?.account?.balance));
       setIsSuccess(true);
-      onSuccess?.();
+      await onSuccess?.();
     } catch (err) {
       console.error('Withdraw error:', err);
-      setError(err.response?.data?.message || 'Une erreur est survenue lors du retrait.');
+      setError(getErrorMessage(err) || 'Une erreur est survenue lors du retrait.');
+      inFlightKeyRef.current = null;
     } finally {
       setIsLoading(false);
     }
@@ -63,6 +73,8 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
     setAmount('');
     setIsSuccess(false);
     setError(null);
+    setConfirmedBalance(null);
+    inFlightKeyRef.current = null;
   };
 
   const handleClose = () => {
@@ -70,7 +82,7 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
     setTimeout(resetState, 300);
   };
 
-  const previewBalance = Number(currentBalance) - Number(amount || 0);
+  const previewBalance = current - requested;
 
   return (
     <Modal 
@@ -152,13 +164,13 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
             <div className={cn("p-4 rounded-2xl border space-y-2", dark ? "bg-black/40 border-white/5" : "bg-[#f0fffe]/80 border-[#00C2A8]/15")}>
               <div className="flex justify-between text-sm">
                 <span className={cn(dark ? "text-slate-500" : "text-[#006655]/65")}>Disponible (incl. découvert)</span>
-                <span className={cn("font-mono", dark ? "text-slate-300" : "text-[#003d35]")}>{availableFunds.toLocaleString()} MAD</span>
+                <span className={cn("font-mono", dark ? "text-slate-300" : "text-[#003d35]")}>{formatAmount(availableFunds)}</span>
               </div>
               <div className="flex justify-between text-sm font-bold">
                 <span className={cn(dark ? "text-slate-400" : "text-[#006655]/75")}>Nouveau solde</span>
                 <div className="flex items-center gap-2 text-rose-500">
                   <ArrowRight size={14} />
-                  <span className="font-mono">{previewBalance.toLocaleString()} MAD</span>
+                  <span className="font-mono">{formatAmount(previewBalance)}</span>
                 </div>
               </div>
             </div>
@@ -177,7 +189,7 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
                 variant="primary" 
                 isLoading={isLoading} 
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                disabled={isInsufficientFunds}
+                disabled={isLoading || isInsufficientFunds || requested <= 0}
                 leftIcon={ArrowUpRight}
               >
                 Retirer
@@ -200,7 +212,7 @@ const WithdrawModal = ({ isOpen, onClose, onSuccess, currentBalance = 0, overdra
             </div>
             <div className={cn("p-4 rounded-2xl border", dark ? "bg-white/5 border-white/10" : "bg-[#f0fffe] border-[#00C2A8]/20")}>
               <p className={cn("text-xs uppercase tracking-widest mb-1", dark ? "text-slate-500" : "text-[#006655]/60")}>Nouveau solde</p>
-              <p className={cn("text-3xl font-bold", dark ? "text-white" : "text-[#003d35]")}>{previewBalance.toLocaleString()} <span className="text-emerald-500">MAD</span></p>
+              <p className={cn("text-3xl font-bold", dark ? "text-white" : "text-[#003d35]")}>{formatAmount(confirmedBalance)}</p>
             </div>
             <Button 
               onClick={handleClose} 

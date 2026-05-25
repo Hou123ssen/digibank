@@ -145,7 +145,9 @@ class CagnotteDonationTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.cagnotte.current_amount', '100.00')
-            ->assertJsonPath('data.donation.amount', '100.00');
+            ->assertJsonPath('data.donation.amount', '100.00')
+            ->assertJsonPath('data.new_balance', '200.00')
+            ->assertJsonPath('data.transaction.type', Transaction::TYPE_WITHDRAW);
 
         $this->assertEquals('200.00', $donor->account->fresh()->balance);
         $this->assertDatabaseHas('cagnotte_donations', [
@@ -165,6 +167,34 @@ class CagnotteDonationTest extends TestCase
             'message' => 'Thank you for your donation',
             'type' => Notification::TYPE_SUCCESS,
         ]);
+    }
+
+    public function test_idempotency_key_prevents_duplicate_cagnotte_donation(): void
+    {
+        [, $donor, $cagnotte] = $this->campaignFixture(targetAmount: 500);
+        $donor->account()->create([
+            'account_number' => '1234567890',
+            'balance' => 300,
+            'overdraft_limit' => 0,
+            'status' => 'active',
+        ]);
+        Sanctum::actingAs($donor);
+
+        $this->withHeader('Idempotency-Key', 'donation-double-click-1')
+            ->postJson("/api/cagnottes/{$cagnotte->id}/donate", ['amount' => 100])
+            ->assertOk()
+            ->assertJsonPath('data.new_balance', '200.00');
+
+        $this->withHeader('Idempotency-Key', 'donation-double-click-1')
+            ->postJson("/api/cagnottes/{$cagnotte->id}/donate", ['amount' => 100])
+            ->assertOk()
+            ->assertJsonPath('data.new_balance', '200.00')
+            ->assertJsonPath('data.idempotent', true);
+
+        $this->assertEquals('200.00', $donor->account->fresh()->balance);
+        $this->assertEquals('100.00', $cagnotte->fresh()->current_amount);
+        $this->assertDatabaseCount('transactions', 1);
+        $this->assertDatabaseCount('cagnotte_donations', 1);
     }
 
     public function test_cagnotte_is_completed_and_creator_notified_when_target_reached(): void

@@ -12,6 +12,13 @@ const unwrapCagnottes = response => {
   const cagnottes = Array.isArray(d) ? d : d?.cagnottes || [];
   return arr(cagnottes).map(normalizeCagnotte);
 };
+const makeIdempotencyConfig = (data = {}) => {
+  const key = data.idempotency_key || data.idempotencyKey || crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+  return {
+    payload: Object.fromEntries(Object.entries(data).filter(([k]) => !['idempotency_key', 'idempotencyKey'].includes(k))),
+    config: { headers: { 'Idempotency-Key': key } },
+  };
+};
 
 const cagnotteService = {
   getCagnottes: async (params) => {
@@ -42,7 +49,8 @@ const cagnotteService = {
     return unwrapCagnottes(response);
   },
   donate: async (id, data) => {
-    const response = await api.post(`/cagnottes/${id}/donate`, data);
+    const { payload, config } = makeIdempotencyConfig(data);
+    const response = await api.post(`/cagnottes/${id}/donate`, payload, config);
     return unwrap(response);
   },
   getPendingCagnottes: async () => {

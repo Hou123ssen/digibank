@@ -18,7 +18,8 @@ class TransactionService
         float $balanceAfter,
         ?Account $relatedAccount = null,
         string $status = Transaction::STATUS_SUCCESS,
-        ?string $description = null
+        ?string $description = null,
+        ?string $idempotencyKey = null
     ): Transaction {
         $overdraftAmount = $balanceAfter < 0 ? abs($balanceAfter) : null;
 
@@ -32,6 +33,7 @@ class TransactionService
             'balance_after' => $balanceAfter,
             'status' => $status,
             'reference' => $this->makeReference(),
+            'idempotency_key' => $idempotencyKey,
             'description' => $description,
             'is_overdraft' => $overdraftAmount !== null,
             'overdraft_amount' => $overdraftAmount,

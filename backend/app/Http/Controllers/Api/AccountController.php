@@ -76,27 +76,26 @@ class AccountController extends Controller
 
     public function deposit(DepositRequest $request)
     {
-        $result = $this->accountService->deposit(
-            $request->user(),
-            (float) $request->validated('amount')
+        return ApiResponse::error(
+            'Direct deposits are disabled. Please create a secure payment intent.',
+            ['deposit' => ['Use POST /api/deposits/create-payment-intent.']],
+            410
         );
-
-        return ApiResponse::success('Deposit completed successfully.', [
-            'account' => $result['account'],
-            'transaction' => $result['transaction'],
-            'new_balance' => $result['new_balance'],
-        ]);
     }
 
     public function withdraw(WithdrawRequest $request)
     {
-        $account = $this->accountService->withdraw(
+        $result = $this->accountService->withdraw(
             $request->user(),
-            (float) $request->validated('amount')
+            (float) $request->validated('amount'),
+            $this->idempotencyKey($request)
         );
 
         return ApiResponse::success('Withdrawal completed successfully.', [
-            'account' => $account,
+            'account' => $result['account'],
+            'transaction' => $result['transaction'],
+            'new_balance' => $result['new_balance'],
+            'idempotent' => $result['idempotent'] ?? false,
         ]);
     }
 
@@ -105,7 +104,8 @@ class AccountController extends Controller
         $result = $this->accountService->transfer(
             $request->user(),
             $request->validated('account_number'),
-            (float) $request->validated('amount')
+            (float) $request->validated('amount'),
+            $this->idempotencyKey($request)
         );
 
         return ApiResponse::success('Transfer completed successfully.', $result);
@@ -121,13 +121,15 @@ class AccountController extends Controller
             ->where('status', Transaction::STATUS_SUCCESS)
             ->whereBetween('created_at', [$periodStart, $periodEnd])
             ->selectRaw("
-                COALESCE(SUM(CASE WHEN type IN (?, ?) THEN amount ELSE 0 END), 0) as monthly_inflows,
-                COALESCE(SUM(CASE WHEN type IN (?, ?) THEN amount ELSE 0 END), 0) as monthly_outflows
+                COALESCE(SUM(CASE WHEN type IN (?, ?, ?) THEN ABS(amount) ELSE 0 END), 0) as monthly_inflows,
+                COALESCE(SUM(CASE WHEN type IN (?, ?, ?) THEN ABS(amount) ELSE 0 END), 0) as monthly_outflows
             ", [
                 Transaction::TYPE_DEPOSIT,
                 Transaction::TYPE_TRANSFER_IN,
+                Transaction::TYPE_DARET_PAYOUT,
                 Transaction::TYPE_WITHDRAW,
                 Transaction::TYPE_TRANSFER_OUT,
+                Transaction::TYPE_DARET_CONTRIBUTION,
             ])
             ->first();
 
@@ -139,5 +141,16 @@ class AccountController extends Controller
             'monthly_outflows' => $monthlyOutflows,
             'net_flow' => round($monthlyInflows - $monthlyOutflows, 2),
         ];
+    }
+
+    private function idempotencyKey(Request $request): ?string
+    {
+        $key = $request->header('Idempotency-Key') ?: $request->input('idempotency_key');
+
+        if (! is_string($key) || trim($key) === '') {
+            return null;
+        }
+
+        return substr(trim($key), 0, 120);
     }
 }

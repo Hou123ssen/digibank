@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Plus,
   ArrowUpRight,
@@ -28,10 +28,12 @@ import { cn } from '../../utils/cn';
 
 import accountService from '../../services/accountService';
 import transactionService from '../../services/transactionService';
+import { safeNumber } from '../../utils/apiResponse';
 
 const AccountOverviewPage = ({ addToast }) => {
   const { dark } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [account, setAccount] = useState(null);
   const [summary, setSummary] = useState({ monthly_inflows: 0, monthly_outflows: 0, net_flow: 0 });
   const [transactions, setTransactions] = useState([]);
@@ -44,6 +46,26 @@ const AccountOverviewPage = ({ addToast }) => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const intentId = params.get('deposit_intent_id');
+
+    if (!intentId) return;
+
+    accountService.getDepositStatus(intentId)
+      .then((status) => {
+        if (status?.status === 'paid') {
+          addToast?.('Recharge confirmée et solde mis à jour.', 'success');
+        } else if (status?.status === 'failed' || status?.status === 'cancelled') {
+          addToast?.('Recharge non finalisée. Aucun montant n’a été crédité.', 'error');
+        } else {
+          addToast?.('Paiement en attente de confirmation sécurisée.', 'info');
+        }
+      })
+      .catch(() => addToast?.('Impossible de vérifier le statut de la recharge.', 'error'))
+      .finally(() => fetchData());
+  }, [location.search]);
 
   const fetchData = async () => {
     try {
@@ -110,7 +132,7 @@ const AccountOverviewPage = ({ addToast }) => {
     );
   }
 
-  const balance = account?.balance ?? 0;
+  const balance = safeNumber(account?.balance);
   const isOverdraft = balance < 0;
 
   const formatAmount = (amount) =>

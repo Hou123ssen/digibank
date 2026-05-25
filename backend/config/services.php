@@ -52,4 +52,13 @@ return [
         'languages' => env('TESSERACT_LANGUAGES', 'fra+ara'),
     ],
 
+    'payment_gateway' => [
+        'mode' => env('PAYMENT_GATEWAY_MODE', 'sandbox'),
+        'webhook_secret' => env('PAYMENT_GATEWAY_WEBHOOK_SECRET', 'digibank-sandbox-webhook-secret'),
+        'frontend_url' => env('FRONTEND_URL', 'http://localhost:5174'),
+        'return_url' => env('PAYMENT_GATEWAY_RETURN_URL'),
+        'min_amount' => env('PAYMENT_GATEWAY_MIN_AMOUNT', 10),
+        'max_amount' => env('PAYMENT_GATEWAY_MAX_AMOUNT', 50000),
+    ],
+
 ];

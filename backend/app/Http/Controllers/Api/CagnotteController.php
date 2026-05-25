@@ -56,7 +56,8 @@ class CagnotteController extends Controller
         $result = $this->cagnotteService->donate(
             $cagnotte,
             $request->user(),
-            (float) $request->validated('amount')
+            (float) $request->validated('amount'),
+            $this->idempotencyKey($request)
         );
 
         return ApiResponse::success('Donation completed successfully.', $result);
@@ -111,5 +112,16 @@ class CagnotteController extends Controller
         return ApiResponse::success('Cagnotte rejected successfully.', [
             'cagnotte' => $cagnotte,
         ]);
+    }
+
+    private function idempotencyKey(Request $request): ?string
+    {
+        $key = $request->header('Idempotency-Key') ?: $request->input('idempotency_key');
+
+        if (! is_string($key) || trim($key) === '') {
+            return null;
+        }
+
+        return substr(trim($key), 0, 120);
     }
 }
