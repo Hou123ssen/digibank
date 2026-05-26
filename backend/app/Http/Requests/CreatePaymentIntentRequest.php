@@ -13,8 +13,6 @@ class CreatePaymentIntentRequest extends ApiFormRequest
             'amount' => ['required', 'numeric', 'min:10', 'max:50000'],
             'gateway' => ['required', 'string', Rule::in([
                 PaymentIntent::GATEWAY_STRIPE,
-                PaymentIntent::GATEWAY_CMI,
-                PaymentIntent::GATEWAY_BANK,
             ])],
         ];
     }

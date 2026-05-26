@@ -51,6 +51,10 @@ const accountService = {
     const response = await api.get(`/deposits/${id}/status`);
     return response.data?.data || response.data;
   },
+  simulateDepositSuccess: async (id) => {
+    const response = await api.post(`/deposits/${id}/sandbox-confirm`);
+    return response.data?.data || response.data;
+  },
   withdraw: async (data) => {
     const { payload, config } = makeIdempotencyConfig(data);
     const response = await api.post('/accounts/withdraw', payload, config);

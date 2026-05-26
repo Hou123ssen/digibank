@@ -6,9 +6,11 @@ use App\Models\KycVerification;
 use App\Models\PaymentIntent;
 use App\Models\TrustScoreLog;
 use App\Models\User;
+use App\Services\PaymentGatewayService;
 use App\Services\TrustScoreService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Mockery;
 use Tests\TestCase;
 
 class TrustScoreTest extends TestCase
@@ -117,6 +119,14 @@ class TrustScoreTest extends TestCase
             'status' => 'active',
         ]);
         Sanctum::actingAs($user);
+        $gateway = Mockery::mock(PaymentGatewayService::class)->makePartial();
+        $gateway->shouldReceive('createStripeCheckoutSession')
+            ->once()
+            ->andReturn([
+                'id' => 'cs_test_trust_score_deposit',
+                'url' => 'https://checkout.stripe.test/pay/cs_test_trust_score_deposit',
+            ]);
+        $this->app->instance(PaymentGatewayService::class, $gateway);
 
         $this->postJson('/api/deposits/create-payment-intent', [
             'amount' => 100,

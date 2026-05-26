@@ -1,11 +1,9 @@
 import React, { useRef, useState } from 'react';
 import {
   ArrowRight,
-  Banknote,
   CheckCircle2,
   CreditCard,
   ShieldCheck,
-  Wallet,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -136,8 +134,6 @@ const DepositModal = ({ isOpen, onClose, onSuccess, addToast, currentBalance = 0
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { id: 'stripe', label: 'Stripe', icon: CreditCard },
-                  { id: 'cmi', label: 'CMI', icon: Banknote },
-                  { id: 'bank_gateway', label: 'Banque', icon: Wallet },
                 ].map((option) => (
                   <button
                     key={option.id}

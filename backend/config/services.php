@@ -59,6 +59,13 @@ return [
         'return_url' => env('PAYMENT_GATEWAY_RETURN_URL'),
         'min_amount' => env('PAYMENT_GATEWAY_MIN_AMOUNT', 10),
         'max_amount' => env('PAYMENT_GATEWAY_MAX_AMOUNT', 50000),
+        'allow_sandbox_confirmation' => env('PAYMENT_GATEWAY_ALLOW_SANDBOX_CONFIRMATION', false),
+    ],
+
+    'stripe' => [
+        'secret_key' => env('STRIPE_SECRET_KEY'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'currency' => env('STRIPE_CURRENCY', 'mad'),
     ],
 
 ];

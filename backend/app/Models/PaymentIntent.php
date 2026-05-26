@@ -13,10 +13,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'currency',
     'gateway',
     'gateway_reference',
+    'stripe_payment_intent_id',
+    'stripe_charge_id',
+    'stripe_event_id',
     'idempotency_key',
     'status',
+    'failure_reason',
     'metadata',
     'paid_at',
+    'cancelled_at',
+    'failed_at',
 ])]
 class PaymentIntent extends Model
 {
@@ -35,6 +41,8 @@ class PaymentIntent extends Model
             'amount' => 'decimal:2',
             'metadata' => 'array',
             'paid_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'failed_at' => 'datetime',
         ];
     }
 

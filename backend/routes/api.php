@@ -40,6 +40,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/deposits/create-payment-intent', [DepositController::class, 'createPaymentIntent'])
         ->middleware('throttle:10,1');
     Route::get('/deposits/{paymentIntent}/status', [DepositController::class, 'status']);
+    Route::get('/deposits/{paymentIntent}/stripe-session-status', [DepositController::class, 'stripeSessionStatus']);
+    Route::post('/deposits/{paymentIntent}/sandbox-confirm', [DepositController::class, 'sandboxConfirm'])
+        ->middleware('throttle:20,1');
     Route::post('/accounts/withdraw', [AccountController::class, 'withdraw']);
     Route::post('/accounts/transfer', [AccountController::class, 'transfer']);
     Route::get('/transactions/me', [TransactionController::class, 'me']);
@@ -115,6 +118,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/users', [AdminUserController::class, 'index'])
         ->middleware(EnsureAdmin::class);
 
+    Route::get('/admin/payments', [DepositController::class, 'adminPayments'])
+        ->middleware(EnsureAdmin::class);
+
     Route::middleware(EnsureEmployeeDepartment::class . ':kyc')->prefix('admin/kyc')->group(function (): void {
         Route::get('/pending', [KycReviewController::class, 'pending']);
         Route::post('/{kyc}/approve', [KycReviewController::class, 'approve']);
@@ -122,5 +128,5 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
 });
 
-Route::post('/webhooks/payment-gateway', [DepositController::class, 'webhook'])
+Route::post('/webhooks/stripe', [DepositController::class, 'stripeWebhook'])
     ->middleware('throttle:60,1');

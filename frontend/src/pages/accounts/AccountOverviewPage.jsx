@@ -42,6 +42,8 @@ const AccountOverviewPage = ({ addToast }) => {
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [depositReturn, setDepositReturn] = useState(null);
+  const [simulatingPayment, setSimulatingPayment] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -55,6 +57,7 @@ const AccountOverviewPage = ({ addToast }) => {
 
     accountService.getDepositStatus(intentId)
       .then((status) => {
+        setDepositReturn({ ...status, payment_intent_id: status?.payment_intent_id || intentId });
         if (status?.status === 'paid') {
           addToast?.('Recharge confirmée et solde mis à jour.', 'success');
         } else if (status?.status === 'failed' || status?.status === 'cancelled') {
@@ -87,6 +90,23 @@ const AccountOverviewPage = ({ addToast }) => {
       console.error('Error fetching account data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSandboxConfirm = async () => {
+    if (!depositReturn?.payment_intent_id || simulatingPayment) return;
+
+    try {
+      setSimulatingPayment(true);
+      const result = await accountService.simulateDepositSuccess(depositReturn.payment_intent_id);
+      const status = await accountService.getDepositStatus(depositReturn.payment_intent_id);
+      setDepositReturn({ ...status, payment_intent_id: status?.payment_intent_id || depositReturn.payment_intent_id });
+      await fetchData();
+      addToast?.(result?.status === 'paid' ? 'Paiement sandbox confirmé.' : 'Simulation traitée.', 'success');
+    } catch {
+      addToast?.('Impossible de simuler le paiement sandbox.', 'error');
+    } finally {
+      setSimulatingPayment(false);
     }
   };
 
@@ -156,6 +176,23 @@ const AccountOverviewPage = ({ addToast }) => {
           <AlertTriangle size={20} />
           <p className="text-sm font-medium">Vous utilisez actuellement votre découvert. Votre Trust Score pourrait diminuer.</p>
         </motion.div>
+      )}
+
+      {depositReturn?.status === 'pending' && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm font-medium text-emerald-300">Paiement en attente de confirmation sécurisée.</p>
+          {import.meta.env.DEV && import.meta.env.VITE_ENABLE_SANDBOX_PAYMENT_SIMULATION === 'true' && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSandboxConfirm}
+              isLoading={simulatingPayment}
+              disabled={simulatingPayment}
+            >
+              Simuler paiement réussi
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Hero Account Card */}

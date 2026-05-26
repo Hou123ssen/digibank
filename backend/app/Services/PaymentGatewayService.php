@@ -3,18 +3,132 @@
 namespace App\Services;
 
 use App\Models\PaymentIntent;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Stripe\Exception\SignatureVerificationException;
+use Stripe\StripeClient;
+use Stripe\Webhook;
 
 class PaymentGatewayService
 {
+    public function createStripeCheckoutSession(PaymentIntent $intent): array
+    {
+        $secret = $this->stripeSecretKey();
+
+        if ($secret === '') {
+            throw new \RuntimeException('Stripe secret key is not configured.');
+        }
+
+        Log::info('Creating Stripe Checkout Session', [
+            'payment_intent_id' => $intent->id,
+            'stripe_key' => $this->maskedStripeKey($secret),
+            'stripe_key_has_whitespace' => $this->hasOuterWhitespace((string) config('services.stripe.secret_key')),
+        ]);
+
+        $client = new StripeClient($secret);
+        $successUrl = $this->appendQuery($this->frontendAccountsUrl(), ['deposit_intent_id' => $intent->id]);
+        $cancelUrl = $this->appendQuery($this->frontendAccountsUrl(), ['deposit_intent_id' => $intent->id]);
+
+        $session = $client->checkout->sessions->create([
+            'mode' => 'payment',
+            'success_url' => $successUrl,
+            'cancel_url' => $cancelUrl,
+            'client_reference_id' => (string) $intent->id,
+            'metadata' => [
+                'payment_intent_id' => (string) $intent->id,
+                'account_id' => (string) $intent->account_id,
+                'user_id' => (string) $intent->user_id,
+            ],
+            'payment_intent_data' => [
+                'metadata' => [
+                    'payment_intent_id' => (string) $intent->id,
+                    'account_id' => (string) $intent->account_id,
+                    'user_id' => (string) $intent->user_id,
+                ],
+            ],
+            'line_items' => [[
+                'quantity' => 1,
+                'price_data' => [
+                    'currency' => strtolower((string) config('services.stripe.currency', 'mad')),
+                    'unit_amount' => $this->stripeAmount((float) $intent->amount),
+                    'product_data' => [
+                        'name' => 'DigiBank account recharge',
+                    ],
+                ],
+            ]],
+        ]);
+
+        return [
+            'id' => $session->id,
+            'url' => $session->url,
+        ];
+    }
+
+    public function constructStripeEvent(string $payload, ?string $signature): array
+    {
+        $secret = $this->stripeWebhookSecret();
+
+        if ($secret === '' || ! is_string($signature) || $signature === '') {
+            throw new SignatureVerificationException('Stripe webhook secret or signature is missing.', null);
+        }
+
+        $event = Webhook::constructEvent($payload, $signature, $secret);
+
+        return $event instanceof \Stripe\Event ? $event->toArray() : (array) $event;
+    }
+
+    public function retrieveStripeSessionStatus(PaymentIntent $intent): array
+    {
+        $secret = $this->stripeSecretKey();
+
+        if ($secret === '') {
+            throw new \RuntimeException('Stripe secret key is not configured.');
+        }
+
+        $client = new StripeClient($secret);
+        $session = $client->checkout->sessions->retrieve($intent->gateway_reference, []);
+
+        Log::info('Retrieved Stripe Checkout Session status', [
+            'payment_intent_id' => $intent->id,
+            'session_id' => $session->id,
+            'status' => $session->status,
+            'payment_status' => $session->payment_status,
+            'stripe_key' => $this->maskedStripeKey($secret),
+            'stripe_key_has_whitespace' => $this->hasOuterWhitespace((string) config('services.stripe.secret_key')),
+        ]);
+
+        return [
+            'id' => $session->id,
+            'status' => $session->status,
+            'payment_status' => $session->payment_status,
+            'payment_intent' => $session->payment_intent,
+            'amount_total' => $session->amount_total,
+            'currency' => $session->currency,
+        ];
+    }
+
+    public function stripeDiagnostics(): array
+    {
+        $secret = (string) config('services.stripe.secret_key');
+        $webhookSecret = (string) config('services.stripe.webhook_secret');
+
+        return [
+            'secret_key_present' => trim($secret) !== '',
+            'secret_key_masked' => $this->maskedStripeKey($this->stripeSecretKey()),
+            'secret_key_has_whitespace' => $this->hasOuterWhitespace($secret),
+            'webhook_secret_present' => trim($webhookSecret) !== '',
+            'webhook_secret_masked' => $this->maskedStripeKey($this->stripeWebhookSecret()),
+            'webhook_secret_has_whitespace' => $this->hasOuterWhitespace($webhookSecret),
+        ];
+    }
+
     public function createCheckoutUrl(PaymentIntent $intent): string
     {
-        $frontendUrl = rtrim((string) config('services.payment_gateway.frontend_url', 'http://localhost:5174'), '/');
         $returnUrl = trim((string) config('services.payment_gateway.return_url'));
-        $target = $returnUrl !== '' ? $returnUrl : $frontendUrl.'/accounts';
+        $target = $returnUrl !== '' ? $returnUrl : $this->frontendAccountsUrl();
 
         if ($this->isLaravelRootUrl($target)) {
-            $target = $frontendUrl.'/accounts';
+            $target = $this->frontendAccountsUrl();
         }
 
         return $this->appendQuery($target, ['deposit_intent_id' => $intent->id]);
@@ -60,5 +174,42 @@ class PaymentGatewayService
         $separator = str_contains($url, '?') ? '&' : '?';
 
         return $url.$separator.http_build_query($params);
+    }
+
+    private function frontendAccountsUrl(): string
+    {
+        return rtrim((string) config('services.payment_gateway.frontend_url', 'http://localhost:5174'), '/').'/accounts';
+    }
+
+    private function stripeAmount(float $amount): int
+    {
+        return (int) round($amount * 100);
+    }
+
+    private function stripeSecretKey(): string
+    {
+        return trim((string) config('services.stripe.secret_key'));
+    }
+
+    private function stripeWebhookSecret(): string
+    {
+        return trim((string) config('services.stripe.webhook_secret'));
+    }
+
+    private function maskedStripeKey(string $key): ?string
+    {
+        if ($key === '') {
+            return null;
+        }
+
+        $prefix = substr($key, 0, min(8, strlen($key)));
+        $suffix = strlen($key) > 4 ? substr($key, -4) : '';
+
+        return $prefix.'...'.$suffix;
+    }
+
+    private function hasOuterWhitespace(string $value): bool
+    {
+        return $value !== trim($value);
     }
 }
