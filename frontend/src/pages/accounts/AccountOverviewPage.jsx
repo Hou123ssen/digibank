@@ -30,6 +30,9 @@ import accountService from '../../services/accountService';
 import transactionService from '../../services/transactionService';
 import { safeNumber } from '../../utils/apiResponse';
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const FINAL_DEPOSIT_STATUSES = ['paid', 'failed', 'cancelled'];
+
 const AccountOverviewPage = ({ addToast }) => {
   const { dark } = useTheme();
   const navigate = useNavigate();
@@ -43,6 +46,7 @@ const AccountOverviewPage = ({ addToast }) => {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [depositReturn, setDepositReturn] = useState(null);
+  const [depositPolling, setDepositPolling] = useState(false);
   const [simulatingPayment, setSimulatingPayment] = useState(false);
 
   useEffect(() => {
@@ -50,24 +54,68 @@ const AccountOverviewPage = ({ addToast }) => {
   }, []);
 
   useEffect(() => {
+    let active = true;
     const params = new URLSearchParams(location.search);
     const intentId = params.get('deposit_intent_id');
 
-    if (!intentId) return;
+    if (!intentId) {
+      return () => { active = false; };
+    }
 
-    accountService.getDepositStatus(intentId)
-      .then((status) => {
-        setDepositReturn({ ...status, payment_intent_id: status?.payment_intent_id || intentId });
-        if (status?.status === 'paid') {
-          addToast?.('Recharge confirmée et solde mis à jour.', 'success');
-        } else if (status?.status === 'failed' || status?.status === 'cancelled') {
-          addToast?.('Recharge non finalisée. Aucun montant n’a été crédité.', 'error');
-        } else {
-          addToast?.('Paiement en attente de confirmation sécurisée.', 'info');
+    const pollDepositStatus = async () => {
+      setDepositPolling(true);
+      setDepositReturn({ status: 'pending', payment_intent_id: intentId });
+      addToast?.('Confirmation sécurisée du paiement en cours...', 'info');
+
+      try {
+        let latestStatus = null;
+
+        for (let attempt = 0; attempt < 10 && active; attempt += 1) {
+          const status = await accountService.getDepositStatus(intentId);
+          latestStatus = { ...status, payment_intent_id: status?.payment_intent_id || intentId };
+
+          if (!active) return;
+
+          setDepositReturn(latestStatus);
+
+          if (FINAL_DEPOSIT_STATUSES.includes(status?.status)) {
+            break;
+          }
+
+          if (attempt < 9) {
+            await wait(1000);
+          }
         }
-      })
-      .catch(() => addToast?.('Impossible de vérifier le statut de la recharge.', 'error'))
-      .finally(() => fetchData());
+
+        if (!active || !latestStatus) return;
+
+        if (latestStatus.status === 'paid') {
+          await fetchData();
+          addToast?.('Recharge confirmée et solde mis à jour.', 'success');
+
+          const nextParams = new URLSearchParams(location.search);
+          nextParams.delete('deposit_intent_id');
+          navigate({
+            pathname: location.pathname,
+            search: nextParams.toString() ? `?${nextParams.toString()}` : '',
+          }, { replace: true });
+        } else if (latestStatus.status === 'failed' || latestStatus.status === 'cancelled') {
+          addToast?.('Recharge non finalisée. Aucun montant n’a été crédité.', 'error');
+          await fetchData();
+        }
+      } catch {
+        if (active) {
+          addToast?.('Impossible de vérifier le statut de la recharge.', 'error');
+          await fetchData();
+        }
+      } finally {
+        if (active) setDepositPolling(false);
+      }
+    };
+
+    pollDepositStatus();
+
+    return () => { active = false; };
   }, [location.search]);
 
   const fetchData = async () => {
@@ -180,7 +228,12 @@ const AccountOverviewPage = ({ addToast }) => {
 
       {depositReturn?.status === 'pending' && (
         <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {depositPolling && (
+            <p className="text-sm font-medium text-emerald-300">Confirmation sécurisée du paiement en cours...</p>
+          )}
+          {!depositPolling && (
           <p className="text-sm font-medium text-emerald-300">Paiement en attente de confirmation sécurisée.</p>
+          )}
           {import.meta.env.DEV && import.meta.env.VITE_ENABLE_SANDBOX_PAYMENT_SIMULATION === 'true' && (
             <Button
               variant="primary"

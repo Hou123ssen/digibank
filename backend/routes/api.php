@@ -120,6 +120,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/admin/payments', [DepositController::class, 'adminPayments'])
         ->middleware(EnsureAdmin::class);
+    Route::get('/admin/payments/{paymentIntent}', [DepositController::class, 'adminPaymentDetails'])
+        ->middleware(EnsureAdmin::class);
 
     Route::middleware(EnsureEmployeeDepartment::class . ':kyc')->prefix('admin/kyc')->group(function (): void {
         Route::get('/pending', [KycReviewController::class, 'pending']);

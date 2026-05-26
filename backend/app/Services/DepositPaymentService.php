@@ -121,10 +121,9 @@ class DepositPaymentService
         $status = match ($type) {
             'checkout.session.completed' => PaymentIntent::STATUS_PAID,
             'checkout.session.expired' => PaymentIntent::STATUS_CANCELLED,
-            'checkout.session.async_payment_failed',
             'payment_intent.payment_failed',
             'charge.failed' => PaymentIntent::STATUS_FAILED,
-            default => PaymentIntent::STATUS_FAILED,
+            default => null,
         };
 
         return $this->processStripeGatewayResult(
@@ -139,7 +138,7 @@ class DepositPaymentService
 
     private function processStripeGatewayResult(
         array $refs,
-        string $targetStatus,
+        ?string $targetStatus,
         string $gatewayStatus,
         ?string $stripeEventId,
         ?string $failureReason,
@@ -166,6 +165,18 @@ class DepositPaymentService
                 ]);
 
                 return null;
+            }
+
+            if ($targetStatus === null) {
+                $this->fillStripeRefs($intent, $refs, $stripeEventId);
+                $this->auditLogService->record('deposit.webhook.ignored', $intent, $intent->user_id, [
+                    'gateway_status' => $gatewayStatus,
+                    'current_status' => $intent->status,
+                    'stripe_event_id' => $stripeEventId,
+                    'payload_hash' => hash('sha256', $rawPayload),
+                ]);
+
+                return $intent->fresh();
             }
 
             if ($intent->status !== PaymentIntent::STATUS_PENDING) {
@@ -427,6 +438,10 @@ class DepositPaymentService
     {
         if ($type === 'checkout.session.expired') {
             return 'Stripe Checkout session expired.';
+        }
+
+        if (! in_array($type, ['payment_intent.payment_failed', 'charge.failed'], true)) {
+            return null;
         }
 
         $lastPaymentError = $object['last_payment_error'] ?? null;

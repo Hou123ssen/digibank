@@ -3,7 +3,7 @@ import AIBankingAssistant from '../ai/AIBankingAssistant';
 import { NavLink, Link, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, ShieldCheck, UserCog, Users,
+  LayoutDashboard, ShieldCheck, UserCog, Users, CreditCard,
   ArrowLeft, Settings, LogOut, Menu, Search, Bell, ChevronDown,
   User, SlidersHorizontal, X, Sun, Moon,
 } from 'lucide-react';
@@ -18,6 +18,7 @@ const ADMIN_NAV = [
   { label: 'Tableau de bord', icon: LayoutDashboard, path: '/admin/dashboard', end: true },
   { label: 'Utilisateurs',    icon: Users,           path: '/admin/users' },
   { label: 'Employés',        icon: UserCog,         path: '/admin/employees' },
+  { label: 'Paiements',       icon: CreditCard,      path: '/admin/payments' },
 ];
 
 const LANGS = ['AR', 'FR', 'EN'];

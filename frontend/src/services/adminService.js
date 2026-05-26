@@ -39,6 +39,16 @@ const adminService = {
     return Array.isArray(employees) ? employees : [];
   },
 
+  getPayments: async (params = {}) => {
+    const response = await api.get('/admin/payments', { params });
+    return response.data?.data?.payments ?? response.data?.data ?? response.data;
+  },
+
+  getPaymentDetails: async (id) => {
+    const response = await api.get(`/admin/payments/${id}`);
+    return response.data?.data || response.data;
+  },
+
   getUserById: async (id) => {
     const users = await adminService.getUsers();
     return users.find(user => String(user.id) === String(id)) || null;

@@ -259,6 +259,78 @@ class PaymentGatewayDepositTest extends TestCase
         ]);
     }
 
+    public function test_checkout_session_completed_then_charge_updated_keeps_status_paid(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->pendingIntent($user, $account, 300, 'cs_test_charge_updated_after_paid');
+
+        $this->signedStripeWebhook([
+            'id' => 'evt_paid_before_charge_update',
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => ['object' => [
+                'id' => $intent->gateway_reference,
+                'payment_intent' => 'pi_test_charge_updated_after_paid',
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('data.status', PaymentIntent::STATUS_PAID);
+
+        $this->signedStripeWebhook([
+            'id' => 'evt_charge_updated_after_paid',
+            'object' => 'event',
+            'type' => 'charge.updated',
+            'data' => ['object' => [
+                'id' => 'ch_test_charge_updated_after_paid',
+                'payment_intent' => 'pi_test_charge_updated_after_paid',
+                'metadata' => ['payment_intent_id' => (string) $intent->id],
+                'outcome' => ['seller_message' => 'Payment complete.'],
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('data.status', PaymentIntent::STATUS_PAID);
+
+        $intent->refresh();
+
+        $this->assertSame(PaymentIntent::STATUS_PAID, $intent->status);
+        $this->assertNull($intent->failure_reason);
+        $this->assertSame('ch_test_charge_updated_after_paid', $intent->stripe_charge_id);
+        $this->assertSame('evt_charge_updated_after_paid', $intent->stripe_event_id);
+        $this->assertEquals('300.00', $account->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 1);
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'deposit.webhook.ignored',
+        ]);
+    }
+
+    public function test_charge_updated_does_not_credit_or_fail_pending_payment(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->pendingIntent($user, $account, 300, 'cs_test_charge_updated_pending');
+        $intent->update(['stripe_payment_intent_id' => 'pi_test_charge_updated_pending']);
+
+        $this->signedStripeWebhook([
+            'id' => 'evt_charge_updated_pending',
+            'object' => 'event',
+            'type' => 'charge.updated',
+            'data' => ['object' => [
+                'id' => 'ch_test_charge_updated_pending',
+                'payment_intent' => 'pi_test_charge_updated_pending',
+                'outcome' => ['seller_message' => 'Payment complete.'],
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('data.status', PaymentIntent::STATUS_PENDING);
+
+        $intent->refresh();
+
+        $this->assertSame(PaymentIntent::STATUS_PENDING, $intent->status);
+        $this->assertNull($intent->failure_reason);
+        $this->assertSame('ch_test_charge_updated_pending', $intent->stripe_charge_id);
+        $this->assertEquals('0.00', $account->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 0);
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'deposit.webhook.ignored',
+        ]);
+    }
+
     public function test_cancelled_stripe_payment_does_not_update_balance(): void
     {
         [$user, $account] = $this->userWithAccount();
@@ -325,6 +397,46 @@ class PaymentGatewayDepositTest extends TestCase
             'user_id' => $user->id,
             'title' => 'Deposit failed',
             'type' => Notification::TYPE_WARNING,
+        ]);
+    }
+
+    public function test_payment_intent_failed_after_paid_does_not_downgrade_payment(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->pendingIntent($user, $account, 300, 'cs_test_failed_after_paid');
+
+        $this->signedStripeWebhook([
+            'id' => 'evt_paid_before_failed',
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => ['object' => [
+                'id' => $intent->gateway_reference,
+                'payment_intent' => 'pi_test_failed_after_paid',
+            ]],
+        ])->assertOk();
+
+        $this->signedStripeWebhook([
+            'id' => 'evt_failed_after_paid',
+            'object' => 'event',
+            'type' => 'payment_intent.payment_failed',
+            'data' => ['object' => [
+                'id' => 'pi_test_failed_after_paid',
+                'latest_charge' => 'ch_test_failed_after_paid',
+                'metadata' => ['payment_intent_id' => (string) $intent->id],
+                'last_payment_error' => ['message' => 'Late failure should not downgrade.'],
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('data.status', PaymentIntent::STATUS_PAID);
+
+        $intent->refresh();
+
+        $this->assertSame(PaymentIntent::STATUS_PAID, $intent->status);
+        $this->assertNull($intent->failure_reason);
+        $this->assertNull($intent->failed_at);
+        $this->assertEquals('300.00', $account->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 1);
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'deposit.webhook.replayed',
         ]);
     }
 
@@ -396,6 +508,70 @@ class PaymentGatewayDepositTest extends TestCase
             ->assertJsonPath('data.payments.data.0.stripe_payment_intent_id', 'pi_test_admin_1')
             ->assertJsonPath('data.payments.data.0.stripe_charge_id', 'ch_test_admin_1')
             ->assertJsonPath('data.payments.data.0.stripe_event_id', 'evt_test_admin_1');
+    }
+
+    public function test_admin_payments_filters_and_pagination_work(): void
+    {
+        [$firstUser, $firstAccount] = $this->userWithAccount();
+        [$secondUser, $secondAccount] = $this->userWithAccount();
+        $firstUser->update(['name' => 'Alice Payment']);
+        $secondUser->update(['name' => 'Bob Payment']);
+        $paidIntent = $this->pendingIntent($firstUser, $firstAccount, 120, 'cs_test_filter_paid');
+        $paidIntent->update([
+            'status' => PaymentIntent::STATUS_PAID,
+            'paid_at' => now(),
+            'stripe_payment_intent_id' => 'pi_test_filter_paid',
+        ]);
+        $this->pendingIntent($secondUser, $secondAccount, 900, 'cs_test_filter_pending');
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $this->getJson('/api/admin/payments?status=paid&search=Alice&amount_min=100&amount_max=200&per_page=5')
+            ->assertOk()
+            ->assertJsonPath('data.payments.total', 1)
+            ->assertJsonPath('data.payments.per_page', 5)
+            ->assertJsonPath('data.payments.data.0.id', $paidIntent->id)
+            ->assertJsonPath('data.payments.data.0.account.account_number', $firstAccount->account_number)
+            ->assertJsonPath('data.payments.data.0.status', PaymentIntent::STATUS_PAID);
+    }
+
+    public function test_admin_payment_details_endpoint_returns_transaction_audit_user_and_account(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->pendingIntent($user, $account, 300, 'cs_test_details_1');
+
+        $this->signedStripeWebhook([
+            'id' => 'evt_test_details',
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => ['object' => [
+                'id' => $intent->gateway_reference,
+                'payment_intent' => 'pi_test_details_1',
+            ]],
+        ])->assertOk();
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $this->getJson("/api/admin/payments/{$intent->id}")
+            ->assertOk()
+            ->assertJsonPath('data.payment_intent.id', $intent->id)
+            ->assertJsonPath('data.payment_intent.stripe_payment_intent_id', 'pi_test_details_1')
+            ->assertJsonPath('data.payment_intent.stripe_event_id', 'evt_test_details')
+            ->assertJsonPath('data.user.id', $user->id)
+            ->assertJsonPath('data.account.account_number', $account->account_number)
+            ->assertJsonPath('data.transaction.description', 'Stripe deposit')
+            ->assertJsonPath('data.transaction.reference', 'STRIPE-pi_test_details_1')
+            ->assertJsonPath('data.audit_logs.0.event', 'deposit.payment_intent.paid');
+    }
+
+    public function test_admin_payment_endpoints_are_admin_only(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->pendingIntent($user, $account, 300, 'cs_test_admin_only_1');
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_USER]));
+
+        $this->getJson('/api/admin/payments')->assertForbidden();
+        $this->getJson("/api/admin/payments/{$intent->id}")->assertForbidden();
     }
 
     public function test_invalid_signature_is_rejected(): void

@@ -48,7 +48,13 @@ const accountService = {
     };
   },
   getDepositStatus: async (id) => {
-    const response = await api.get(`/deposits/${id}/status`);
+    const response = await api.get(`/deposits/${id}/status`, {
+      params: { _t: Date.now() },
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
     return response.data?.data || response.data;
   },
   simulateDepositSuccess: async (id) => {

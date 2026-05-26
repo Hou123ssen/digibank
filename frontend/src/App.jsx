@@ -46,6 +46,7 @@ import EmployeeTicketsPage   from './pages/employee/EmployeeTicketsPage';
 import AdminDashboardPage  from './pages/admin/AdminDashboardPage';
 import AdminUsersPage      from './pages/admin/AdminUsersPage';
 import AdminEmployeesPage  from './pages/admin/AdminEmployeesPage';
+import AdminPaymentsPage   from './pages/admin/AdminPaymentsPage';
 
 // Minimal placeholder for routes that are not yet implemented
 const ComingSoon = ({ title }) => (
@@ -153,6 +154,7 @@ function App() {
                     <Route path="/admin/dashboard"  element={<AdminDashboardPage  addToast={addToast} />} />
                     <Route path="/admin/users"       element={<AdminUsersPage      addToast={addToast} />} />
                     <Route path="/admin/employees"   element={<AdminEmployeesPage  addToast={addToast} />} />
+                    <Route path="/admin/payments"    element={<AdminPaymentsPage   addToast={addToast} />} />
                     <Route path="/admin/profile"     element={<ProfilePage />} />
                     <Route path="/admin/settings"    element={<SettingsPage />} />
                   </Route>
