@@ -7,6 +7,7 @@ import ProtectedRoute from './components/routes/ProtectedRoute';
 import { ThemeProvider } from './components/landing/ThemeContext';
 import RoleBasedRoute from './components/routes/RoleBasedRoute';
 import DepartmentRoute from './components/routes/DepartmentRoute';
+import RealtimeListener from './components/realtime/RealtimeListener';
 
 // Layouts
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -94,6 +95,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <div className="min-h-screen bg-bg-dark text-white font-sans selection:bg-emerald-500/30">
+            <RealtimeListener addToast={addToast} />
             <Routes>
               {/* ── Public ───────────────────────────────────────────── */}
               <Route path="/"         element={<LandingPage />} />

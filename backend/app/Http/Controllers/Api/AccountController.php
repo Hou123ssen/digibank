@@ -11,7 +11,9 @@ use App\Services\AccountService;
 use App\Support\ApiResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AccountController extends Controller
 {
@@ -102,12 +104,26 @@ class AccountController extends Controller
 
     public function transfer(TransferRequest $request)
     {
-        $result = $this->accountService->transfer(
-            $request->user(),
-            $request->validated('account_number'),
-            (float) $request->validated('amount'),
-            $this->idempotencyKey($request)
-        );
+        try {
+            $result = $this->accountService->transfer(
+                $request->user(),
+                $request->validated('account_number'),
+                (float) $request->validated('amount'),
+                $this->idempotencyKey($request)
+            );
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Transfer failed.', [
+                'user_id' => $request->user()?->id,
+                'account_number' => $request->validated('account_number'),
+                'error' => $e->getMessage(),
+            ]);
+
+            return ApiResponse::error('Transfer failed. Please try again.', [
+                'transfer' => [config('app.debug') ? $e->getMessage() : 'Unable to complete transfer.'],
+            ], 500);
+        }
 
         return ApiResponse::success('Transfer completed successfully.', $result);
     }

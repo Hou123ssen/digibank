@@ -54,6 +54,24 @@ const NotificationsPage = ({ addToast }) => {
     fetchNotifications();
   }, []);
 
+  useEffect(() => {
+    const prependNotification = (event) => {
+      const notification = event.detail?.notification;
+      if (!notification?.id) return;
+
+      setNotifications(prev => [
+        notification,
+        ...prev.filter(item => item.id !== notification.id),
+      ]);
+    };
+
+    window.addEventListener('digibank:notification-created', prependNotification);
+
+    return () => {
+      window.removeEventListener('digibank:notification-created', prependNotification);
+    };
+  }, []);
+
   const fetchNotifications = async () => {
     try {
       setLoading(true);

@@ -141,6 +141,52 @@ const AccountOverviewPage = ({ addToast }) => {
     }
   };
 
+  const refreshRealtimeData = async () => {
+    try {
+      const [accRes, transRes, summaryRes] = await Promise.all([
+        accountService.getMyAccount(),
+        transactionService.getMyTransactions(),
+        accountService.getMySummary(),
+      ]);
+      setAccount(accRes);
+      const rawTransactions = transRes?.transactions || transRes?.data || transRes;
+      setTransactions(Array.isArray(rawTransactions) ? rawTransactions : []);
+      setSummary({
+        monthly_inflows:  summaryRes?.monthly_inflows  ?? 0,
+        monthly_outflows: summaryRes?.monthly_outflows ?? 0,
+        net_flow:         summaryRes?.net_flow         ?? 0,
+      });
+    } catch (err) {
+      console.error('Realtime account refresh failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    const updateFromRealtime = (event) => {
+      const realtimeAccount = event.detail?.account;
+      const realtimeTransaction = event.detail?.transaction;
+
+      if (realtimeAccount) {
+        setAccount(prev => prev ? { ...prev, ...realtimeAccount } : realtimeAccount);
+      }
+
+      if (realtimeTransaction) {
+        setTransactions(prev => [
+          realtimeTransaction,
+          ...prev.filter(tx => tx.id !== realtimeTransaction.id),
+        ]);
+      }
+
+      refreshRealtimeData();
+    };
+
+    window.addEventListener('digibank:account-updated', updateFromRealtime);
+
+    return () => {
+      window.removeEventListener('digibank:account-updated', updateFromRealtime);
+    };
+  }, []);
+
   const handleSandboxConfirm = async () => {
     if (!depositReturn?.payment_intent_id || simulatingPayment) return;
 

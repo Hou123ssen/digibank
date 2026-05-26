@@ -2,6 +2,11 @@
 
 namespace App\Services;
 
+use App\Events\BalanceUpdated;
+use App\Events\DepositCompleted;
+use App\Events\DepositConfirmed;
+use App\Events\TransactionCreated;
+use App\Events\TransferCompleted;
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\User;
@@ -12,7 +17,8 @@ class AccountService
 {
     public function __construct(
         private readonly TransactionService $transactionService,
-        private readonly TrustScoreService $trustScoreService
+        private readonly TrustScoreService $trustScoreService,
+        private readonly RealtimeBroadcastService $realtimeBroadcastService
     ) {}
 
     public function createAccountForUser(User $user): Account
@@ -70,6 +76,8 @@ class AccountService
                 description: 'Account deposit',
                 idempotencyKey: $idempotencyKey
             );
+
+            $this->broadcastDepositEvents($user->id, $account, $transaction);
 
             return [
                 'account' => $account->fresh(),
@@ -202,6 +210,9 @@ class AccountService
                 $this->trustScoreService->decrease($fromUser, 5, 'Overdraft used', $out);
             }
 
+            $this->broadcastTransferEvents($fromUser->id, $fromAccount, $out, 'outgoing');
+            $this->broadcastTransferEvents($toAccount->user_id, $toAccount, $in, 'incoming');
+
             return [
                 'from_account' => $fromAccount->fresh(),
                 'to_account' => $toAccount->fresh(),
@@ -311,6 +322,61 @@ class AccountService
             Transaction::TYPE_REFUND => -$amount,
             default => (float) $transaction->amount,
         };
+    }
+
+    private function broadcastDepositEvents(int $userId, Account $account, Transaction $transaction): void
+    {
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new DepositCompleted($userId, $account->fresh(), $transaction->fresh(['account', 'relatedAccount'])),
+            'deposit.completed',
+            ['user_id' => $userId, 'transaction_id' => $transaction->id]
+        );
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new DepositConfirmed($userId, $account->fresh(), $transaction->fresh(['account', 'relatedAccount'])),
+            'deposit.confirmed',
+            ['user_id' => $userId, 'transaction_id' => $transaction->id]
+        );
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new TransactionCreated($userId, $transaction->fresh(['account', 'relatedAccount'])),
+            'transaction.created',
+            ['user_id' => $userId, 'transaction_id' => $transaction->id]
+        );
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new BalanceUpdated($userId, $account->fresh()),
+            'balance.updated',
+            ['user_id' => $userId, 'account_id' => $account->id]
+        );
+    }
+
+    private function broadcastTransferEvents(int $userId, Account $account, Transaction $transaction, string $direction): void
+    {
+        $context = [
+            'user_id' => $userId,
+            'account_id' => $account->id,
+            'transaction_id' => $transaction->id,
+            'direction' => $direction,
+        ];
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new TransferCompleted($userId, $account->fresh(), $transaction->fresh(['account', 'relatedAccount']), $direction),
+            'transfer.completed',
+            $context
+        );
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new TransactionCreated($userId, $transaction->fresh(['account', 'relatedAccount'])),
+            'transaction.created',
+            $context
+        );
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new BalanceUpdated($userId, $account->fresh()),
+            'balance.updated',
+            $context
+        );
     }
 
     private function generateAccountNumber(): string

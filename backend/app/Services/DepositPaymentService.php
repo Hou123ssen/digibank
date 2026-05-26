@@ -2,6 +2,11 @@
 
 namespace App\Services;
 
+use App\Events\BalanceUpdated;
+use App\Events\DepositCompleted;
+use App\Events\DepositConfirmed;
+use App\Events\StripePaymentConfirmed;
+use App\Events\TransactionCreated;
 use App\Models\Account;
 use App\Models\Notification;
 use App\Models\PaymentIntent;
@@ -18,7 +23,8 @@ class DepositPaymentService
         private readonly TransactionService $transactionService,
         private readonly NotificationService $notificationService,
         private readonly AuditLogService $auditLogService,
-        private readonly PaymentGatewayService $paymentGatewayService
+        private readonly PaymentGatewayService $paymentGatewayService,
+        private readonly RealtimeBroadcastService $realtimeBroadcastService
     ) {
     }
 
@@ -420,6 +426,8 @@ class DepositPaymentService
                 'payload_hash' => hash('sha256', $rawPayload),
             ]);
 
+            $this->broadcastDepositEvents($intent, $account, $transaction);
+
             return $intent->fresh();
         });
     }
@@ -478,7 +486,72 @@ class DepositPaymentService
             'payload_hash' => hash('sha256', $rawPayload),
         ]);
 
+        $this->broadcastDepositEvents($intent, $account, $transaction, true);
+
         return $intent->fresh();
+    }
+
+    private function broadcastDepositEvents(
+        PaymentIntent $intent,
+        Account $account,
+        Transaction $transaction,
+        bool $includeStripeConfirmation = false
+    ): void {
+        $context = [
+            'user_id' => $intent->user_id,
+            'payment_intent_id' => $intent->id,
+            'account_id' => $account->id,
+            'transaction_id' => $transaction->id,
+        ];
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new DepositCompleted(
+                $intent->user_id,
+                $account->fresh(),
+                $transaction->fresh(['account', 'relatedAccount']),
+                $intent->fresh()
+            ),
+            'deposit.completed',
+            $context
+        );
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new DepositConfirmed(
+                $intent->user_id,
+                $account->fresh(),
+                $transaction->fresh(['account', 'relatedAccount']),
+                $intent->fresh()
+            ),
+            'deposit.confirmed',
+            $context
+        );
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new TransactionCreated($intent->user_id, $transaction->fresh(['account', 'relatedAccount'])),
+            'transaction.created',
+            $context
+        );
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new BalanceUpdated($intent->user_id, $account->fresh()),
+            'balance.updated',
+            $context
+        );
+
+        if (! $includeStripeConfirmation) {
+            return;
+        }
+
+        $this->realtimeBroadcastService->afterCommit(
+            fn () => new StripePaymentConfirmed(
+                $intent->user_id,
+                $intent->fresh(),
+                $account->fresh(),
+                $transaction->fresh(['account', 'relatedAccount'])
+            ),
+            'stripe.payment.confirmed',
+            $context
+        );
     }
 
     private function findStripePaymentIntent(array $refs): ?PaymentIntent

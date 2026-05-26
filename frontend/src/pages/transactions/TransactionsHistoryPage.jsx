@@ -54,6 +54,18 @@ const TransactionsHistoryPage = ({ addToast }) => {
     fetchTransactions();
   }, [filters, page]);
 
+  useEffect(() => {
+    const refreshTransactions = () => {
+      fetchTransactions();
+    };
+
+    window.addEventListener('digibank:transaction-created', refreshTransactions);
+
+    return () => {
+      window.removeEventListener('digibank:transaction-created', refreshTransactions);
+    };
+  }, [filters, page]);
+
   const apiFilters = () => {
     const params = { page, per_page: 15 };
     if (filters.type !== 'all') params.type = filters.type;
