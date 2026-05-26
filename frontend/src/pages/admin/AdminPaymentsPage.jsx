@@ -24,6 +24,12 @@ const STATUS_BADGES = {
   cancelled: <Badge variant="neutral">cancelled</Badge>,
 };
 
+const REFUND_BADGES = {
+  pending: <Badge variant="warning">pending</Badge>,
+  succeeded: <Badge variant="success">succeeded</Badge>,
+  failed: <Badge variant="danger">failed</Badge>,
+};
+
 const emptyFilters = {
   status: '',
   search: '',
@@ -51,6 +57,12 @@ const formatAmount = (amount, currency = 'MAD') =>
 
 const compact = (value) => value || '-';
 
+const TruncatedText = ({ children, className = '' }) => (
+  <span className={`block max-w-[220px] truncate ${className}`} title={typeof children === 'string' ? children : undefined}>
+    {children || '-'}
+  </span>
+);
+
 const Field = ({ label, value }) => (
   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
     <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{label}</p>
@@ -61,23 +73,59 @@ const Field = ({ label, value }) => (
 const PaymentDetailsModal = ({ paymentId, onClose, addToast }) => {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refunding, setRefunding] = useState(false);
+
+  const loadDetails = async () => {
+    setLoading(true);
+    try {
+      const data = await adminService.getPaymentDetails(paymentId);
+      setDetail(data);
+    } catch {
+      addToast?.('Impossible de charger le paiement.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    adminService.getPaymentDetails(paymentId)
-      .then((data) => {
-        if (mounted) setDetail(data);
-      })
-      .catch(() => addToast?.('Impossible de charger le paiement.', 'error'))
-      .finally(() => mounted && setLoading(false));
-
-    return () => { mounted = false; };
+    loadDetails();
   }, [paymentId]);
 
   const intent = detail?.payment_intent;
   const transaction = detail?.transaction;
   const logs = Array.isArray(detail?.audit_logs) ? detail.audit_logs : [];
+  const refunds = Array.isArray(detail?.refunds) ? detail.refunds : [];
+  const refundableAmount = Number(intent?.refundable_amount || 0);
+  const canRefund = intent?.status === 'paid' && refundableAmount > 0;
+
+  const handleRefund = async () => {
+    const amount = Number(refundAmount);
+    if (!canRefund || !amount || amount <= 0 || refunding) return;
+    if (amount > refundableAmount) {
+      addToast?.('Le montant dépasse le solde remboursable.', 'error');
+      return;
+    }
+    if (!window.confirm(`Confirmer le remboursement de ${formatAmount(amount, intent?.currency)} ?`)) return;
+
+    try {
+      setRefunding(true);
+      await adminService.refundPayment(paymentId, {
+        amount,
+        reason: refundReason.trim() || 'requested_by_customer',
+      });
+      addToast?.('Remboursement envoyé à Stripe.', 'success');
+      setRefundAmount('');
+      setRefundReason('');
+      await loadDetails();
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Impossible de demander le remboursement.';
+      addToast?.(message, 'error');
+    } finally {
+      setRefunding(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[220] flex items-center justify-center p-4">
@@ -180,8 +228,157 @@ const PaymentDetailsModal = ({ paymentId, onClose, addToast }) => {
                   {intent.failure_reason}
                 </div>
               )}
+
+              <div>
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                  <ReceiptText size={16} className="text-emerald-400" />
+                  Refunds
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Refundable amount</p>
+                      <p className="mt-1 text-lg font-bold text-white">{formatAmount(refundableAmount, intent?.currency)}</p>
+                    </div>
+                    {canRefund && (
+                      <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr_auto] gap-2 w-full lg:w-auto">
+                        <input
+                          type="number"
+                          min="0"
+                          max={refundableAmount}
+                          step="0.01"
+                          value={refundAmount}
+                          onChange={(event) => setRefundAmount(event.target.value)}
+                          placeholder="Amount"
+                          className="rounded-xl border border-white/10 bg-bg-card px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500"
+                        />
+                        <input
+                          value={refundReason}
+                          onChange={(event) => setRefundReason(event.target.value)}
+                          placeholder="Reason"
+                          className="rounded-xl border border-white/10 bg-bg-card px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500"
+                        />
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={handleRefund}
+                          isLoading={refunding}
+                          disabled={refunding}
+                        >
+                          Refund
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {refunds.length > 0 ? refunds.map((refund) => (
+                      <div key={refund.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 rounded-xl border border-white/10 bg-black/10 p-3 text-sm">
+                        <span className="font-mono text-slate-200">{formatAmount(refund.amount, refund.currency)}</span>
+                        <span>{REFUND_BADGES[refund.status] || <Badge>{refund.status}</Badge>}</span>
+                        <span className="text-slate-400 break-all">{refund.stripe_refund_id || '-'}</span>
+                        <span className="text-slate-400">{formatDate(refund.processed_at || refund.created_at)}</span>
+                        <span className="text-rose-300">{refund.failure_reason || refund.reason || '-'}</span>
+                      </div>
+                    )) : (
+                      <p className="py-3 text-sm text-slate-500">No refunds for this payment.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const UserPaymentsModal = ({ group, filters, onClose, onSelectPayment, addToast }) => {
+  const [payments, setPayments] = useState([]);
+  const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  const query = useMemo(() => {
+    const params = {
+      page,
+      per_page: 10,
+      sort_by: 'created_at',
+      sort_dir: 'desc',
+      user_id: group?.user?.id,
+      account_id: group?.account?.id,
+    };
+    ['status', 'date_from', 'date_to'].forEach((key) => {
+      if (filters[key]) params[key] = filters[key];
+    });
+    return params;
+  }, [group, filters, page]);
+
+  const loadPayments = async () => {
+    try {
+      setLoading(true);
+      const result = await adminService.getPayments(query);
+      setPayments(Array.isArray(result?.data) ? result.data : []);
+      setMeta({
+        current_page: result?.current_page || 1,
+        last_page: result?.last_page || 1,
+        total: result?.total || 0,
+      });
+    } catch {
+      addToast?.('Impossible de charger l’historique des paiements.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPayments();
+  }, [query]);
+
+  const rows = payments.map((payment) => [
+    <span className="font-mono font-semibold">{formatAmount(payment.amount, payment.currency)}</span>,
+    STATUS_BADGES[payment.status] || <Badge>{payment.status}</Badge>,
+    <span className="uppercase">{payment.gateway}</span>,
+    <span className="text-sm whitespace-nowrap">{formatDate(payment.created_at)}</span>,
+    <span className="text-sm whitespace-nowrap">{formatDate(payment.paid_at)}</span>,
+    <Button variant="ghost" size="sm" leftIcon={Eye} onClick={() => onSelectPayment(payment.id)} className="whitespace-nowrap">
+      View details
+    </Button>,
+  ]);
+
+  return (
+    <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <motion.div initial={{ opacity: 0, y: 18, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: 0.96 }}
+        className="relative w-full max-w-5xl max-h-[86vh] overflow-hidden rounded-3xl border border-white/10 bg-bg-card shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Payment history</p>
+            <h3 className="text-lg font-bold text-white">{group?.user?.name || 'User'}</h3>
+            <p className="text-xs text-slate-500">{group?.user?.email || '-'} · {group?.account?.account_number || '-'}</p>
+          </div>
+          <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="max-h-[calc(86vh-84px)] overflow-y-auto p-6">
+          <Table
+            headers={['Amount', 'Status', 'Gateway', 'Created At', 'Paid At', 'Actions']}
+            data={rows}
+            isLoading={loading}
+            pagination
+            currentPage={meta.current_page}
+            totalPages={meta.last_page}
+            onPageChange={setPage}
+            emptyState={() => (
+              <div className="py-6 text-center">
+                <p className="font-semibold text-slate-300">No payments for this user/account</p>
+                <p className="text-sm text-slate-500">Adjust the page filters or refresh later.</p>
+              </div>
+            )}
+          />
         </div>
       </motion.div>
     </div>
@@ -191,13 +388,14 @@ const PaymentDetailsModal = ({ paymentId, onClose, addToast }) => {
 const AdminPaymentsPage = ({ addToast }) => {
   const [filters, setFilters] = useState(emptyFilters);
   const [page, setPage] = useState(1);
-  const [payments, setPayments] = useState([]);
+  const [summaries, setSummaries] = useState([]);
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [loading, setLoading] = useState(true);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState(null);
 
   const query = useMemo(() => {
-    const params = { page, per_page: 15, sort_by: 'created_at', sort_dir: 'desc' };
+    const params = { page, per_page: 10, sort_by: 'created_at', sort_dir: 'desc' };
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== '') params[key] = value;
     });
@@ -207,8 +405,8 @@ const AdminPaymentsPage = ({ addToast }) => {
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      const result = await adminService.getPayments(query);
-      setPayments(Array.isArray(result?.data) ? result.data : []);
+      const result = await adminService.getPaymentSummaries(query);
+      setSummaries(Array.isArray(result?.data) ? result.data : []);
       setMeta({
         current_page: result?.current_page || 1,
         last_page: result?.last_page || 1,
@@ -230,23 +428,19 @@ const AdminPaymentsPage = ({ addToast }) => {
     setPage(1);
   };
 
-  const rows = payments.map((payment) => [
-    <div>
-      <p className="font-semibold text-white">{payment.user?.name || '-'}</p>
-      <p className="text-xs text-slate-500">{payment.user?.email || '-'}</p>
+  const rows = summaries.map((summary) => [
+    <div className="h-12 flex flex-col justify-center">
+      <TruncatedText className="font-semibold text-white">{summary.user?.name || '-'}</TruncatedText>
     </div>,
-    <span className="font-mono text-xs">{payment.account?.account_number || '-'}</span>,
-    <span className="font-mono font-semibold">{formatAmount(payment.amount, payment.currency)}</span>,
-    <span className="uppercase">{payment.currency}</span>,
-    STATUS_BADGES[payment.status] || <Badge>{payment.status}</Badge>,
-    <span className="uppercase">{payment.gateway}</span>,
-    <span className="font-mono text-xs break-all">{compact(payment.gateway_reference)}</span>,
-    <span className="font-mono text-xs break-all">{compact(payment.stripe_payment_intent_id)}</span>,
-    formatDate(payment.created_at),
-    formatDate(payment.paid_at),
-    <span className="text-xs text-rose-300">{compact(payment.failure_reason)}</span>,
-    <Button variant="ghost" size="sm" leftIcon={Eye} onClick={() => setSelectedPaymentId(payment.id)}>
-      Details
+    <TruncatedText className="text-sm text-slate-400">{summary.user?.email || '-'}</TruncatedText>,
+    <span className="font-mono text-xs whitespace-nowrap">{summary.account?.account_number || '-'}</span>,
+    <span className="font-mono font-semibold">{summary.total_payments_count}</span>,
+    <span className="font-mono font-semibold text-emerald-400">{formatAmount(summary.total_paid_amount)}</span>,
+    <Badge variant={summary.pending_count > 0 ? 'warning' : 'neutral'}>{summary.pending_count}</Badge>,
+    <Badge variant={summary.failed_count > 0 ? 'danger' : 'neutral'}>{summary.failed_count}</Badge>,
+    <span className="text-sm whitespace-nowrap">{formatDate(summary.last_payment_date)}</span>,
+    <Button variant="ghost" size="sm" leftIcon={Eye} onClick={() => setSelectedGroup(summary)} className="whitespace-nowrap">
+      View payments
     </Button>,
   ]);
 
@@ -254,7 +448,7 @@ const AdminPaymentsPage = ({ addToast }) => {
     <div className="space-y-6">
       <PageHeader
         title="Stripe Payments"
-        subtitle="Monitor DigiBank deposit intents, Stripe events, and credited transactions."
+        subtitle="Monitor DigiBank Stripe deposits grouped by user and account."
         breadcrumbs={['Admin', 'Payments']}
       />
 
@@ -265,7 +459,7 @@ const AdminPaymentsPage = ({ addToast }) => {
             <input
               value={filters.search}
               onChange={(event) => updateFilter('search', event.target.value)}
-              placeholder="User, account, Stripe ref"
+              placeholder="User, email, account"
               className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
             />
           </div>
@@ -287,7 +481,7 @@ const AdminPaymentsPage = ({ addToast }) => {
             placeholder="Max amount" className="rounded-xl border border-white/10 bg-bg-card px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500" />
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">{meta.total} payment intents</p>
+          <p className="text-xs text-slate-500">{meta.total} user/account groups</p>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={() => { setFilters(emptyFilters); setPage(1); }}>
               Clear
@@ -302,17 +496,14 @@ const AdminPaymentsPage = ({ addToast }) => {
       <Table
         headers={[
           'User',
+          'Email',
           'Account Number',
-          'Amount',
-          'Currency',
-          'Status',
-          'Gateway',
-          'Stripe Session ID',
-          'Stripe Payment Intent ID',
-          'Created At',
-          'Paid At',
-          'Failure Reason',
-          '',
+          'Total Payments Count',
+          'Total Paid Amount',
+          'Pending Count',
+          'Failed Count',
+          'Last Payment Date',
+          'Actions',
         ]}
         data={rows}
         isLoading={loading}
@@ -327,13 +518,22 @@ const AdminPaymentsPage = ({ addToast }) => {
             </div>
             <div>
               <p className="font-semibold text-slate-300">No Stripe payments found</p>
-              <p className="text-sm text-slate-500">Adjust filters or refresh after new deposits arrive.</p>
+              <p className="text-sm text-slate-500">Adjust user, account, status, date, or amount filters.</p>
             </div>
           </div>
         )}
       />
 
       <AnimatePresence>
+        {selectedGroup && (
+          <UserPaymentsModal
+            group={selectedGroup}
+            filters={filters}
+            onClose={() => setSelectedGroup(null)}
+            onSelectPayment={setSelectedPaymentId}
+            addToast={addToast}
+          />
+        )}
         {selectedPaymentId && (
           <PaymentDetailsModal
             paymentId={selectedPaymentId}

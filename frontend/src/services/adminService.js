@@ -44,8 +44,18 @@ const adminService = {
     return response.data?.data?.payments ?? response.data?.data ?? response.data;
   },
 
+  getPaymentSummaries: async (params = {}) => {
+    const response = await api.get('/admin/payments/summary', { params });
+    return response.data?.data?.summaries ?? response.data?.data ?? response.data;
+  },
+
   getPaymentDetails: async (id) => {
     const response = await api.get(`/admin/payments/${id}`);
+    return response.data?.data || response.data;
+  },
+
+  refundPayment: async (id, data) => {
+    const response = await api.post(`/admin/payments/${id}/refund`, data);
     return response.data?.data || response.data;
   },
 

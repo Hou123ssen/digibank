@@ -5,46 +5,39 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
+    'payment_intent_id',
     'user_id',
     'account_id',
+    'transaction_id',
     'amount',
     'currency',
-    'gateway',
-    'gateway_reference',
-    'stripe_payment_intent_id',
+    'stripe_refund_id',
     'stripe_charge_id',
-    'stripe_event_id',
-    'idempotency_key',
     'status',
+    'reason',
     'failure_reason',
-    'metadata',
-    'paid_at',
-    'cancelled_at',
-    'failed_at',
+    'requested_by',
+    'processed_at',
 ])]
-class PaymentIntent extends Model
+class Refund extends Model
 {
-    public const GATEWAY_STRIPE = 'stripe';
-    public const GATEWAY_CMI = 'cmi';
-    public const GATEWAY_BANK = 'bank_gateway';
-
     public const STATUS_PENDING = 'pending';
-    public const STATUS_PAID = 'paid';
+    public const STATUS_SUCCEEDED = 'succeeded';
     public const STATUS_FAILED = 'failed';
-    public const STATUS_CANCELLED = 'cancelled';
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
-            'metadata' => 'array',
-            'paid_at' => 'datetime',
-            'cancelled_at' => 'datetime',
-            'failed_at' => 'datetime',
+            'processed_at' => 'datetime',
         ];
+    }
+
+    public function paymentIntent(): BelongsTo
+    {
+        return $this->belongsTo(PaymentIntent::class);
     }
 
     public function user(): BelongsTo
@@ -57,8 +50,13 @@ class PaymentIntent extends Model
         return $this->belongsTo(Account::class);
     }
 
-    public function refunds(): HasMany
+    public function transaction(): BelongsTo
     {
-        return $this->hasMany(Refund::class);
+        return $this->belongsTo(Transaction::class);
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by');
     }
 }

@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\Notification;
 use App\Models\PaymentIntent;
+use App\Models\Refund;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\PaymentGatewayService;
@@ -574,6 +575,170 @@ class PaymentGatewayDepositTest extends TestCase
         $this->getJson("/api/admin/payments/{$intent->id}")->assertForbidden();
     }
 
+    public function test_admin_can_request_refund_for_paid_payment(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->paidIntent($user, $account, 300, 'cs_test_refund_request', 'pi_test_refund_request', 'ch_test_refund_request');
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        Sanctum::actingAs($admin);
+        $this->fakeStripeRefund('re_test_request_1', 'ch_test_refund_request');
+
+        $this->postJson("/api/admin/payments/{$intent->id}/refund", [
+            'amount' => 100,
+            'reason' => 'requested_by_customer',
+        ])->assertCreated()
+            ->assertJsonPath('data.refund.status', Refund::STATUS_PENDING)
+            ->assertJsonPath('data.refund.stripe_refund_id', 're_test_request_1');
+
+        $this->assertEquals('300.00', $account->fresh()->balance);
+        $this->assertDatabaseHas('refunds', [
+            'payment_intent_id' => $intent->id,
+            'amount' => '100.00',
+            'status' => Refund::STATUS_PENDING,
+            'stripe_refund_id' => 're_test_request_1',
+            'requested_by' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'deposit.refund.requested',
+        ]);
+    }
+
+    public function test_non_admin_cannot_request_refund(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->paidIntent($user, $account, 300, 'cs_test_refund_forbidden', 'pi_test_refund_forbidden', 'ch_test_refund_forbidden');
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_USER]));
+
+        $this->postJson("/api/admin/payments/{$intent->id}/refund", [
+            'amount' => 100,
+            'reason' => 'requested_by_customer',
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('refunds', 0);
+    }
+
+    public function test_refund_cannot_exceed_refundable_amount(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->paidIntent($user, $account, 300, 'cs_test_refund_exceed', 'pi_test_refund_exceed', 'ch_test_refund_exceed');
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $this->postJson("/api/admin/payments/{$intent->id}/refund", [
+            'amount' => 301,
+            'reason' => 'requested_by_customer',
+        ])->assertUnprocessable()
+            ->assertJsonPath('errors.amount.0', 'Refund amount exceeds the refundable amount.');
+
+        $this->assertDatabaseCount('refunds', 0);
+    }
+
+    public function test_duplicate_refund_amount_is_blocked(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->paidIntent($user, $account, 300, 'cs_test_refund_duplicate', 'pi_test_refund_duplicate', 'ch_test_refund_duplicate');
+        Refund::create([
+            'payment_intent_id' => $intent->id,
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'amount' => 100,
+            'currency' => 'MAD',
+            'stripe_refund_id' => 're_test_existing_duplicate',
+            'stripe_charge_id' => 'ch_test_refund_duplicate',
+            'status' => Refund::STATUS_PENDING,
+            'requested_by' => User::factory()->create(['role' => User::ROLE_ADMIN])->id,
+        ]);
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $this->postJson("/api/admin/payments/{$intent->id}/refund", [
+            'amount' => 100,
+            'reason' => 'requested_by_customer',
+        ])->assertUnprocessable()
+            ->assertJsonPath('errors.amount.0', 'A refund for this amount already exists.');
+    }
+
+    public function test_successful_stripe_refund_decreases_balance_once(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->paidIntent($user, $account, 300, 'cs_test_refund_success', 'pi_test_refund_success', 'ch_test_refund_success');
+        $refund = Refund::create([
+            'payment_intent_id' => $intent->id,
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'amount' => 100,
+            'currency' => 'MAD',
+            'stripe_refund_id' => 're_test_success_1',
+            'stripe_charge_id' => 'ch_test_refund_success',
+            'status' => Refund::STATUS_PENDING,
+            'requested_by' => User::factory()->create(['role' => User::ROLE_ADMIN])->id,
+        ]);
+
+        $event = [
+            'id' => 'evt_refund_success_1',
+            'object' => 'event',
+            'type' => 'refund.updated',
+            'data' => ['object' => [
+                'id' => 're_test_success_1',
+                'charge' => 'ch_test_refund_success',
+                'status' => 'succeeded',
+                'metadata' => ['refund_id' => (string) $refund->id],
+            ]],
+        ];
+
+        $this->signedStripeWebhook($event)->assertOk();
+        $this->signedStripeWebhook($event)->assertOk();
+
+        $this->assertEquals('200.00', $account->fresh()->balance);
+        $this->assertSame(Refund::STATUS_SUCCEEDED, $refund->fresh()->status);
+        $this->assertDatabaseHas('transactions', [
+            'account_id' => $account->id,
+            'type' => Transaction::TYPE_REFUND,
+            'amount' => '-100.00',
+            'balance_before' => '300.00',
+            'balance_after' => '200.00',
+            'description' => 'Stripe refund',
+            'reference' => 'REFUND-re_test_success_1',
+        ]);
+        $this->assertDatabaseCount('transactions', 1);
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'deposit.refund.succeeded',
+        ]);
+    }
+
+    public function test_failed_refund_does_not_change_balance(): void
+    {
+        [$user, $account] = $this->userWithAccount();
+        $intent = $this->paidIntent($user, $account, 300, 'cs_test_refund_failed', 'pi_test_refund_failed', 'ch_test_refund_failed');
+        $refund = Refund::create([
+            'payment_intent_id' => $intent->id,
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'amount' => 100,
+            'currency' => 'MAD',
+            'stripe_refund_id' => 're_test_failed_1',
+            'stripe_charge_id' => 'ch_test_refund_failed',
+            'status' => Refund::STATUS_PENDING,
+            'requested_by' => User::factory()->create(['role' => User::ROLE_ADMIN])->id,
+        ]);
+
+        $this->signedStripeWebhook([
+            'id' => 'evt_refund_failed_1',
+            'object' => 'event',
+            'type' => 'refund.updated',
+            'data' => ['object' => [
+                'id' => 're_test_failed_1',
+                'charge' => 'ch_test_refund_failed',
+                'status' => 'failed',
+                'failure_reason' => 'expired_or_canceled_card',
+                'metadata' => ['refund_id' => (string) $refund->id],
+            ]],
+        ])->assertOk();
+
+        $this->assertEquals('300.00', $account->fresh()->balance);
+        $this->assertSame(Refund::STATUS_FAILED, $refund->fresh()->status);
+        $this->assertSame('expired_or_canceled_card', $refund->fresh()->failure_reason);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
     public function test_invalid_signature_is_rejected(): void
     {
         [$user, $account] = $this->userWithAccount();
@@ -667,12 +832,40 @@ class PaymentGatewayDepositTest extends TestCase
         ]);
     }
 
+    private function paidIntent(User $user, Account $account, float $amount, string $sessionId, string $paymentIntentId, string $chargeId): PaymentIntent
+    {
+        $account->update(['balance' => $amount]);
+
+        return PaymentIntent::create([
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'amount' => $amount,
+            'currency' => 'MAD',
+            'gateway' => PaymentIntent::GATEWAY_STRIPE,
+            'gateway_reference' => $sessionId,
+            'stripe_payment_intent_id' => $paymentIntentId,
+            'stripe_charge_id' => $chargeId,
+            'status' => PaymentIntent::STATUS_PAID,
+            'paid_at' => now(),
+        ]);
+    }
+
     private function fakeStripeCheckoutSession(string $sessionId, string $checkoutUrl): void
     {
         $gateway = Mockery::mock(PaymentGatewayService::class)->makePartial();
         $gateway->shouldReceive('createStripeCheckoutSession')
             ->once()
             ->andReturn(['id' => $sessionId, 'url' => $checkoutUrl]);
+
+        $this->app->instance(PaymentGatewayService::class, $gateway);
+    }
+
+    private function fakeStripeRefund(string $refundId, string $chargeId, string $status = 'pending'): void
+    {
+        $gateway = Mockery::mock(PaymentGatewayService::class)->makePartial();
+        $gateway->shouldReceive('createStripeRefund')
+            ->once()
+            ->andReturn(['id' => $refundId, 'charge' => $chargeId, 'status' => $status]);
 
         $this->app->instance(PaymentGatewayService::class, $gateway);
     }

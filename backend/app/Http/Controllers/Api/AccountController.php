@@ -10,6 +10,7 @@ use App\Models\Transaction;
 use App\Services\AccountService;
 use App\Support\ApiResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
 class AccountController extends Controller
@@ -111,6 +112,45 @@ class AccountController extends Controller
         return ApiResponse::success('Transfer completed successfully.', $result);
     }
 
+    public function recentTransferRecipients(Request $request)
+    {
+        $account = $request->user()->account()->firstOrFail();
+
+        $recipients = Transaction::query()
+            ->select([
+                'related_account_id',
+                DB::raw('COUNT(*) as total_transfers_count'),
+                DB::raw('MAX(created_at) as last_transfer_at'),
+            ])
+            ->where('account_id', $account->id)
+            ->where('type', Transaction::TYPE_TRANSFER_OUT)
+            ->where('status', Transaction::STATUS_SUCCESS)
+            ->whereNotNull('related_account_id')
+            ->groupBy('related_account_id')
+            ->orderByDesc('last_transfer_at')
+            ->limit(10)
+            ->with(['relatedAccount.user:id,name,email'])
+            ->get()
+            ->map(function (Transaction $transaction): array {
+                $relatedAccount = $transaction->relatedAccount;
+                $recipientName = $relatedAccount?->user?->name ?: 'Compte DigiBank';
+
+                return [
+                    'recipient_name' => $recipientName,
+                    'account_number' => $relatedAccount?->account_number,
+                    'avatar_initials' => $this->initials($recipientName),
+                    'total_transfers_count' => (int) $transaction->total_transfers_count,
+                    'last_transfer_at' => $transaction->last_transfer_at,
+                ];
+            })
+            ->filter(fn (array $recipient): bool => ! empty($recipient['account_number']))
+            ->values();
+
+        return ApiResponse::success('Recent transfer recipients retrieved.', [
+            'recipients' => $recipients,
+        ]);
+    }
+
     private function monthlySummary(Request $request): array
     {
         $account = $request->user()->account()->firstOrFail();
@@ -122,7 +162,7 @@ class AccountController extends Controller
             ->whereBetween('created_at', [$periodStart, $periodEnd])
             ->selectRaw("
                 COALESCE(SUM(CASE WHEN type IN (?, ?, ?) THEN ABS(amount) ELSE 0 END), 0) as monthly_inflows,
-                COALESCE(SUM(CASE WHEN type IN (?, ?, ?) THEN ABS(amount) ELSE 0 END), 0) as monthly_outflows
+                COALESCE(SUM(CASE WHEN type IN (?, ?, ?, ?) THEN ABS(amount) ELSE 0 END), 0) as monthly_outflows
             ", [
                 Transaction::TYPE_DEPOSIT,
                 Transaction::TYPE_TRANSFER_IN,
@@ -130,6 +170,7 @@ class AccountController extends Controller
                 Transaction::TYPE_WITHDRAW,
                 Transaction::TYPE_TRANSFER_OUT,
                 Transaction::TYPE_DARET_CONTRIBUTION,
+                Transaction::TYPE_REFUND,
             ])
             ->first();
 
@@ -152,5 +193,17 @@ class AccountController extends Controller
         }
 
         return substr(trim($key), 0, 120);
+    }
+
+    private function initials(string $name): string
+    {
+        $words = preg_split('/\s+/', trim($name)) ?: [];
+        $initials = collect($words)
+            ->filter()
+            ->take(2)
+            ->map(fn (string $word): string => mb_strtoupper(mb_substr($word, 0, 1)))
+            ->implode('');
+
+        return $initials !== '' ? $initials : 'DG';
     }
 }

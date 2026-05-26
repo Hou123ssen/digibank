@@ -71,6 +71,17 @@ const accountService = {
     const response = await api.post('/accounts/transfer', payload, config);
     return response.data?.data || response.data;
   },
+  getRecentTransferRecipients: async () => {
+    const response = await api.get('/transfers/recents', {
+      params: { _t: Date.now() },
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
+
+    return response.data?.data?.recipients || response.data?.recipients || [];
+  },
 };
 
 export default accountService;

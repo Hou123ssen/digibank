@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search,
-  Filter,
   Download,
   ArrowUpRight,
   ArrowDownLeft,
@@ -30,36 +29,57 @@ const TRANSACTION_TYPES = [
   { id: 'withdraw', label: 'Retraits' },
   { id: 'transfer', label: 'Virements' },
   { id: 'daret', label: 'Daret' },
+  { id: 'refund', label: 'Remboursements' },
   { id: 'cagnotte', label: 'Cagnottes' },
 ];
 
 const TransactionsHistoryPage = ({ addToast }) => {
   const [transactions, setTransactions] = useState([]);
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     type: 'all',
     search: '',
-    dateRange: 'all'
+    dateRange: 'all',
+    amount_min: '',
+    amount_max: '',
   });
+  const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [filters, page]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [filters, transactions]);
+  const apiFilters = () => {
+    const params = { page, per_page: 15 };
+    if (filters.type !== 'all') params.type = filters.type;
+    if (filters.search.trim()) params.search = filters.search.trim();
+    if (filters.amount_min) params.amount_min = filters.amount_min;
+    if (filters.amount_max) params.amount_max = filters.amount_max;
+    if (filters.dateRange !== 'all') {
+      const days = Number(filters.dateRange.replace('d', ''));
+      const from = new Date();
+      from.setDate(from.getDate() - days);
+      params.date_from = from.toISOString().slice(0, 10);
+    }
+    return params;
+  };
 
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      const response = await transactionService.getMyTransactions();
-      const rawTransactions = response?.transactions || response;
-      setTransactions(Array.isArray(rawTransactions) ? rawTransactions : []);
+      const response = await transactionService.getMyTransactions(apiFilters());
+      setTransactions(Array.isArray(response?.data) ? response.data : []);
+      setSummary(response?.summary || null);
+      setMeta({
+        current_page: response?.current_page || 1,
+        last_page: response?.last_page || 1,
+        total: response?.total || 0,
+      });
     } catch (err) {
       console.error('Error fetching transactions:', err);
     } finally {
@@ -67,28 +87,10 @@ const TransactionsHistoryPage = ({ addToast }) => {
     }
   };
 
-  const applyFilters = () => {
-    let result = [...transactions];
-
-    if (filters.type !== 'all') {
-      result = result.filter(t => t.type === filters.type);
-    }
-
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      result = result.filter(t => 
-        (t.description?.toLowerCase().includes(search)) || 
-        (t.reference?.toLowerCase().includes(search)) ||
-        (t.type?.toLowerCase().includes(search))
-      );
-    }
-
-    setFilteredTransactions(result);
-  };
-
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
+    setPage(1);
   };
 
   const copyReference = (ref) => {
@@ -101,6 +103,7 @@ const TransactionsHistoryPage = ({ addToast }) => {
   const isPositiveTransaction = (type) => ['deposit', 'transfer_in', 'daret_payout'].includes(type);
 
   const signedAmount = (transaction) => {
+    if (transaction.signed_amount != null) return Number(transaction.signed_amount);
     const amount = Math.abs(Number(transaction.amount || 0));
     return isPositiveTransaction(transaction.type) ? amount : -amount;
   };
@@ -129,11 +132,16 @@ const TransactionsHistoryPage = ({ addToast }) => {
   const handleExport = async (type) => {
     setExporting(type);
     try {
+      const params = apiFilters();
+      delete params.page;
+      delete params.per_page;
       const blob = type === 'pdf'
-        ? await transactionService.exportPdf()
-        : await transactionService.exportExcel();
+        ? await transactionService.exportPdf(params)
+        : type === 'csv'
+          ? await transactionService.exportCsv(params)
+          : await transactionService.exportExcel(params);
 
-      downloadBlob(blob, type === 'pdf' ? 'transactions-digibank.pdf' : 'transactions-digibank.xlsx');
+      downloadBlob(blob, type === 'pdf' ? 'transactions-digibank.pdf' : type === 'csv' ? 'transactions-digibank.csv' : 'transactions-digibank.xlsx');
       addToast?.(`Export ${type === 'pdf' ? 'PDF' : 'Excel'} tÃ©lÃ©chargÃ©`, 'success');
     } catch (err) {
       console.error('Transaction export error:', err);
@@ -152,6 +160,7 @@ const TransactionsHistoryPage = ({ addToast }) => {
       case 'withdraw':
       case 'transfer_out':
       case 'daret_contribution':
+      case 'refund':
         return <ArrowUpRight className="text-rose-500" />;
       case 'transfer': return <ArrowLeftRight className="text-sky-500" />;
       default: return <ArrowLeftRight className="text-slate-400" />;
@@ -167,6 +176,7 @@ const TransactionsHistoryPage = ({ addToast }) => {
       case 'withdraw':
       case 'transfer_out':
       case 'daret_contribution':
+      case 'refund':
         return 'bg-rose-500/10 text-rose-500';
       case 'transfer': return 'bg-sky-500/10 text-sky-500';
       default: return 'bg-slate-500/10 text-slate-500';
@@ -181,15 +191,35 @@ const TransactionsHistoryPage = ({ addToast }) => {
         breadcrumbs={["Accueil", "Transactions"]}
         actions={
           <div className="flex gap-3">
-            <Button variant="secondary" size="sm" leftIcon={FilePdf}>PDF</Button>
-            <Button variant="secondary" size="sm" leftIcon={FileSpreadsheet}>Excel</Button>
+            <Button variant="secondary" size="sm" leftIcon={FilePdf} onClick={() => handleExport('pdf')} isLoading={exporting === 'pdf'}>PDF</Button>
+            <Button variant="secondary" size="sm" leftIcon={FileSpreadsheet} onClick={() => handleExport('excel')} isLoading={exporting === 'excel'}>Excel</Button>
+            <Button variant="secondary" size="sm" leftIcon={Download} onClick={() => handleExport('csv')} isLoading={exporting === 'csv'}>CSV</Button>
           </div>
         }
       />
 
+      {summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[
+            ['Solde initial', summary.opening_balance],
+            ['Entrées', summary.total_inflows],
+            ['Sorties', summary.total_outflows],
+            ['Solde final', summary.closing_balance],
+            ['Alertes', summary.anomalies_count],
+          ].map(([label, value]) => (
+            <Card key={label} className="p-4">
+              <p className="text-xs text-slate-500 uppercase tracking-widest">{label}</p>
+              <p className={`mt-2 text-xl font-bold font-mono ${label === 'Alertes' && value > 0 ? 'text-amber-400' : 'text-white'}`}>
+                {label === 'Alertes' ? value : `${Number(value || 0).toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD`}
+              </p>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Filters Bar */}
       <Card className="p-3 sm:p-4 bg-white/5 border-white/10 sticky top-0 z-30 backdrop-blur-xl shadow-2xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
             <input 
@@ -220,7 +250,24 @@ const TransactionsHistoryPage = ({ addToast }) => {
             <option value="30d">30 derniers jours</option>
             <option value="90d">90 derniers jours</option>
           </Select>
-          <Button variant="secondary" leftIcon={Filter} className="w-full bg-white/5 border-white/10 py-2">Filtres avancés</Button>
+          <input
+            name="amount_min"
+            value={filters.amount_min}
+            onChange={handleFilterChange}
+            type="number"
+            min="0"
+            placeholder="Montant min"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-all"
+          />
+          <input
+            name="amount_max"
+            value={filters.amount_max}
+            onChange={handleFilterChange}
+            type="number"
+            min="0"
+            placeholder="Montant max"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-all"
+          />
         </div>
       </Card>
 
@@ -232,11 +279,11 @@ const TransactionsHistoryPage = ({ addToast }) => {
               <div key={i} className="h-16 w-full bg-white/5 animate-pulse rounded-xl" />
             ))}
           </div>
-        ) : filteredTransactions.length > 0 ? (
+        ) : transactions.length > 0 ? (
           <>
             <Table 
-              headers={["Opération", "Date", "Référence", "Montant", "Statut", ""]}
-              data={filteredTransactions.map(t => [
+              headers={["Opération", "Date", "Référence", "Montant", "Solde", "Alertes", ""]}
+              data={transactions.map(t => [
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${getTransactionColor(t.type)}`}>
                     {getTransactionIcon(t.type)}
@@ -256,7 +303,12 @@ const TransactionsHistoryPage = ({ addToast }) => {
                 }`}>
                   {formatTransactionAmount(t)}
                 </span>,
-                <Badge variant="success" className="text-[10px]">Terminé</Badge>,
+                <span className="font-mono text-sm text-slate-300">{Number(t.running_balance ?? t.balance_after ?? 0).toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD</span>,
+                <div className="flex flex-wrap gap-1">
+                  {(t.anomaly_flags || []).length > 0
+                    ? t.anomaly_flags.map(flag => <Badge key={flag} variant="warning" className="text-[10px]">{flag}</Badge>)
+                    : <Badge variant="success" className="text-[10px]">OK</Badge>}
+                </div>,
                 <button 
                   onClick={() => setSelectedTransaction(t)}
                   className="p-2 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white transition-all"
@@ -266,10 +318,10 @@ const TransactionsHistoryPage = ({ addToast }) => {
               ])}
             />
             <div className="p-4 sm:p-6 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <p className="text-sm text-slate-500">Affichage de {filteredTransactions.length} transactions</p>
+              <p className="text-sm text-slate-500">Affichage de {transactions.length} sur {meta.total} transactions</p>
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" disabled>Précédent</Button>
-                <Button variant="secondary" size="sm" disabled>Suivant</Button>
+                <Button variant="secondary" size="sm" disabled={meta.current_page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Précédent</Button>
+                <Button variant="secondary" size="sm" disabled={meta.current_page >= meta.last_page} onClick={() => setPage(p => p + 1)}>Suivant</Button>
               </div>
             </div>
           </>

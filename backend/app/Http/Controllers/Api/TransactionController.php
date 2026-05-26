@@ -6,48 +6,78 @@ use App\Http\Controllers\Controller;
 use App\Models\Transaction;
 use App\Support\ApiResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use ZipArchive;
 
 class TransactionController extends Controller
 {
     public function me(Request $request)
     {
-        $transactions = $request->user()
-            ->transactions()
-            ->select([
-                'id',
-                'account_id',
-                'related_account_id',
-                'type',
-                'amount',
-                'balance_before',
-                'balance_after',
-                'status',
-                'reference',
-                'description',
-                'is_overdraft',
-                'overdraft_amount',
-                'created_at',
-            ])
-            ->with(['account:id,account_number', 'relatedAccount:id,account_number'])
+        $filters = $this->validatedFilters($request);
+
+        if ($request->query() === []) {
+            $transactions = $this->ledgerQuery($request, $filters)
+                ->latest()
+                ->get()
+                ->map(fn (Transaction $transaction): array => $this->ledgerRow($transaction));
+
+            return ApiResponse::success('Transactions retrieved successfully.', [
+                'transactions' => $transactions,
+                'summary' => $this->statementSummary($this->ledgerQuery($request, $filters)->get(), $request),
+            ]);
+        }
+
+        $perPage = (int) ($filters['per_page'] ?? 15);
+
+        $transactions = $this->ledgerQuery($request, $filters)
             ->latest()
-            ->get();
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (Transaction $transaction): array => $this->ledgerRow($transaction));
 
         return ApiResponse::success('Transactions retrieved successfully.', [
             'transactions' => $transactions,
+            'summary' => $this->statementSummary($this->ledgerQuery($request, $filters)->get(), $request),
+        ]);
+    }
+
+    public function statement(Request $request)
+    {
+        $filters = $this->validatedFilters($request);
+        [$periodStart, $periodEnd] = $this->statementPeriod($request);
+        $filters['date_from'] = $periodStart->toDateString();
+        $filters['date_to'] = $periodEnd->toDateString();
+
+        $transactions = $this->ledgerQuery($request, $filters)
+            ->oldest()
+            ->get();
+
+        return ApiResponse::success('Monthly statement retrieved successfully.', [
+            'period' => [
+                'start' => $periodStart,
+                'end' => $periodEnd,
+                'month' => $periodStart->format('Y-m'),
+            ],
+            'account' => $request->user()->account,
+            'summary' => $this->statementSummary($transactions, $request),
+            'transactions' => $transactions->map(fn (Transaction $transaction): array => $this->ledgerRow($transaction))->values(),
+            'anomalies' => $this->anomalySummary($transactions),
         ]);
     }
 
     public function exportPdf(Request $request)
     {
-        $transactions = $this->userTransactions($request);
+        $filters = $this->validatedFilters($request);
+        $transactions = $this->exportTransactions($request, $filters);
         $generatedAt = now();
 
         $pdf = Pdf::loadView('pdf.transactions-export', [
             'user' => $request->user(),
             'transactions' => $transactions,
+            'summary' => $this->statementSummary($this->ledgerQuery($request, $filters)->get(), $request),
             'generatedAt' => $generatedAt,
         ])
             ->setPaper('a4')
@@ -62,7 +92,7 @@ class TransactionController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $transactions = $this->userTransactions($request);
+        $transactions = $this->exportTransactions($request, $this->validatedFilters($request));
         $path = tempnam(sys_get_temp_dir(), 'digibank-transactions-');
 
         $zip = new ZipArchive();
@@ -80,19 +110,67 @@ class TransactionController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
-    private function userTransactions(Request $request): Collection
+    public function exportCsv(Request $request)
     {
-        return $request->user()
-            ->transactions()
-            ->select([
-                'id',
-                'type',
-                'amount',
-                'status',
-                'reference',
-                'description',
-                'created_at',
-            ])
+        $transactions = $this->exportTransactions($request, $this->validatedFilters($request));
+        $csv = fopen('php://temp', 'r+');
+        fputcsv($csv, ['Date', 'Type', 'Reference', 'Description', 'Amount', 'Balance Before', 'Balance After', 'Status', 'Anomaly Flags']);
+
+        foreach ($transactions as $transaction) {
+            fputcsv($csv, [
+                $transaction['date']?->format('Y-m-d H:i:s') ?? '',
+                $transaction['type'],
+                $transaction['reference'],
+                $transaction['description'],
+                $transaction['amount'],
+                $transaction['balance_before'],
+                $transaction['balance_after'],
+                $transaction['status'],
+                implode('|', $transaction['anomaly_flags'] ?? []),
+            ]);
+        }
+
+        rewind($csv);
+        $content = stream_get_contents($csv);
+        fclose($csv);
+
+        return response($content, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="transactions-digibank.csv"',
+        ]);
+    }
+
+    public function statementPdf(Request $request)
+    {
+        [$periodStart, $periodEnd] = $this->statementPeriod($request);
+        $filters = $this->validatedFilters($request);
+        $filters['date_from'] = $periodStart->toDateString();
+        $filters['date_to'] = $periodEnd->toDateString();
+
+        $transactions = $this->ledgerQuery($request, $filters)->oldest()->get();
+
+        $pdf = Pdf::loadView('pdf.account-statement', [
+            'user' => $request->user(),
+            'account' => $request->user()->account,
+            'transactions' => $transactions,
+            'summary' => $this->statementSummary($transactions, $request),
+            'periodStart' => $periodStart,
+            'periodEnd' => $periodEnd,
+            'generatedAt' => now(),
+        ])
+            ->setPaper('a4')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isHtml5ParserEnabled' => true,
+                'isFontSubsettingEnabled' => true,
+            ]);
+
+        return $pdf->download('releve-digibank-'.$periodStart->format('Y-m').'.pdf');
+    }
+
+    private function exportTransactions(Request $request, array $filters): Collection
+    {
+        return $this->ledgerQuery($request, $filters)
             ->latest()
             ->get()
             ->map(function (Transaction $transaction): array {
@@ -106,8 +184,155 @@ class TransactionController extends Controller
                     'formatted_amount' => $this->formatAmount($signedAmount),
                     'status' => $transaction->status,
                     'description' => $transaction->description,
+                    'balance_before' => $transaction->balance_before,
+                    'balance_after' => $transaction->balance_after,
+                    'anomaly_flags' => $this->anomalyFlags($transaction),
                 ];
             });
+    }
+
+    private function ledgerQuery(Request $request, array $filters)
+    {
+        return $request->user()
+            ->transactions()
+            ->select([
+                'id',
+                'account_id',
+                'related_account_id',
+                'type',
+                'amount',
+                'balance_before',
+                'balance_after',
+                'status',
+                'reference',
+                'description',
+                'is_overdraft',
+                'overdraft_amount',
+                'created_at',
+            ])
+            ->with(['account:id,account_number,balance', 'relatedAccount:id,account_number'])
+            ->when(($filters['type'] ?? 'all') !== 'all', function ($query) use ($filters): void {
+                $type = $filters['type'];
+                if ($type === 'transfer') {
+                    $query->whereIn('type', [Transaction::TYPE_TRANSFER_IN, Transaction::TYPE_TRANSFER_OUT]);
+                } elseif ($type === 'daret') {
+                    $query->whereIn('type', [Transaction::TYPE_DARET_CONTRIBUTION, Transaction::TYPE_DARET_PAYOUT]);
+                } elseif ($type === 'cagnotte') {
+                    $query->where('type', Transaction::TYPE_WITHDRAW)->where('description', 'like', 'Donation to cagnotte%');
+                } else {
+                    $query->where('type', $type);
+                }
+            })
+            ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+            ->when($filters['search'] ?? null, function ($query, string $search): void {
+                $query->where(function ($inner) use ($search): void {
+                    $inner
+                        ->where('reference', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('type', 'like', "%{$search}%");
+                });
+            })
+            ->when($filters['date_from'] ?? null, fn ($query, string $date) => $query->whereDate('created_at', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn ($query, string $date) => $query->whereDate('created_at', '<=', $date))
+            ->when(isset($filters['amount_min']), fn ($query) => $query->whereRaw('ABS(amount) >= ?', [$filters['amount_min']]))
+            ->when(isset($filters['amount_max']), fn ($query) => $query->whereRaw('ABS(amount) <= ?', [$filters['amount_max']]));
+    }
+
+    private function ledgerRow(Transaction $transaction): array
+    {
+        $signedAmount = $this->signedAmount($transaction);
+
+        return [
+            'id' => $transaction->id,
+            'account_id' => $transaction->account_id,
+            'account_number' => $transaction->account?->account_number,
+            'related_account_number' => $transaction->relatedAccount?->account_number,
+            'type' => $transaction->type,
+            'amount' => $transaction->amount,
+            'signed_amount' => round($signedAmount, 2),
+            'formatted_amount' => $this->formatAmount($signedAmount),
+            'balance_before' => $transaction->balance_before,
+            'balance_after' => $transaction->balance_after,
+            'running_balance' => $transaction->balance_after,
+            'status' => $transaction->status,
+            'reference' => $transaction->reference,
+            'description' => $transaction->description,
+            'is_overdraft' => $transaction->is_overdraft,
+            'overdraft_amount' => $transaction->overdraft_amount,
+            'anomaly_flags' => $this->anomalyFlags($transaction),
+            'created_at' => $transaction->created_at,
+        ];
+    }
+
+    private function validatedFilters(Request $request): array
+    {
+        return $request->validate([
+            'type' => ['nullable', Rule::in(['all', Transaction::TYPE_DEPOSIT, Transaction::TYPE_WITHDRAW, Transaction::TYPE_TRANSFER_IN, Transaction::TYPE_TRANSFER_OUT, Transaction::TYPE_REFUND, 'transfer', 'daret', 'cagnotte'])],
+            'status' => ['nullable', Rule::in([Transaction::STATUS_SUCCESS, Transaction::STATUS_FAILED, Transaction::STATUS_PENDING])],
+            'search' => ['nullable', 'string', 'max:120'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'amount_min' => ['nullable', 'numeric', 'min:0'],
+            'amount_max' => ['nullable', 'numeric', 'gte:amount_min'],
+            'month' => ['nullable', 'date_format:Y-m'],
+            'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
+        ]);
+    }
+
+    private function statementPeriod(Request $request): array
+    {
+        $month = $request->query('month');
+        $start = $month ? Carbon::createFromFormat('Y-m', $month)->startOfMonth() : now()->startOfMonth();
+
+        return [$start->copy(), $start->copy()->endOfMonth()];
+    }
+
+    private function statementSummary(Collection $transactions, Request $request): array
+    {
+        $inflows = $transactions->filter(fn (Transaction $transaction) => $this->signedAmount($transaction) > 0)->sum(fn (Transaction $transaction) => $this->signedAmount($transaction));
+        $outflows = abs($transactions->filter(fn (Transaction $transaction) => $this->signedAmount($transaction) < 0)->sum(fn (Transaction $transaction) => $this->signedAmount($transaction)));
+
+        return [
+            'opening_balance' => optional($transactions->sortBy('created_at')->first())->balance_before ?? $request->user()->account?->balance ?? 0,
+            'closing_balance' => optional($transactions->sortByDesc('created_at')->first())->balance_after ?? $request->user()->account?->balance ?? 0,
+            'total_inflows' => round((float) $inflows, 2),
+            'total_outflows' => round((float) $outflows, 2),
+            'net_flow' => round((float) $inflows - (float) $outflows, 2),
+            'transactions_count' => $transactions->count(),
+            'anomalies_count' => $transactions->filter(fn (Transaction $transaction) => $this->anomalyFlags($transaction) !== [])->count(),
+        ];
+    }
+
+    private function anomalyFlags(Transaction $transaction): array
+    {
+        $flags = [];
+        $amount = abs((float) $transaction->amount);
+
+        if ($amount >= 10000) {
+            $flags[] = 'large_amount';
+        }
+
+        if ($transaction->is_overdraft || (float) $transaction->balance_after < 0) {
+            $flags[] = 'overdraft';
+        }
+
+        if ($transaction->status !== Transaction::STATUS_SUCCESS) {
+            $flags[] = 'non_success_status';
+        }
+
+        if (abs(((float) $transaction->balance_after - (float) $transaction->balance_before) - $this->signedAmount($transaction)) > 0.01) {
+            $flags[] = 'ledger_mismatch';
+        }
+
+        return $flags;
+    }
+
+    private function anomalySummary(Collection $transactions): array
+    {
+        return $transactions
+            ->flatMap(fn (Transaction $transaction) => $this->anomalyFlags($transaction))
+            ->countBy()
+            ->all();
     }
 
     private function signedAmount(Transaction $transaction): float
@@ -129,7 +354,7 @@ class TransactionController extends Controller
     private function worksheetXml(Collection $transactions): string
     {
         $rows = [
-            ['Type', 'Date', 'Reference', 'Amount', 'Status', 'Description'],
+            ['Type', 'Date', 'Reference', 'Amount', 'Balance Before', 'Balance After', 'Status', 'Description'],
         ];
 
         foreach ($transactions as $transaction) {
@@ -138,6 +363,8 @@ class TransactionController extends Controller
                 $transaction['date']?->format('d/m/Y H:i') ?? '',
                 $transaction['reference'] ?? '',
                 $transaction['formatted_amount'],
+                $transaction['balance_before'] ?? '',
+                $transaction['balance_after'] ?? '',
                 $transaction['status'] ?? '',
                 $transaction['description'] ?? '',
             ];
@@ -156,7 +383,7 @@ class TransactionController extends Controller
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            . '<cols><col min="1" max="6" width="24" customWidth="1"/></cols>'
+            . '<cols><col min="1" max="8" width="24" customWidth="1"/></cols>'
             . '<sheetData>' . $xmlRows . '</sheetData>'
             . '</worksheet>';
     }

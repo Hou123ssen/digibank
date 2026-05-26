@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CreatePaymentIntentRequest;
 use App\Models\AuditLog;
 use App\Models\PaymentIntent;
+use App\Models\Refund;
 use App\Models\Transaction;
 use App\Services\DepositPaymentService;
 use App\Services\PaymentGatewayService;
 use App\Support\ApiResponse;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -79,6 +82,8 @@ class DepositController extends Controller
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'amount_min' => ['nullable', 'numeric', 'min:0'],
             'amount_max' => ['nullable', 'numeric', 'gte:amount_min'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'account_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'sort_by' => ['nullable', Rule::in(['created_at', 'paid_at', 'amount', 'status'])],
             'sort_dir' => ['nullable', Rule::in(['asc', 'desc'])],
             'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
@@ -86,27 +91,13 @@ class DepositController extends Controller
 
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortDir = $filters['sort_dir'] ?? 'desc';
-        $perPage = (int) ($filters['per_page'] ?? 15);
+        $perPage = (int) ($filters['per_page'] ?? 10);
 
         $payments = PaymentIntent::query()
             ->with(['user:id,name,email', 'account:id,user_id,account_number'])
-            ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($filters['search'] ?? null, function ($query, string $search): void {
-                $query->where(function ($inner) use ($search): void {
-                    $inner->whereHas('user', function ($userQuery) use ($search): void {
-                        $userQuery
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    })
-                        ->orWhereHas('account', fn ($accountQuery) => $accountQuery->where('account_number', 'like', "%{$search}%"))
-                        ->orWhere('gateway_reference', 'like', "%{$search}%")
-                        ->orWhere('stripe_payment_intent_id', 'like', "%{$search}%");
-                });
-            })
-            ->when($filters['date_from'] ?? null, fn ($query, string $date) => $query->whereDate('created_at', '>=', $date))
-            ->when($filters['date_to'] ?? null, fn ($query, string $date) => $query->whereDate('created_at', '<=', $date))
-            ->when(isset($filters['amount_min']), fn ($query) => $query->where('amount', '>=', $filters['amount_min']))
-            ->when(isset($filters['amount_max']), fn ($query) => $query->where('amount', '<=', $filters['amount_max']))
+            ->tap(fn (Builder $query) => $this->applyAdminPaymentFilters($query, $filters))
+            ->when($filters['user_id'] ?? null, fn ($query, int $userId) => $query->where('user_id', $userId))
+            ->when($filters['account_id'] ?? null, fn ($query, int $accountId) => $query->where('account_id', $accountId))
             ->orderBy($sortBy, $sortDir)
             ->paginate($perPage)
             ->withQueryString()
@@ -141,9 +132,71 @@ class DepositController extends Controller
         ]);
     }
 
+    public function adminPaymentsSummary(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in([
+                PaymentIntent::STATUS_PENDING,
+                PaymentIntent::STATUS_PAID,
+                PaymentIntent::STATUS_FAILED,
+                PaymentIntent::STATUS_CANCELLED,
+            ])],
+            'search' => ['nullable', 'string', 'max:120'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'amount_min' => ['nullable', 'numeric', 'min:0'],
+            'amount_max' => ['nullable', 'numeric', 'gte:amount_min'],
+            'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
+        ]);
+
+        $perPage = (int) ($filters['per_page'] ?? 10);
+
+        $summaries = PaymentIntent::query()
+            ->select([
+                'payment_intents.user_id',
+                'payment_intents.account_id',
+                DB::raw('COUNT(*) as total_payments_count'),
+                DB::raw("SUM(CASE WHEN payment_intents.status = '".PaymentIntent::STATUS_PAID."' THEN payment_intents.amount ELSE 0 END) as total_paid_amount"),
+                DB::raw("SUM(CASE WHEN payment_intents.status = '".PaymentIntent::STATUS_PENDING."' THEN 1 ELSE 0 END) as pending_count"),
+                DB::raw("SUM(CASE WHEN payment_intents.status = '".PaymentIntent::STATUS_FAILED."' THEN 1 ELSE 0 END) as failed_count"),
+                DB::raw('MAX(payment_intents.created_at) as last_payment_date'),
+            ])
+            ->with(['user:id,name,email', 'account:id,user_id,account_number'])
+            ->tap(fn (Builder $query) => $this->applyAdminPaymentFilters($query, $filters))
+            ->groupBy('payment_intents.user_id', 'payment_intents.account_id')
+            ->orderByDesc(DB::raw('MAX(payment_intents.created_at)'))
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (PaymentIntent $summary): array => [
+                'user' => $summary->user ? [
+                    'id' => $summary->user->id,
+                    'name' => $summary->user->name,
+                    'email' => $summary->user->email,
+                ] : null,
+                'account' => $summary->account ? [
+                    'id' => $summary->account->id,
+                    'account_number' => $summary->account->account_number,
+                ] : null,
+                'total_payments_count' => (int) $summary->total_payments_count,
+                'total_paid_amount' => number_format((float) $summary->total_paid_amount, 2, '.', ''),
+                'pending_count' => (int) $summary->pending_count,
+                'failed_count' => (int) $summary->failed_count,
+                'last_payment_date' => $summary->last_payment_date,
+            ]);
+
+        return ApiResponse::success('Payment summaries retrieved.', [
+            'summaries' => $summaries,
+        ]);
+    }
+
     public function adminPaymentDetails(PaymentIntent $paymentIntent)
     {
-        $paymentIntent->load(['user:id,name,email', 'account:id,user_id,account_number,balance,status']);
+        $paymentIntent->load([
+            'user:id,name,email',
+            'account:id,user_id,account_number,balance,status',
+            'refunds' => fn ($query) => $query->latest(),
+            'refunds.transaction:id,type,amount,status,reference,description,balance_before,balance_after,created_at',
+        ]);
 
         $transaction = Transaction::query()
             ->where(function ($query) use ($paymentIntent): void {
@@ -193,6 +246,7 @@ class DepositController extends Controller
                 'paid_at' => $paymentIntent->paid_at,
                 'cancelled_at' => $paymentIntent->cancelled_at,
                 'failed_at' => $paymentIntent->failed_at,
+                'refundable_amount' => $this->depositPaymentService->refundableAmount($paymentIntent),
             ],
             'user' => $paymentIntent->user ? [
                 'id' => $paymentIntent->user->id,
@@ -218,7 +272,61 @@ class DepositController extends Controller
                 'created_at' => $transaction->created_at,
             ] : null,
             'audit_logs' => $auditLogs,
+            'refunds' => $paymentIntent->refunds->map(fn (Refund $refund): array => [
+                'id' => $refund->id,
+                'amount' => $refund->amount,
+                'currency' => $refund->currency,
+                'status' => $refund->status,
+                'reason' => $refund->reason,
+                'failure_reason' => $refund->failure_reason,
+                'stripe_refund_id' => $refund->stripe_refund_id,
+                'stripe_charge_id' => $refund->stripe_charge_id,
+                'processed_at' => $refund->processed_at,
+                'created_at' => $refund->created_at,
+                'transaction' => $refund->transaction ? [
+                    'id' => $refund->transaction->id,
+                    'type' => $refund->transaction->type,
+                    'amount' => $refund->transaction->amount,
+                    'status' => $refund->transaction->status,
+                    'reference' => $refund->transaction->reference,
+                    'description' => $refund->transaction->description,
+                    'balance_before' => $refund->transaction->balance_before,
+                    'balance_after' => $refund->transaction->balance_after,
+                    'created_at' => $refund->transaction->created_at,
+                ] : null,
+            ]),
         ]);
+    }
+
+    public function refund(Request $request, PaymentIntent $paymentIntent)
+    {
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $refund = $this->depositPaymentService->requestRefund(
+            $paymentIntent,
+            $request->user(),
+            (float) $validated['amount'],
+            $validated['reason'] ?? null
+        );
+
+        return ApiResponse::success('Refund requested.', [
+            'refund' => [
+                'id' => $refund->id,
+                'payment_intent_id' => $refund->payment_intent_id,
+                'amount' => $refund->amount,
+                'currency' => $refund->currency,
+                'status' => $refund->status,
+                'reason' => $refund->reason,
+                'stripe_refund_id' => $refund->stripe_refund_id,
+                'stripe_charge_id' => $refund->stripe_charge_id,
+                'failure_reason' => $refund->failure_reason,
+                'processed_at' => $refund->processed_at,
+                'created_at' => $refund->created_at,
+            ],
+        ], 201);
     }
 
     public function stripeSessionStatus(Request $request, PaymentIntent $paymentIntent)
@@ -355,5 +463,25 @@ class DepositController extends Controller
         }
 
         return substr(trim($key), 0, 120);
+    }
+
+    private function applyAdminPaymentFilters(Builder $query, array $filters): void
+    {
+        $query
+            ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
+            ->when($filters['search'] ?? null, function (Builder $query, string $search): void {
+                $query->where(function (Builder $inner) use ($search): void {
+                    $inner->whereHas('user', function (Builder $userQuery) use ($search): void {
+                        $userQuery
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    })
+                        ->orWhereHas('account', fn (Builder $accountQuery) => $accountQuery->where('account_number', 'like', "%{$search}%"));
+                });
+            })
+            ->when($filters['date_from'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('created_at', '<=', $date))
+            ->when(isset($filters['amount_min']), fn (Builder $query) => $query->where('amount', '>=', $filters['amount_min']))
+            ->when(isset($filters['amount_max']), fn (Builder $query) => $query->where('amount', '<=', $filters['amount_max']));
     }
 }

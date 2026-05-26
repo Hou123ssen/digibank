@@ -29,6 +29,7 @@ class Transaction extends Model
     public const TYPE_TRANSFER_OUT = 'transfer_out';
     public const TYPE_DARET_CONTRIBUTION = 'daret_contribution';
     public const TYPE_DARET_PAYOUT = 'daret_payout';
+    public const TYPE_REFUND = 'refund';
 
     public const STATUS_SUCCESS = 'success';
     public const STATUS_FAILED = 'failed';

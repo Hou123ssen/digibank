@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Account;
 use App\Models\Notification;
 use App\Models\PaymentIntent;
+use App\Models\Refund;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -105,10 +106,118 @@ class DepositPaymentService
         return $this->processGatewayResult($reference, $this->statusFromGateway($gatewayStatus), $gatewayStatus, $rawPayload);
     }
 
+    public function requestRefund(PaymentIntent $intent, User $admin, float $amount, ?string $reason = null): Refund
+    {
+        if ($amount <= 0) {
+            throw ValidationException::withMessages(['amount' => ['Refund amount must be greater than zero.']]);
+        }
+
+        $refund = DB::transaction(function () use ($intent, $admin, $amount, $reason): Refund {
+            $intent = PaymentIntent::query()
+                ->whereKey($intent->id)
+                ->with('refunds')
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($intent->status !== PaymentIntent::STATUS_PAID) {
+                throw ValidationException::withMessages(['payment' => ['Only paid Stripe deposits can be refunded.']]);
+            }
+
+            if (! $intent->stripe_charge_id) {
+                throw ValidationException::withMessages(['payment' => ['Stripe charge id is required before refunding.']]);
+            }
+
+            if ($amount > $this->refundableAmount($intent)) {
+                throw ValidationException::withMessages(['amount' => ['Refund amount exceeds the refundable amount.']]);
+            }
+
+            if ($intent->refunds()->whereIn('status', [Refund::STATUS_PENDING, Refund::STATUS_SUCCEEDED])->where('amount', $amount)->exists()) {
+                throw ValidationException::withMessages(['amount' => ['A refund for this amount already exists.']]);
+            }
+
+            $account = Account::query()
+                ->whereKey($intent->account_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((float) $account->balance < $amount) {
+                throw ValidationException::withMessages(['amount' => ['User account does not have enough available balance for this refund.']]);
+            }
+
+            $refund = Refund::create([
+                'payment_intent_id' => $intent->id,
+                'user_id' => $intent->user_id,
+                'account_id' => $intent->account_id,
+                'amount' => $amount,
+                'currency' => $intent->currency,
+                'stripe_charge_id' => $intent->stripe_charge_id,
+                'status' => Refund::STATUS_PENDING,
+                'reason' => $reason,
+                'requested_by' => $admin->id,
+            ]);
+
+            $this->auditLogService->record('deposit.refund.requested', $refund, $admin->id, [
+                'payment_intent_id' => $intent->id,
+                'amount' => $amount,
+                'currency' => $intent->currency,
+                'stripe_charge_id' => $intent->stripe_charge_id,
+                'reason' => $reason,
+            ]);
+
+            return $refund;
+        });
+
+        try {
+            $stripeRefund = $this->paymentGatewayService->createStripeRefund(
+                (string) $refund->stripe_charge_id,
+                (float) $refund->amount,
+                $refund->currency,
+                [
+                    'refund_id' => (string) $refund->id,
+                    'payment_intent_id' => (string) $refund->payment_intent_id,
+                    'account_id' => (string) $refund->account_id,
+                    'user_id' => (string) $refund->user_id,
+                ],
+                $reason
+            );
+
+            $refund->update([
+                'stripe_refund_id' => $stripeRefund['id'] ?? null,
+                'stripe_charge_id' => $stripeRefund['charge'] ?? $refund->stripe_charge_id,
+            ]);
+
+            $this->auditLogService->record('deposit.refund.sent_to_stripe', $refund->fresh(), $admin->id, [
+                'stripe_refund_id' => $stripeRefund['id'] ?? null,
+                'stripe_status' => $stripeRefund['status'] ?? null,
+            ]);
+
+            return $refund->fresh();
+        } catch (\Throwable $e) {
+            $refund->update([
+                'status' => Refund::STATUS_FAILED,
+                'failure_reason' => $e->getMessage(),
+                'processed_at' => now(),
+            ]);
+
+            $this->auditLogService->record('deposit.refund.failed', $refund->fresh(), $admin->id, [
+                'failure_reason' => $e->getMessage(),
+            ]);
+
+            throw ValidationException::withMessages(['refund' => [$e->getMessage()]]);
+        }
+    }
+
     public function handleStripeEvent(array $event, string $rawPayload): ?PaymentIntent
     {
         $type = (string) ($event['type'] ?? '');
         $object = $event['data']['object'] ?? [];
+
+        if (in_array($type, ['charge.refunded', 'refund.updated'], true)) {
+            $this->handleStripeRefundEvent($type, $object, (string) ($event['id'] ?? ''), $rawPayload);
+
+            return null;
+        }
+
         $refs = $this->stripeReferences($type, $object);
 
         Log::info('Stripe checkout session received', [
@@ -470,6 +579,174 @@ class DepositPaymentService
         $stripeRef = $refs['stripe_payment_intent_id'] ?: $refs['session_id'] ?: $intent->gateway_reference;
 
         return substr('STRIPE-'.$stripeRef, 0, 255);
+    }
+
+    public function refundableAmount(PaymentIntent $intent): float
+    {
+        $reserved = (float) $intent->refunds()
+            ->whereIn('status', [Refund::STATUS_PENDING, Refund::STATUS_SUCCEEDED])
+            ->sum('amount');
+
+        return max(0, (float) $intent->amount - $reserved);
+    }
+
+    private function handleStripeRefundEvent(string $type, array $object, ?string $stripeEventId, string $rawPayload): void
+    {
+        $refundRefs = $this->stripeRefundReferences($type, $object);
+
+        DB::transaction(function () use ($type, $refundRefs, $stripeEventId, $rawPayload): void {
+            $refund = $this->findRefund($refundRefs);
+
+            if (! $refund) {
+                $this->auditLogService->record('deposit.refund.not_found', null, null, [
+                    'stripe_refund_id' => $refundRefs['stripe_refund_id'],
+                    'stripe_charge_id' => $refundRefs['stripe_charge_id'],
+                    'stripe_event_id' => $stripeEventId,
+                    'payload_hash' => hash('sha256', $rawPayload),
+                ]);
+
+                return;
+            }
+
+            if ($refund->status !== Refund::STATUS_PENDING) {
+                $this->auditLogService->record('deposit.refund.webhook_replayed', $refund, $refund->user_id, [
+                    'current_status' => $refund->status,
+                    'stripe_event_id' => $stripeEventId,
+                    'payload_hash' => hash('sha256', $rawPayload),
+                ]);
+
+                return;
+            }
+
+            $stripeStatus = $refundRefs['status'];
+
+            if ($stripeStatus === Refund::STATUS_FAILED) {
+                $refund->update([
+                    'status' => Refund::STATUS_FAILED,
+                    'failure_reason' => $refundRefs['failure_reason'] ?: 'Stripe refund failed.',
+                    'processed_at' => now(),
+                ]);
+
+                $this->auditLogService->record('deposit.refund.failed', $refund->fresh(), $refund->user_id, [
+                    'stripe_event_id' => $stripeEventId,
+                    'failure_reason' => $refund->failure_reason,
+                    'payload_hash' => hash('sha256', $rawPayload),
+                ]);
+
+                return;
+            }
+
+            if ($stripeStatus !== Refund::STATUS_SUCCEEDED) {
+                $refund->update(array_filter([
+                    'stripe_refund_id' => $refundRefs['stripe_refund_id'],
+                    'stripe_charge_id' => $refundRefs['stripe_charge_id'],
+                ]));
+
+                $this->auditLogService->record('deposit.refund.pending_update', $refund->fresh(), $refund->user_id, [
+                    'stripe_event_id' => $stripeEventId,
+                    'stripe_status' => $stripeStatus,
+                    'payload_hash' => hash('sha256', $rawPayload),
+                ]);
+
+                return;
+            }
+
+            $account = Account::query()
+                ->whereKey($refund->account_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $amount = (float) $refund->amount;
+
+            if ((float) $account->balance < $amount) {
+                $refund->update([
+                    'status' => Refund::STATUS_FAILED,
+                    'failure_reason' => 'User account does not have enough available balance for this refund.',
+                    'processed_at' => now(),
+                ]);
+
+                $this->auditLogService->record('deposit.refund.failed', $refund->fresh(), $refund->user_id, [
+                    'stripe_event_id' => $stripeEventId,
+                    'failure_reason' => $refund->failure_reason,
+                    'payload_hash' => hash('sha256', $rawPayload),
+                ]);
+
+                return;
+            }
+
+            $before = (float) $account->balance;
+            $after = $before - $amount;
+            $account->update(['balance' => $after]);
+
+            $transaction = $this->transactionService->record(
+                $account,
+                $refund->user,
+                Transaction::TYPE_REFUND,
+                -$amount,
+                $before,
+                $after,
+                status: Transaction::STATUS_SUCCESS,
+                description: 'Stripe refund',
+                idempotencyKey: 'refund-'.$refund->id,
+                reference: 'REFUND-'.$refundRefs['stripe_refund_id']
+            );
+
+            $refund->update([
+                'transaction_id' => $transaction->id,
+                'stripe_refund_id' => $refundRefs['stripe_refund_id'] ?: $refund->stripe_refund_id,
+                'stripe_charge_id' => $refundRefs['stripe_charge_id'] ?: $refund->stripe_charge_id,
+                'status' => Refund::STATUS_SUCCEEDED,
+                'processed_at' => now(),
+            ]);
+
+            $this->notificationService->createNotification(
+                $refund->user_id,
+                'Deposit refunded',
+                'A Stripe deposit refund has been processed on your account.',
+                Notification::TYPE_INFO
+            );
+
+            $this->auditLogService->record('deposit.refund.succeeded', $refund->fresh(), $refund->user_id, [
+                'transaction_id' => $transaction->id,
+                'balance_before' => $before,
+                'balance_after' => $after,
+                'stripe_event_id' => $stripeEventId,
+                'payload_hash' => hash('sha256', $rawPayload),
+            ]);
+        });
+    }
+
+    private function stripeRefundReferences(string $type, array $object): array
+    {
+        $refund = $type === 'charge.refunded'
+            ? (array) (($object['refunds']['data'][0] ?? []) ?: [])
+            : $object;
+
+        return [
+            'stripe_refund_id' => (string) ($refund['id'] ?? ''),
+            'stripe_charge_id' => (string) ($refund['charge'] ?? $object['id'] ?? ''),
+            'status' => match ((string) ($refund['status'] ?? '')) {
+                'succeeded' => Refund::STATUS_SUCCEEDED,
+                'failed', 'canceled', 'cancelled' => Refund::STATUS_FAILED,
+                default => Refund::STATUS_PENDING,
+            },
+            'failure_reason' => (string) ($refund['failure_reason'] ?? ''),
+            'local_refund_id' => isset($refund['metadata']['refund_id']) ? (int) $refund['metadata']['refund_id'] : null,
+        ];
+    }
+
+    private function findRefund(array $refs): ?Refund
+    {
+        return Refund::query()
+            ->where(function ($query) use ($refs): void {
+                $query
+                    ->when($refs['local_refund_id'], fn ($inner, $id) => $inner->orWhere('id', $id))
+                    ->when($refs['stripe_refund_id'], fn ($inner, $id) => $inner->orWhere('stripe_refund_id', $id))
+                    ->when($refs['stripe_charge_id'], fn ($inner, $id) => $inner->orWhere('stripe_charge_id', $id));
+            })
+            ->where('status', Refund::STATUS_PENDING)
+            ->lockForUpdate()
+            ->first();
     }
 
     private function validateAmount(float $amount): void

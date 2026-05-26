@@ -107,6 +107,29 @@ class PaymentGatewayService
         ];
     }
 
+    public function createStripeRefund(string $chargeId, float $amount, string $currency, array $metadata = [], ?string $reason = null): array
+    {
+        $secret = $this->stripeSecretKey();
+
+        if ($secret === '') {
+            throw new \RuntimeException('Stripe secret key is not configured.');
+        }
+
+        $client = new StripeClient($secret);
+        $refund = $client->refunds->create(array_filter([
+            'charge' => $chargeId,
+            'amount' => $this->stripeAmount($amount),
+            'metadata' => $metadata,
+            'reason' => $this->stripeRefundReason($reason),
+        ], fn ($value): bool => $value !== null && $value !== []));
+
+        return [
+            'id' => $refund->id,
+            'status' => $refund->status,
+            'charge' => is_string($refund->charge) ? $refund->charge : $chargeId,
+        ];
+    }
+
     public function stripeDiagnostics(): array
     {
         $secret = (string) config('services.stripe.secret_key');
@@ -184,6 +207,14 @@ class PaymentGatewayService
     private function stripeAmount(float $amount): int
     {
         return (int) round($amount * 100);
+    }
+
+    private function stripeRefundReason(?string $reason): ?string
+    {
+        return match ($reason) {
+            'duplicate', 'fraudulent', 'requested_by_customer' => $reason,
+            default => null,
+        };
     }
 
     private function stripeSecretKey(): string

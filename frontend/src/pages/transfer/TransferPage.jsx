@@ -24,13 +24,6 @@ import { useTheme } from '../../components/landing/ThemeContext';
 import { cn } from '../../utils/cn';
 import { getErrorMessage, safeNumber } from '../../utils/apiResponse';
 
-const RECENT_RECIPIENTS = [
-  { id: 1, name: 'Youssef Alami', account: 'MA64 1234 5678 9012', avatar: null },
-  { id: 2, name: 'Sarah Benani', account: 'MA64 9876 5432 1098', avatar: null },
-  { id: 3, name: 'Ahmed Mansouri', account: 'MA64 5544 3322 1100', avatar: null },
-  { id: 4, name: 'Laila Kadiri', account: 'MA64 7788 9900 1122', avatar: null },
-];
-
 const TransferPage = ({ addToast }) => {
   const { dark } = useTheme();
   const [step, setStep] = useState('form'); // form, confirm, success
@@ -44,23 +37,40 @@ const TransferPage = ({ addToast }) => {
   });
   const [recipientData, setRecipientData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [recentsLoading, setRecentsLoading] = useState(true);
+  const [recentRecipients, setRecentRecipients] = useState([]);
   const [error, setError] = useState(null);
   const [transferReceipt, setTransferReceipt] = useState(null);
   const inFlightKeyRef = useRef(null);
 
-  // Mock recipient validation
   useEffect(() => {
-    if (formData.recipient.length >= 10) {
-      // Simulate API call to fetch recipient
-      setRecipientData({
-        name: 'Mohamed Idrissi',
-        account: formData.recipient,
-        avatar: null
-      });
-    } else {
+    let ignore = false;
+
+    const loadRecentRecipients = async () => {
+      setRecentsLoading(true);
+
+      try {
+        const recipients = await accountService.getRecentTransferRecipients();
+        if (!ignore) setRecentRecipients(Array.isArray(recipients) ? recipients : []);
+      } catch (err) {
+        if (!ignore) setRecentRecipients([]);
+      } finally {
+        if (!ignore) setRecentsLoading(false);
+      }
+    };
+
+    loadRecentRecipients();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (recipientData?.account && recipientData.account !== formData.recipient) {
       setRecipientData(null);
     }
-  }, [formData.recipient]);
+  }, [formData.recipient, recipientData]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -77,6 +87,22 @@ const TransferPage = ({ addToast }) => {
     }
 
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const selectRecentRecipient = (recipient) => {
+    const account = recipient.account_number || '';
+
+    setRecipientData({
+      name: recipient.recipient_name || 'Compte beneficiaire',
+      account,
+      avatarInitials: recipient.avatar_initials,
+    });
+    setFormData(prev => ({ ...prev, recipient: account }));
+  };
+
+  const displayRecipient = {
+    name: recipientData?.name || 'Compte beneficiaire',
+    account: recipientData?.account || formData.recipient,
   };
 
   const validateForm = () => {
@@ -136,7 +162,7 @@ const TransferPage = ({ addToast }) => {
           </div>
           <div className="space-y-2">
             <h2 className="text-3xl font-bold text-white">Virement envoyé !</h2>
-            <p className="text-slate-400">Votre transfert de <span className="text-white font-bold">{formData.amount} MAD</span> vers <span className="text-white font-bold">{recipientData?.name}</span> a été traité avec succès.</p>
+            <p className="text-slate-400">Votre transfert de <span className="text-white font-bold">{formData.amount} MAD</span> vers <span className="text-white font-bold">{displayRecipient.name}</span> a été traité avec succès.</p>
           </div>
           
           <Card className={cn("p-6 space-y-4", dark ? "bg-white/5 border-white/10" : "bg-white/90 border-[#00C2A8]/20")}>
@@ -304,16 +330,35 @@ const TransferPage = ({ addToast }) => {
               <h3 className="font-bold">Récents</h3>
             </div>
             <div className="space-y-4">
-              {RECENT_RECIPIENTS.map(r => (
-                <button 
-                  key={r.id}
-                  onClick={() => setFormData(p => ({ ...p, recipient: r.account }))}
+              {recentsLoading && [1, 2, 3].map(item => (
+                <div key={item} className="flex items-center gap-4 p-3 rounded-xl border border-white/5">
+                  <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-28 rounded bg-white/10 animate-pulse" />
+                    <div className="h-2 w-36 rounded bg-white/5 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+
+              {!recentsLoading && recentRecipients.length === 0 && (
+                <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-sm text-slate-400">
+                  Aucun beneficiaire recent pour le moment.
+                </div>
+              )}
+
+              {!recentsLoading && recentRecipients.map(r => (
+                <button
+                  key={r.account_number}
+                  onClick={() => selectRecentRecipient(r)}
                   className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-left group border border-transparent hover:border-white/5"
                 >
-                  <Avatar name={r.name} size="md" className="bg-white/10 group-hover:bg-emerald-500/20 group-hover:text-emerald-500 transition-all" />
+                  <Avatar name={r.recipient_name || r.avatar_initials} size="md" className="bg-white/10 group-hover:bg-emerald-500/20 group-hover:text-emerald-500 transition-all" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{r.name}</p>
-                    <p className="text-[10px] text-slate-500 font-mono truncate">{r.account}</p>
+                    <p className="text-sm font-bold text-white truncate">{r.recipient_name}</p>
+                    <p className="text-[10px] text-slate-500 font-mono truncate">{r.account_number}</p>
+                    <p className="text-[10px] text-slate-600 truncate">
+                      {r.total_transfers_count} virement{r.total_transfers_count > 1 ? 's' : ''} - {new Date(r.last_transfer_at).toLocaleDateString('fr-FR')}
+                    </p>
                   </div>
                   <ArrowRight size={14} className="text-slate-600 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
                 </button>
@@ -324,14 +369,25 @@ const TransferPage = ({ addToast }) => {
           <Card className="p-6 space-y-4 bg-emerald-500/5 border-emerald-500/10">
             <div className="flex items-center gap-2 text-emerald-500">
               <Users size={18} />
-              <h3 className="font-bold">Bénéficiaires enregistrés</h3>
+              <h3 className="font-bold">Beneficiaires</h3>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Ajoutez des bénéficiaires à votre liste de confiance pour des virements plus rapides et sans vérification supplémentaire.
-            </p>
-            <Button variant="secondary" size="sm" className="w-full bg-white/5 hover:bg-emerald-500/10 border-white/5 hover:border-emerald-500/20 text-slate-300">
-              Gérer la liste
-            </Button>
+            {recentsLoading ? (
+              <div className="space-y-2">
+                <div className="h-3 w-32 rounded bg-white/10 animate-pulse" />
+                <div className="h-3 w-44 rounded bg-white/5 animate-pulse" />
+              </div>
+            ) : recentRecipients.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-2xl font-bold text-white">{recentRecipients.length}</p>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Beneficiaires issus de votre historique reel de virements.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Vos beneficiaires apparaitront ici apres vos premiers virements.
+              </p>
+            )}
           </Card>
         </div>
       </div>
@@ -353,11 +409,11 @@ const TransferPage = ({ addToast }) => {
 
               <div className="space-y-4">
                 <div className={cn("p-4 rounded-2xl border flex items-center gap-4", dark ? "bg-white/5 border-white/10" : "bg-[#f0fffe] border-[#00C2A8]/20")}>
-                  <Avatar name={recipientData?.name} size="lg" className="bg-emerald-500/20 text-emerald-500" />
+                  <Avatar name={displayRecipient.name} size="lg" className="bg-emerald-500/20 text-emerald-500" />
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-widest">Vers</p>
-                    <p className="text-lg font-bold text-white">{recipientData?.name}</p>
-                    <p className="text-xs text-slate-400 font-mono">{recipientData?.account}</p>
+                    <p className="text-lg font-bold text-white">{displayRecipient.name}</p>
+                    <p className="text-xs text-slate-400 font-mono">{displayRecipient.account}</p>
                   </div>
                 </div>
 

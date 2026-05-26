@@ -45,9 +45,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:20,1');
     Route::post('/accounts/withdraw', [AccountController::class, 'withdraw']);
     Route::post('/accounts/transfer', [AccountController::class, 'transfer']);
+    Route::get('/transfers/recents', [AccountController::class, 'recentTransferRecipients']);
     Route::get('/transactions/me', [TransactionController::class, 'me']);
+    Route::get('/transactions/statement', [TransactionController::class, 'statement']);
+    Route::get('/transactions/statement/pdf', [TransactionController::class, 'statementPdf']);
     Route::get('/transactions/export/pdf', [TransactionController::class, 'exportPdf']);
     Route::get('/transactions/export/excel', [TransactionController::class, 'exportExcel']);
+    Route::get('/transactions/export/csv', [TransactionController::class, 'exportCsv']);
     Route::get('/trust-score/me', [TrustScoreController::class, 'me']);
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
@@ -120,7 +124,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/admin/payments', [DepositController::class, 'adminPayments'])
         ->middleware(EnsureAdmin::class);
+    Route::get('/admin/payments/summary', [DepositController::class, 'adminPaymentsSummary'])
+        ->middleware(EnsureAdmin::class);
     Route::get('/admin/payments/{paymentIntent}', [DepositController::class, 'adminPaymentDetails'])
+        ->middleware(EnsureAdmin::class);
+    Route::post('/admin/payments/{paymentIntent}/refund', [DepositController::class, 'refund'])
         ->middleware(EnsureAdmin::class);
 
     Route::middleware(EnsureEmployeeDepartment::class . ':kyc')->prefix('admin/kyc')->group(function (): void {

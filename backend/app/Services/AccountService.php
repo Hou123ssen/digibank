@@ -307,7 +307,8 @@ class AccountService
             Transaction::TYPE_DARET_PAYOUT => $amount,
             Transaction::TYPE_WITHDRAW,
             Transaction::TYPE_TRANSFER_OUT,
-            Transaction::TYPE_DARET_CONTRIBUTION => -$amount,
+            Transaction::TYPE_DARET_CONTRIBUTION,
+            Transaction::TYPE_REFUND => -$amount,
             default => (float) $transaction->amount,
         };
     }
