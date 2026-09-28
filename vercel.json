@@ -1,6 +1,6 @@
 {
     "version": 2,
-    "installCommand": "npm ci --prefix frontend && composer install --working-dir=backend --no-dev --optimize-autoloader",
+    "installCommand": "sh scripts/vercel-install.sh",
     "buildCommand": "npm run build --prefix frontend",
     "outputDirectory": "frontend/dist",
     "functions": {
