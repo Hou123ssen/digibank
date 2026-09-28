@@ -1,0 +1,25 @@
+{
+    "version": 2,
+    "installCommand": "npm ci --prefix frontend && composer install --working-dir=backend --no-dev --optimize-autoloader",
+    "buildCommand": "npm run build --prefix frontend",
+    "outputDirectory": "frontend/dist",
+    "functions": {
+        "api/index.php": {
+            "runtime": "vercel-php@0.9.0"
+        }
+    },
+    "rewrites": [
+        {
+            "source": "/api/:path*",
+            "destination": "/api/index.php"
+        },
+        {
+            "source": "/broadcasting/:path*",
+            "destination": "/api/index.php"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
+}
