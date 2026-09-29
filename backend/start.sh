@@ -17,6 +17,11 @@ chmod -R ug+rwX storage bootstrap/cache
 php artisan storage:link --force >/dev/null 2>&1 || true
 php artisan config:clear >/dev/null 2>&1 || true
 
+if [ "$RUN_MIGRATIONS" = "true" ]; then
+    echo "Running database migrations..."
+    php artisan migrate --force
+fi
+
 cat > /etc/nginx/conf.d/default.conf <<EOF
 server {
     listen ${PORT};
